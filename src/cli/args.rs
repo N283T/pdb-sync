@@ -1,8 +1,32 @@
 use crate::data_types::{DataType, Layout};
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
+
+/// Output format for list command
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum OutputFormat {
+    /// Plain text output
+    #[default]
+    Text,
+    /// JSON output
+    Json,
+    /// CSV output
+    Csv,
+}
+
+/// Sort field for list command
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum SortField {
+    /// Sort by PDB ID (alphabetical)
+    #[default]
+    Name,
+    /// Sort by file size
+    Size,
+    /// Sort by modification time
+    Time,
+}
 
 #[derive(Parser)]
 #[command(name = "pdb-cli")]
@@ -31,6 +55,9 @@ pub enum Commands {
 
     /// Copy local PDB files
     Copy(CopyArgs),
+
+    /// List local PDB files
+    List(ListArgs),
 
     /// Manage configuration
     Config(ConfigArgs),
@@ -100,14 +127,6 @@ impl SyncFormat {
             SyncFormat::Both => vec![FileFormat::Pdb, FileFormat::Mmcif],
         }
     }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    #[default]
-    Text,
-    Json,
-    Csv,
 }
 
 #[derive(Parser)]
@@ -182,6 +201,40 @@ pub struct CopyArgs {
     /// Read PDB IDs from a file (one per line)
     #[arg(short, long)]
     pub list: Option<PathBuf>,
+}
+
+#[derive(Parser)]
+pub struct ListArgs {
+    /// Pattern to filter PDB IDs (supports glob patterns like "1ab*", "*xyz")
+    pub pattern: Option<String>,
+
+    /// File format to list
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Show file sizes
+    #[arg(short, long)]
+    pub size: bool,
+
+    /// Show modification times
+    #[arg(long)]
+    pub time: bool,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
+
+    /// Show statistics only (no file list)
+    #[arg(long)]
+    pub stats: bool,
+
+    /// Sort field
+    #[arg(long, value_enum, default_value = "name")]
+    pub sort: SortField,
+
+    /// Reverse sort order
+    #[arg(short, long)]
+    pub reverse: bool,
 }
 
 #[derive(Parser)]
