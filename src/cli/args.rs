@@ -264,6 +264,8 @@ pub enum ConfigAction {
         /// Configuration key (e.g., sync.mirror)
         key: String,
     },
+    /// Test mirror latencies
+    TestMirrors,
 }
 
 #[derive(Parser)]
