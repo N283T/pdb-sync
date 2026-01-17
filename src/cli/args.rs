@@ -141,6 +141,9 @@ pub enum Commands {
 
     /// Show directory tree of local PDB mirror
     Tree(TreeArgs),
+
+    /// Check for and download updates to local files
+    Update(UpdateArgs),
 }
 
 #[derive(Parser)]
@@ -695,4 +698,46 @@ pub struct TreeArgs {
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
     pub output: OutputFormat,
+}
+
+#[derive(Parser)]
+pub struct UpdateArgs {
+    /// PDB IDs to check/update (empty = all local files)
+    pub pdb_ids: Vec<String>,
+
+    /// Check only, don't download updates
+    #[arg(short, long)]
+    pub check: bool,
+
+    /// Dry run (show what would be updated without downloading)
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
+
+    /// Use checksums for verification (slower but accurate)
+    #[arg(long)]
+    pub verify: bool,
+
+    /// Force update even if files appear up-to-date
+    #[arg(long)]
+    pub force: bool,
+
+    /// File format to check
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Mirror to check against
+    #[arg(short, long, value_enum)]
+    pub mirror: Option<MirrorId>,
+
+    /// Show progress bar
+    #[arg(short = 'P', long)]
+    pub progress: bool,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
+
+    /// Number of parallel checks
+    #[arg(short = 'j', long, default_value = "10")]
+    pub parallel: usize,
 }

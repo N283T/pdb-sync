@@ -1,4 +1,5 @@
 use crate::error::{PdbCliError, Result};
+use crate::files::{FileFormat, PdbId};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, clap::ValueEnum)]
@@ -95,6 +96,66 @@ impl Mirror {
     #[allow(dead_code)]
     pub fn rsync_port_args(&self) -> Option<String> {
         self.rsync_port.map(|p| format!("--port={}", p))
+    }
+
+    /// Build HTTPS URL for structure file downloads.
+    ///
+    /// This is the canonical URL construction for structure files across all mirrors.
+    /// Used by both `HttpsDownloader` and `UpdateChecker`.
+    pub fn build_structure_url(&self, pdb_id: &PdbId, format: FileFormat) -> String {
+        let id = pdb_id.as_str();
+        let base = format.base_format();
+
+        match self.id {
+            MirrorId::Rcsb => match base {
+                FileFormat::Pdb => format!("{}/{}.pdb", self.https_base, id),
+                FileFormat::Mmcif => format!("{}/{}.cif", self.https_base, id),
+                FileFormat::Bcif => format!("https://models.rcsb.org/{}.bcif", id),
+                _ => unreachable!(),
+            },
+            MirrorId::Pdbj => match base {
+                FileFormat::Pdb => format!("{}?format=pdb&id={}", self.https_base, id),
+                FileFormat::Mmcif => format!("{}?format=mmcif&id={}", self.https_base, id),
+                FileFormat::Bcif => format!("{}?format=mmcif&id={}", self.https_base, id),
+                _ => unreachable!(),
+            },
+            MirrorId::Pdbe => match base {
+                // Classic IDs: pdb{id}.ent, Extended IDs: {id}.ent (no extra "pdb" prefix)
+                FileFormat::Pdb => {
+                    if pdb_id.is_classic() {
+                        format!("{}/pdb{}.ent", self.https_base, id)
+                    } else {
+                        format!("{}/{}.ent", self.https_base, id)
+                    }
+                }
+                FileFormat::Mmcif => format!("{}/{}.cif", self.https_base, id),
+                FileFormat::Bcif => format!("{}/{}.cif", self.https_base, id),
+                _ => unreachable!(),
+            },
+            MirrorId::Wwpdb => {
+                let middle = pdb_id.middle_chars();
+                match base {
+                    // Classic IDs: pdb{id}.ent.gz, Extended IDs: {id}.ent.gz
+                    FileFormat::Pdb => {
+                        if pdb_id.is_classic() {
+                            format!(
+                                "{}/divided/pdb/{}/pdb{}.ent.gz",
+                                self.https_base, middle, id
+                            )
+                        } else {
+                            format!("{}/divided/pdb/{}/{}.ent.gz", self.https_base, middle, id)
+                        }
+                    }
+                    FileFormat::Mmcif => {
+                        format!("{}/divided/mmCIF/{}/{}.cif.gz", self.https_base, middle, id)
+                    }
+                    FileFormat::Bcif => {
+                        format!("{}/divided/mmCIF/{}/{}.cif.gz", self.https_base, middle, id)
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
     }
 }
 
@@ -208,6 +269,112 @@ mod tests {
         assert_eq!(
             <MirrorId as FromStr>::from_str("eu").unwrap(),
             MirrorId::Pdbe
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_rcsb_classic() {
+        let mirror = Mirror::get(MirrorId::Rcsb);
+        let pdb_id = PdbId::new("1abc").unwrap();
+
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://files.rcsb.org/download/1abc.pdb"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.rcsb.org/download/1abc.cif"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::CifGz),
+            "https://files.rcsb.org/download/1abc.cif"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Bcif),
+            "https://models.rcsb.org/1abc.bcif"
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_wwpdb_classic() {
+        let mirror = Mirror::get(MirrorId::Wwpdb);
+        let pdb_id = PdbId::new("1abc").unwrap();
+
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF/ab/1abc.cif.gz"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/ab/pdb1abc.ent.gz"
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_rcsb_extended() {
+        let mirror = Mirror::get(MirrorId::Rcsb);
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://files.rcsb.org/download/pdb_00001abc.pdb"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.rcsb.org/download/pdb_00001abc.cif"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Bcif),
+            "https://models.rcsb.org/pdb_00001abc.bcif"
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_wwpdb_extended() {
+        let mirror = Mirror::get(MirrorId::Wwpdb);
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // Extended IDs use positions 6-7 for directory partitioning (= "00")
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF/00/pdb_00001abc.cif.gz"
+        );
+        // Extended IDs don't have extra "pdb" prefix in filename
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/00/pdb_00001abc.ent.gz"
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_pdbe_extended() {
+        let mirror = Mirror::get(MirrorId::Pdbe);
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // Extended IDs don't have extra "pdb" prefix in PDB format
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://www.ebi.ac.uk/pdbe/entry-files/download/pdb_00001abc.ent"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://www.ebi.ac.uk/pdbe/entry-files/download/pdb_00001abc.cif"
+        );
+    }
+
+    #[test]
+    fn test_build_structure_url_pdbj_extended() {
+        let mirror = Mirror::get(MirrorId::Pdbj);
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // PDBj uses query parameters with full ID
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
+            "https://pdbj.org/rest/downloadPDBfile?format=pdb&id=pdb_00001abc"
+        );
+        assert_eq!(
+            mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
+            "https://pdbj.org/rest/downloadPDBfile?format=mmcif&id=pdb_00001abc"
         );
     }
 }
