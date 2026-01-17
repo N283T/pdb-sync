@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod context;
+mod data_types;
 mod download;
 mod error;
 mod files;
