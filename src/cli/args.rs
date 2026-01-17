@@ -131,6 +131,9 @@ pub enum Commands {
 
     /// Watch for new PDB entries and download automatically
     Watch(WatchArgs),
+
+    /// Convert file formats (compression, decompression, format conversion)
+    Convert(ConvertArgs),
 }
 
 #[derive(Parser)]
@@ -560,4 +563,42 @@ pub struct WatchArgs {
     /// Start watching from this date (YYYY-MM-DD), default: 7 days ago or last check
     #[arg(long)]
     pub since: Option<String>,
+}
+
+#[derive(Parser)]
+pub struct ConvertArgs {
+    /// Files to convert (paths or glob patterns)
+    pub files: Vec<String>,
+
+    /// Decompress .gz files
+    #[arg(long, conflicts_with = "compress")]
+    pub decompress: bool,
+
+    /// Compress files to .gz format
+    #[arg(long, conflicts_with = "decompress")]
+    pub compress: bool,
+
+    /// Target format (requires gemmi for format conversion)
+    #[arg(long, value_enum)]
+    pub to: Option<FileFormat>,
+
+    /// Source format filter for batch mode
+    #[arg(long, value_enum)]
+    pub from: Option<FileFormat>,
+
+    /// Destination directory
+    #[arg(short, long)]
+    pub dest: Option<PathBuf>,
+
+    /// Replace original files (delete source after conversion)
+    #[arg(long)]
+    pub in_place: bool,
+
+    /// Read paths from stdin (one per line)
+    #[arg(long)]
+    pub stdin: bool,
+
+    /// Number of parallel conversions
+    #[arg(short, long, default_value = "4")]
+    pub parallel: u8,
 }
