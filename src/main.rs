@@ -10,6 +10,7 @@ mod history;
 mod mirrors;
 mod stats;
 mod sync;
+mod tree;
 mod utils;
 mod validation;
 mod watch;
@@ -89,6 +90,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Stats(args) => {
             cli::commands::run_stats(args, ctx).await?;
+        }
+        Commands::Tree(args) => {
+            cli::commands::run_tree(args, ctx).await?;
         }
     }
 

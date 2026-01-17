@@ -2,6 +2,7 @@ use crate::data_types::{DataType, Layout};
 use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
+use crate::tree::SortBy;
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -137,6 +138,9 @@ pub enum Commands {
 
     /// Show statistics about the local PDB collection
     Stats(StatsArgs),
+
+    /// Show directory tree of local PDB mirror
+    Tree(TreeArgs),
 }
 
 #[derive(Parser)]
@@ -623,6 +627,70 @@ pub struct StatsArgs {
     /// Filter by data type
     #[arg(short = 't', long = "type", value_enum)]
     pub data_type: Option<DataType>,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
+}
+
+/// Arguments for the tree command.
+///
+/// # Examples
+///
+/// Show full tree with default options:
+/// ```bash
+/// pdb-cli tree
+/// ```
+///
+/// Limit depth and filter by format:
+/// ```bash
+/// pdb-cli tree --depth 2 --format cif-gz
+/// ```
+///
+/// Show top 10 directories by size:
+/// ```bash
+/// pdb-cli tree --top 10 --sort-by size
+/// ```
+#[derive(Parser)]
+#[command(after_help = "Examples:
+  pdb-cli tree                           Show full tree
+  pdb-cli tree --depth 2                 Limit depth to 2
+  pdb-cli tree --format cif-gz           Filter by mmCIF format
+  pdb-cli tree --top 10                  Top 10 directories by count
+  pdb-cli tree --top 10 --sort-by size   Top 10 directories by size
+  pdb-cli tree -o json                   Output as JSON")]
+pub struct TreeArgs {
+    /// Maximum depth to display (0 = root only)
+    #[arg(short, long)]
+    pub depth: Option<usize>,
+
+    /// Filter by file format
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Show file sizes
+    #[arg(short, long)]
+    pub size: bool,
+
+    /// Show file counts
+    #[arg(short, long)]
+    pub count: bool,
+
+    /// Hide summary line
+    #[arg(long)]
+    pub no_summary: bool,
+
+    /// Show only non-empty directories
+    #[arg(long)]
+    pub non_empty: bool,
+
+    /// Show top N directories (use with --sort-by)
+    #[arg(long)]
+    pub top: Option<usize>,
+
+    /// Sort field for --top mode
+    #[arg(long, value_enum, default_value = "count")]
+    pub sort_by: SortBy,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]

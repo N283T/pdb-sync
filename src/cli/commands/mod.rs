@@ -9,6 +9,7 @@ pub mod list;
 pub mod setup;
 pub mod stats;
 pub mod sync;
+pub mod tree;
 pub mod validate;
 pub mod watch;
 
@@ -23,5 +24,6 @@ pub use list::run_list;
 pub use setup::{needs_setup, run_setup};
 pub use stats::run_stats;
 pub use sync::run_sync;
+pub use tree::run_tree;
 pub use validate::run_validate;
 pub use watch::run_watch;
