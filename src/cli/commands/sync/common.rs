@@ -2,6 +2,9 @@
 
 use crate::sync::SyncResult;
 
+// Re-export human_bytes from utils for use by sync subcommands
+pub use crate::utils::human_bytes;
+
 /// Print a summary of sync results.
 pub fn print_summary(results: &[SyncResult]) {
     println!("\n--- Sync Summary ---");
@@ -54,23 +57,6 @@ pub fn print_mirror_summary(data_type: &str, success: bool, files: u64, bytes: u
         );
     } else {
         println!("  {}: {}", data_type, status);
-    }
-}
-
-/// Convert bytes to human-readable format.
-pub fn human_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-
-    if bytes >= GB {
-        format!("{:.2} GB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.2} MB", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.2} KB", bytes as f64 / KB as f64)
-    } else {
-        format!("{} B", bytes)
     }
 }
 
@@ -133,32 +119,6 @@ pub fn validate_subpath(subpath: &str) -> Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_human_bytes_bytes() {
-        assert_eq!(human_bytes(0), "0 B");
-        assert_eq!(human_bytes(500), "500 B");
-        assert_eq!(human_bytes(1023), "1023 B");
-    }
-
-    #[test]
-    fn test_human_bytes_kilobytes() {
-        assert_eq!(human_bytes(1024), "1.00 KB");
-        assert_eq!(human_bytes(1536), "1.50 KB");
-        assert_eq!(human_bytes(1024 * 1023), "1023.00 KB");
-    }
-
-    #[test]
-    fn test_human_bytes_megabytes() {
-        assert_eq!(human_bytes(1024 * 1024), "1.00 MB");
-        assert_eq!(human_bytes(1024 * 1024 * 100), "100.00 MB");
-    }
-
-    #[test]
-    fn test_human_bytes_gigabytes() {
-        assert_eq!(human_bytes(1024 * 1024 * 1024), "1.00 GB");
-        assert_eq!(human_bytes(1024 * 1024 * 1024 * 10), "10.00 GB");
-    }
 
     #[test]
     fn test_parse_rsync_output_with_stats() {

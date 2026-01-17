@@ -93,9 +93,9 @@ async fn sync_pdbj_data_type(
     let mirror = Mirror::get(MirrorId::Pdbj);
 
     // Get the rsync URL for this PDBj data type
-    let base_url = mirror.pdbj_rsync_url(data_type).ok_or_else(|| {
-        PdbCliError::Config(format!("PDBj URL not available for {}", data_type))
-    })?;
+    let base_url = mirror
+        .pdbj_rsync_url(data_type)
+        .ok_or_else(|| PdbCliError::Config(format!("PDBj URL not available for {}", data_type)))?;
 
     // Append subpath if provided
     let source_url = if let Some(subpath) = subpath {

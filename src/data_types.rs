@@ -8,16 +8,21 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum DataType {
     /// Coordinate files (structures/divided/mmCIF or pdb)
+    #[value(alias = "st", alias = "struct")]
     Structures,
     /// Biological assemblies (assemblies/mmCIF/divided)
+    #[value(alias = "asm", alias = "assembly")]
     Assemblies,
     /// Legacy biounit format (biounit/coordinates/divided)
     Biounit,
     /// Structure factors - X-ray diffraction data (structures/divided/structure_factors)
+    #[value(alias = "sf", alias = "xray")]
     StructureFactors,
     /// NMR chemical shifts (structures/divided/nmr_chemical_shifts)
+    #[value(alias = "nmr-cs", alias = "cs")]
     NmrChemicalShifts,
     /// NMR restraints (structures/divided/nmr_restraints)
+    #[value(alias = "nmr-r")]
     NmrRestraints,
     /// Obsolete entries (structures/obsolete)
     Obsolete,

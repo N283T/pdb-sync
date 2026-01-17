@@ -93,9 +93,9 @@ async fn sync_pdbe_data_type(
     let mirror = Mirror::get(MirrorId::Pdbe);
 
     // Get the rsync URL for this PDBe data type
-    let base_url = mirror.pdbe_rsync_url(data_type).ok_or_else(|| {
-        PdbCliError::Config(format!("PDBe URL not available for {}", data_type))
-    })?;
+    let base_url = mirror
+        .pdbe_rsync_url(data_type)
+        .ok_or_else(|| PdbCliError::Config(format!("PDBe URL not available for {}", data_type)))?;
 
     // Append subpath if provided
     let source_url = if let Some(subpath) = subpath {
