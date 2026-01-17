@@ -88,17 +88,43 @@ impl std::str::FromStr for FileFormat {
     }
 }
 
-/// Build the relative path for a PDB file in the standard directory structure
+/// Build the relative path for a PDB file in the standard directory structure.
+///
+/// # Path patterns
+///
+/// ## Classic IDs (e.g., "1abc")
+/// - PDB format: `pdb/ab/pdb1abc.ent.gz` (has "pdb" prefix in filename)
+/// - mmCIF format: `mmCIF/ab/1abc.cif.gz`
+/// - BCIF format: `bcif/ab/1abc.bcif.gz`
+///
+/// ## Extended IDs (e.g., "pdb_00001abc")
+/// - PDB format: `pdb/01/pdb_00001abc.ent.gz` (no extra "pdb" prefix)
+/// - mmCIF format: `mmCIF/01/pdb_00001abc.cif.gz`
+/// - BCIF format: `bcif/01/pdb_00001abc.bcif.gz`
 #[allow(dead_code)]
 pub fn build_relative_path(pdb_id: &PdbId, format: FileFormat) -> PathBuf {
     let middle = pdb_id.middle_chars();
     let id = pdb_id.as_str();
 
     match format {
-        FileFormat::Pdb => PathBuf::from(format!("pdb/{}/pdb{}.pdb", middle, id)),
+        FileFormat::Pdb => {
+            // Classic IDs get "pdb" prefix in filename, extended IDs don't
+            if pdb_id.is_classic() {
+                PathBuf::from(format!("pdb/{}/pdb{}.pdb", middle, id))
+            } else {
+                PathBuf::from(format!("pdb/{}/{}.pdb", middle, id))
+            }
+        }
         FileFormat::Mmcif => PathBuf::from(format!("mmCIF/{}/{}.cif", middle, id)),
         FileFormat::Bcif => PathBuf::from(format!("bcif/{}/{}.bcif", middle, id)),
-        FileFormat::PdbGz => PathBuf::from(format!("pdb/{}/pdb{}.ent.gz", middle, id)),
+        FileFormat::PdbGz => {
+            // Classic IDs get "pdb" prefix in filename, extended IDs don't
+            if pdb_id.is_classic() {
+                PathBuf::from(format!("pdb/{}/pdb{}.ent.gz", middle, id))
+            } else {
+                PathBuf::from(format!("pdb/{}/{}.ent.gz", middle, id))
+            }
+        }
         FileFormat::CifGz => PathBuf::from(format!("mmCIF/{}/{}.cif.gz", middle, id)),
         FileFormat::BcifGz => PathBuf::from(format!("bcif/{}/{}.bcif.gz", middle, id)),
     }
@@ -114,26 +140,77 @@ pub fn build_full_path(base_dir: &std::path::Path, pdb_id: &PdbId, format: FileF
 mod tests {
     use super::*;
 
+    // === Classic ID path tests ===
+
     #[test]
-    fn test_build_relative_path_pdb() {
+    fn test_build_relative_path_classic_pdb() {
         let id = PdbId::new("1abc").unwrap();
         let path = build_relative_path(&id, FileFormat::PdbGz);
         assert_eq!(path, PathBuf::from("pdb/ab/pdb1abc.ent.gz"));
     }
 
     #[test]
-    fn test_build_relative_path_mmcif() {
+    fn test_build_relative_path_classic_pdb_uncompressed() {
+        let id = PdbId::new("1abc").unwrap();
+        let path = build_relative_path(&id, FileFormat::Pdb);
+        assert_eq!(path, PathBuf::from("pdb/ab/pdb1abc.pdb"));
+    }
+
+    #[test]
+    fn test_build_relative_path_classic_mmcif() {
         let id = PdbId::new("1abc").unwrap();
         let path = build_relative_path(&id, FileFormat::CifGz);
         assert_eq!(path, PathBuf::from("mmCIF/ab/1abc.cif.gz"));
     }
 
     #[test]
-    fn test_build_relative_path_bcif() {
+    fn test_build_relative_path_classic_bcif() {
         let id = PdbId::new("1abc").unwrap();
         let path = build_relative_path(&id, FileFormat::BcifGz);
         assert_eq!(path, PathBuf::from("bcif/ab/1abc.bcif.gz"));
     }
+
+    // === Extended ID path tests ===
+
+    #[test]
+    fn test_build_relative_path_extended_pdb() {
+        let id = PdbId::new("pdb_00001abc").unwrap();
+        let path = build_relative_path(&id, FileFormat::PdbGz);
+        // Extended IDs don't get extra "pdb" prefix in filename
+        // middle_chars for "pdb_00001abc" is "00" (positions 6-7)
+        assert_eq!(path, PathBuf::from("pdb/00/pdb_00001abc.ent.gz"));
+    }
+
+    #[test]
+    fn test_build_relative_path_extended_pdb_uncompressed() {
+        let id = PdbId::new("pdb_00001abc").unwrap();
+        let path = build_relative_path(&id, FileFormat::Pdb);
+        assert_eq!(path, PathBuf::from("pdb/00/pdb_00001abc.pdb"));
+    }
+
+    #[test]
+    fn test_build_relative_path_extended_mmcif() {
+        let id = PdbId::new("pdb_00001abc").unwrap();
+        let path = build_relative_path(&id, FileFormat::CifGz);
+        assert_eq!(path, PathBuf::from("mmCIF/00/pdb_00001abc.cif.gz"));
+    }
+
+    #[test]
+    fn test_build_relative_path_extended_bcif() {
+        let id = PdbId::new("pdb_00001abc").unwrap();
+        let path = build_relative_path(&id, FileFormat::BcifGz);
+        assert_eq!(path, PathBuf::from("bcif/00/pdb_00001abc.bcif.gz"));
+    }
+
+    #[test]
+    fn test_build_relative_path_extended_middle_chars() {
+        // "pdb_12345678" → middle chars are positions 6-7 = "34"
+        let id = PdbId::new("pdb_12345678").unwrap();
+        let path = build_relative_path(&id, FileFormat::CifGz);
+        assert_eq!(path, PathBuf::from("mmCIF/34/pdb_12345678.cif.gz"));
+    }
+
+    // === FileFormat tests ===
 
     #[test]
     fn test_format_from_str() {

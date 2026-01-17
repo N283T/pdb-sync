@@ -308,7 +308,14 @@ impl HttpsDownloader {
                 _ => unreachable!(),
             },
             MirrorId::Pdbe => match base {
-                FileFormat::Pdb => format!("{}/pdb{}.ent", mirror.https_base, id),
+                // Classic IDs: pdb{id}.ent, Extended IDs: {id}.ent (no extra "pdb" prefix)
+                FileFormat::Pdb => {
+                    if pdb_id.is_classic() {
+                        format!("{}/pdb{}.ent", mirror.https_base, id)
+                    } else {
+                        format!("{}/{}.ent", mirror.https_base, id)
+                    }
+                }
                 FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
                 FileFormat::Bcif => format!("{}/{}.cif", mirror.https_base, id),
                 _ => unreachable!(),
@@ -316,11 +323,16 @@ impl HttpsDownloader {
             MirrorId::Wwpdb => {
                 let middle = pdb_id.middle_chars();
                 match base {
+                    // Classic IDs: pdb{id}.ent.gz, Extended IDs: {id}.ent.gz
                     FileFormat::Pdb => {
-                        format!(
-                            "{}/divided/pdb/{}/pdb{}.ent.gz",
-                            mirror.https_base, middle, id
-                        )
+                        if pdb_id.is_classic() {
+                            format!(
+                                "{}/divided/pdb/{}/pdb{}.ent.gz",
+                                mirror.https_base, middle, id
+                            )
+                        } else {
+                            format!("{}/divided/pdb/{}/{}.ent.gz", mirror.https_base, middle, id)
+                        }
                     }
                     FileFormat::Mmcif => {
                         format!(
@@ -520,8 +532,10 @@ fn is_not_found_error(err: &PdbCliError) -> bool {
 mod tests {
     use super::*;
 
+    // === Classic ID URL tests ===
+
     #[test]
-    fn test_build_url_rcsb() {
+    fn test_build_url_rcsb_classic() {
         let downloader = HttpsDownloader::new(DownloadOptions {
             mirror: MirrorId::Rcsb,
             ..Default::default()
@@ -548,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_url_wwpdb() {
+    fn test_build_url_wwpdb_classic() {
         let downloader = HttpsDownloader::new(DownloadOptions {
             mirror: MirrorId::Wwpdb,
             ..Default::default()
@@ -560,14 +574,100 @@ mod tests {
             downloader.build_url(&pdb_id, FileFormat::Mmcif),
             "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF/ab/1abc.cif.gz"
         );
+        // Classic IDs have "pdb" prefix in PDB format filename
         assert_eq!(
             downloader.build_url(&pdb_id, FileFormat::Pdb),
             "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/ab/pdb1abc.ent.gz"
         );
     }
 
+    // === Extended ID URL tests ===
+
     #[test]
-    fn test_build_dest_path() {
+    fn test_build_url_rcsb_extended() {
+        let downloader = HttpsDownloader::new(DownloadOptions {
+            mirror: MirrorId::Rcsb,
+            ..Default::default()
+        });
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // RCSB uses the full ID directly
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Pdb),
+            "https://files.rcsb.org/download/pdb_00001abc.pdb"
+        );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.rcsb.org/download/pdb_00001abc.cif"
+        );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Bcif),
+            "https://models.rcsb.org/pdb_00001abc.bcif"
+        );
+    }
+
+    #[test]
+    fn test_build_url_wwpdb_extended() {
+        let downloader = HttpsDownloader::new(DownloadOptions {
+            mirror: MirrorId::Wwpdb,
+            ..Default::default()
+        });
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // Extended IDs use positions 6-7 for directory partitioning (= "00")
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF/00/pdb_00001abc.cif.gz"
+        );
+        // Extended IDs don't have extra "pdb" prefix in filename
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Pdb),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/00/pdb_00001abc.ent.gz"
+        );
+    }
+
+    #[test]
+    fn test_build_url_pdbe_extended() {
+        let downloader = HttpsDownloader::new(DownloadOptions {
+            mirror: MirrorId::Pdbe,
+            ..Default::default()
+        });
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // Extended IDs don't have extra "pdb" prefix in PDB format
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Pdb),
+            "https://www.ebi.ac.uk/pdbe/entry-files/download/pdb_00001abc.ent"
+        );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Mmcif),
+            "https://www.ebi.ac.uk/pdbe/entry-files/download/pdb_00001abc.cif"
+        );
+    }
+
+    #[test]
+    fn test_build_url_pdbj_extended() {
+        let downloader = HttpsDownloader::new(DownloadOptions {
+            mirror: MirrorId::Pdbj,
+            ..Default::default()
+        });
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        // PDBj uses query parameters with full ID
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Pdb),
+            "https://pdbj.org/rest/downloadPDBfile?format=pdb&id=pdb_00001abc"
+        );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Mmcif),
+            "https://pdbj.org/rest/downloadPDBfile?format=mmcif&id=pdb_00001abc"
+        );
+    }
+
+    // === Destination path tests ===
+
+    #[test]
+    fn test_build_dest_path_classic() {
         let downloader = HttpsDownloader::new(DownloadOptions::default());
         let pdb_id = PdbId::new("1abc").unwrap();
 
@@ -670,5 +770,17 @@ mod tests {
         assert_eq!(options.parallel, 4);
         assert_eq!(options.retry_count, 3);
         assert_eq!(options.retry_delay, Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_build_dest_path_extended() {
+        let downloader = HttpsDownloader::new(DownloadOptions::default());
+        let pdb_id = PdbId::new("pdb_00001abc").unwrap();
+
+        let path = downloader.build_dest_path(Path::new("/tmp"), &pdb_id, FileFormat::Mmcif);
+        assert_eq!(path, std::path::PathBuf::from("/tmp/pdb_00001abc.cif"));
+
+        let path = downloader.build_dest_path(Path::new("/tmp"), &pdb_id, FileFormat::CifGz);
+        assert_eq!(path, std::path::PathBuf::from("/tmp/pdb_00001abc.cif.gz"));
     }
 }
