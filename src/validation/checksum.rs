@@ -45,6 +45,8 @@ impl ChecksumVerifier {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .user_agent("pdb-cli")
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("Failed to create HTTP client");
 
@@ -105,7 +107,12 @@ impl ChecksumVerifier {
                 result
             }
             Err(e) => {
-                tracing::warn!("Failed to fetch checksums for {}/{}: {}", mirror, subpath, e);
+                tracing::warn!(
+                    "Failed to fetch checksums for {}/{}: {}",
+                    mirror,
+                    subpath,
+                    e
+                );
                 None
             }
         }
@@ -158,24 +165,15 @@ fn build_checksums_url(mirror: MirrorId, subpath: &str) -> String {
     // For structures/divided/mmCIF/ab/, the CHECKSUMS file is in the same directory.
     match mirror {
         MirrorId::Wwpdb => {
-            format!(
-                "{}/data/{}/CHECKSUMS",
-                mirror_info.https_base, subpath
-            )
+            format!("{}/data/{}/CHECKSUMS", mirror_info.https_base, subpath)
         }
         MirrorId::Rcsb => {
             // RCSB uses similar structure
-            format!(
-                "https://files.rcsb.org/pub/pdb/data/{}/CHECKSUMS",
-                subpath
-            )
+            format!("https://files.rcsb.org/pub/pdb/data/{}/CHECKSUMS", subpath)
         }
         MirrorId::Pdbj => {
             // PDBj mirrors wwPDB structure
-            format!(
-                "https://ftp.pdbj.org/pub/pdb/data/{}/CHECKSUMS",
-                subpath
-            )
+            format!("https://ftp.pdbj.org/pub/pdb/data/{}/CHECKSUMS", subpath)
         }
         MirrorId::Pdbe => {
             // PDBe mirrors wwPDB structure
@@ -218,6 +216,14 @@ pub fn parse_checksums(content: &str) -> HashMap<String, String> {
     checksums
 }
 
+/// Validate filename to prevent path traversal attacks.
+fn is_safe_filename(filename: &str) -> bool {
+    !filename.contains('/')
+        && !filename.contains('\\')
+        && !filename.contains("..")
+        && !filename.is_empty()
+}
+
 /// Parse Format 1: `MD5 (filename) = hash`
 fn parse_md5_format(line: &str) -> Option<(String, String)> {
     // Example: "MD5 (1abc.cif.gz) = d41d8cd98f00b204e9800998ecf8427e"
@@ -227,6 +233,11 @@ fn parse_md5_format(line: &str) -> Option<(String, String)> {
 
     let paren_end = line.find(')')?;
     let filename = line[..paren_end].trim().to_string();
+
+    // Validate filename to prevent path traversal
+    if !is_safe_filename(&filename) {
+        return None;
+    }
 
     let rest = line[paren_end + 1..].trim();
     let rest = rest.strip_prefix('=')?;
@@ -261,7 +272,8 @@ fn parse_hash_filename_format(line: &str) -> Option<(String, String)> {
         .or_else(|| rest.strip_prefix(' '))
         .map(str::trim)?;
 
-    if filename.is_empty() {
+    // Validate filename to prevent path traversal
+    if !is_safe_filename(filename) {
         return None;
     }
 
@@ -399,5 +411,21 @@ shortline
         .is_error());
         assert!(!VerifyResult::Valid.is_error());
         assert!(!VerifyResult::NoChecksum.is_error());
+    }
+
+    #[test]
+    fn test_parse_checksum_path_traversal_rejected() {
+        // Path traversal attempts should be rejected
+        let content = r#"
+d41d8cd98f00b204e9800998ecf8427e  ../../../etc/passwd
+d41d8cd98f00b204e9800998ecf8427e  foo/bar.txt
+d41d8cd98f00b204e9800998ecf8427e  foo\bar.txt
+MD5 (../secret.txt) = d41d8cd98f00b204e9800998ecf8427e
+MD5 (path/to/file.txt) = d41d8cd98f00b204e9800998ecf8427e
+"#;
+
+        let checksums = parse_checksums(content);
+        // All path traversal attempts should be rejected
+        assert!(checksums.is_empty());
     }
 }

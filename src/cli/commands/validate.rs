@@ -84,13 +84,13 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
             mirror,
             decompress: false,
             overwrite: true,
+            ..Default::default()
         }))
     } else {
         None
     };
 
     let mut stats = ValidationStats::default();
-    let mut invalid_files: Vec<(String, String, String)> = Vec::new(); // (id, expected, actual)
 
     for (pdb_id, local_path) in &files_to_validate {
         // Build the subpath for checksum lookup
@@ -118,7 +118,6 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
             }
             VerifyResult::Invalid { expected, actual } => {
                 stats.invalid += 1;
-                invalid_files.push((pdb_id.to_string(), expected.clone(), actual.clone()));
 
                 if let Some(ref pb) = pb {
                     pb.println(format!(
@@ -203,10 +202,7 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
 }
 
 /// Scan local mirror directory for PDB files of the given format.
-async fn scan_local_files(
-    mirror_dir: &Path,
-    format: FileFormat,
-) -> Result<Vec<(PdbId, PathBuf)>> {
+async fn scan_local_files(mirror_dir: &Path, format: FileFormat) -> Result<Vec<(PdbId, PathBuf)>> {
     let mut files = Vec::new();
 
     // Structure: mirror_dir/mmCIF/XX/XXXX.cif.gz (or pdb/XX/pdbXXXX.ent.gz)
@@ -253,21 +249,20 @@ fn extract_pdb_id_from_filename(path: &Path, format: FileFormat) -> Option<PdbId
 
     let id_str = match format {
         // mmCIF: 1abc.cif or 1abc.cif.gz
-        FileFormat::Mmcif | FileFormat::CifGz => {
-            filename.strip_suffix(".cif.gz")
-                .or_else(|| filename.strip_suffix(".cif"))?
-        }
+        FileFormat::Mmcif | FileFormat::CifGz => filename
+            .strip_suffix(".cif.gz")
+            .or_else(|| filename.strip_suffix(".cif"))?,
         // PDB: pdb1abc.ent or pdb1abc.ent.gz
         FileFormat::Pdb | FileFormat::PdbGz => {
-            let without_ext = filename.strip_suffix(".ent.gz")
+            let without_ext = filename
+                .strip_suffix(".ent.gz")
                 .or_else(|| filename.strip_suffix(".ent"))?;
             without_ext.strip_prefix("pdb")?
         }
         // BinaryCIF: 1abc.bcif or 1abc.bcif.gz
-        FileFormat::Bcif | FileFormat::BcifGz => {
-            filename.strip_suffix(".bcif.gz")
-                .or_else(|| filename.strip_suffix(".bcif"))?
-        }
+        FileFormat::Bcif | FileFormat::BcifGz => filename
+            .strip_suffix(".bcif.gz")
+            .or_else(|| filename.strip_suffix(".bcif"))?,
     };
 
     PdbId::new(id_str).ok()
