@@ -27,7 +27,7 @@ static EXTENDED_REGEX: LazyLock<Regex> =
 /// // Extended format: "pdb_" prefix + 8 alphanumeric characters
 /// let extended = PdbId::new("pdb_00001abc").unwrap();
 /// assert!(extended.is_extended());
-/// assert_eq!(extended.middle_chars(), "01");
+/// assert_eq!(extended.middle_chars(), "00");  // positions 6-7
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PdbId {
