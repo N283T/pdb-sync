@@ -139,7 +139,16 @@ impl Converter {
 
     /// Convert a single task with semaphore-controlled concurrency.
     async fn convert_with_semaphore(&self, task: ConvertTask) -> ConvertResult {
-        let _permit = self.semaphore.acquire().await.expect("Semaphore closed");
+        let _permit = match self.semaphore.acquire().await {
+            Ok(p) => p,
+            Err(_) => {
+                return ConvertResult::failed(
+                    task.source.clone(),
+                    task.operation,
+                    "Internal error: semaphore closed",
+                )
+            }
+        };
         self.convert_single(task).await
     }
 
@@ -253,9 +262,26 @@ impl Converter {
         let is_source_gzipped = is_gzipped(source).await.unwrap_or(false);
         let needs_compression = to_format.is_compressed();
 
-        // Create a temporary file for intermediate operations
+        // Use RAII guard for temp file cleanup (cleaned up on drop, even on panic)
+        let mut temp_files = TempFileGuard::new();
+
+        // Create a temporary file for decompressed source if needed
         let temp_source = if is_source_gzipped {
-            let temp_path = source.with_extension("tmp_decompressed");
+            let parent = source.parent().unwrap_or(Path::new("."));
+            let temp_path = match tempfile::Builder::new()
+                .prefix("pdb_convert_src_")
+                .tempfile_in(parent)
+            {
+                Ok(f) => f.into_temp_path(),
+                Err(e) => {
+                    return ConvertResult::failed(
+                        source.to_path_buf(),
+                        ConvertOperation::ConvertFormat(to_format),
+                        format!("Failed to create temp file: {}", e),
+                    );
+                }
+            };
+
             if let Err(e) = decompress_file(source, &temp_path).await {
                 return ConvertResult::failed(
                     source.to_path_buf(),
@@ -263,62 +289,98 @@ impl Converter {
                     format!("Failed to decompress source: {}", e),
                 );
             }
-            Some(temp_path)
+            Some(temp_path.to_path_buf())
         } else {
             None
         };
 
+        // Register temp source for cleanup
+        if let Some(ref path) = temp_source {
+            temp_files.add(path.clone());
+        }
+
         let source_path_buf = source.to_path_buf();
         let actual_source = temp_source.as_ref().unwrap_or(&source_path_buf);
-        let temp_dest = if needs_compression {
-            dest.with_extension("tmp_converted")
+
+        // Create temp destination if we need to compress afterward
+        let (temp_dest, final_dest) = if needs_compression {
+            let parent = dest.parent().unwrap_or(Path::new("."));
+            let temp_path = match tempfile::Builder::new()
+                .prefix("pdb_convert_dst_")
+                .tempfile_in(parent)
+            {
+                Ok(f) => f.into_temp_path().to_path_buf(),
+                Err(e) => {
+                    return ConvertResult::failed(
+                        source.to_path_buf(),
+                        ConvertOperation::ConvertFormat(to_format),
+                        format!("Failed to create temp file: {}", e),
+                    );
+                }
+            };
+            temp_files.add(temp_path.clone());
+            (temp_path, dest.to_path_buf())
         } else {
-            dest.to_path_buf()
+            (dest.to_path_buf(), dest.to_path_buf())
         };
 
         // Perform format conversion
-        match convert_with_gemmi(actual_source, &temp_dest, to_format.base_format()).await {
-            Ok(()) => {}
-            Err(e) => {
-                // Clean up temp source if we created one
-                if let Some(ref temp) = temp_source {
-                    let _ = tokio::fs::remove_file(temp).await;
-                }
-                return ConvertResult::failed(
-                    source.to_path_buf(),
-                    ConvertOperation::ConvertFormat(to_format),
-                    e.to_string(),
-                );
-            }
-        }
-
-        // Clean up temp source
-        if let Some(ref temp) = temp_source {
-            let _ = tokio::fs::remove_file(temp).await;
+        if let Err(e) = convert_with_gemmi(actual_source, &temp_dest, to_format.base_format()).await
+        {
+            return ConvertResult::failed(
+                source.to_path_buf(),
+                ConvertOperation::ConvertFormat(to_format),
+                e.to_string(),
+            );
         }
 
         // Compress output if needed
         if needs_compression {
-            match compress_file(&temp_dest, dest).await {
-                Ok(()) => {
-                    let _ = tokio::fs::remove_file(&temp_dest).await;
-                }
-                Err(e) => {
-                    let _ = tokio::fs::remove_file(&temp_dest).await;
-                    return ConvertResult::failed(
-                        source.to_path_buf(),
-                        ConvertOperation::ConvertFormat(to_format),
-                        format!("Failed to compress output: {}", e),
-                    );
-                }
+            if let Err(e) = compress_file(&temp_dest, &final_dest).await {
+                return ConvertResult::failed(
+                    source.to_path_buf(),
+                    ConvertOperation::ConvertFormat(to_format),
+                    format!("Failed to compress output: {}", e),
+                );
             }
         }
+
+        // Clear temp files from guard (don't delete them in success case where they're already gone)
+        temp_files.clear();
 
         ConvertResult::success(
             source.to_path_buf(),
             dest.to_path_buf(),
             ConvertOperation::ConvertFormat(to_format),
         )
+    }
+}
+
+/// RAII guard for cleaning up temporary files on drop.
+/// Ensures temp files are deleted even if a panic occurs.
+struct TempFileGuard {
+    paths: Vec<PathBuf>,
+}
+
+impl TempFileGuard {
+    fn new() -> Self {
+        Self { paths: Vec::new() }
+    }
+
+    fn add(&mut self, path: PathBuf) {
+        self.paths.push(path);
+    }
+
+    fn clear(&mut self) {
+        self.paths.clear();
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        for path in &self.paths {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 

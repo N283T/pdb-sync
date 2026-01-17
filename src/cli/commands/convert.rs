@@ -7,8 +7,8 @@ use crate::convert::{
     ConvertResult, ConvertTask, Converter,
 };
 use crate::error::{PdbCliError, Result};
+use std::io::{self, BufRead};
 use std::path::PathBuf;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 /// Run the convert command.
 pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
@@ -134,14 +134,13 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
 async fn collect_input_files(args: &ConvertArgs) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
-    // Read from stdin if requested
+    // Read from stdin if requested (synchronous, like id_reader.rs)
     if args.stdin {
-        let stdin = tokio::io::stdin();
-        let reader = BufReader::new(stdin);
-        let mut lines = reader.lines();
+        let stdin = io::stdin();
+        let reader = stdin.lock();
 
-        while let Some(line) = lines.next_line().await? {
-            let line: &str = line.as_str();
+        for line in reader.lines() {
+            let line = line?;
             let trimmed = line.trim();
             if !trimmed.is_empty() && !trimmed.starts_with('#') {
                 let path = PathBuf::from(trimmed);

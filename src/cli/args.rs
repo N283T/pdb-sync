@@ -598,7 +598,7 @@ pub struct ConvertArgs {
     #[arg(long)]
     pub stdin: bool,
 
-    /// Number of parallel conversions
-    #[arg(short, long, default_value = "4")]
+    /// Number of parallel conversions (1-64)
+    #[arg(short, long, default_value = "4", value_parser = clap::value_parser!(u8).range(1..=64))]
     pub parallel: u8,
 }

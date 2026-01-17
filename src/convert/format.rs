@@ -16,28 +16,14 @@ pub async fn check_gemmi_available() -> bool {
 }
 
 /// Convert a file between PDB and mmCIF formats using gemmi.
-pub async fn convert_with_gemmi(src: &Path, dest: &Path, to_format: FileFormat) -> Result<()> {
-    if !check_gemmi_available().await {
-        return Err(PdbCliError::ToolNotFound(
-            "gemmi not found. Install with: pip install gemmi".into(),
-        ));
-    }
-
+///
+/// Note: This function assumes gemmi availability has already been checked
+/// by the caller (via `check_gemmi_available()`).
+pub async fn convert_with_gemmi(src: &Path, dest: &Path, _to_format: FileFormat) -> Result<()> {
     let mut cmd = Command::new("gemmi");
-    cmd.arg("convert").arg(src).arg(dest);
-
-    // Add format-specific options if needed
-    match to_format {
-        FileFormat::Pdb | FileFormat::PdbGz => {
-            // gemmi infers output format from extension
-        }
-        FileFormat::Mmcif | FileFormat::CifGz => {
-            // gemmi infers output format from extension
-        }
-        FileFormat::Bcif | FileFormat::BcifGz => {
-            // BinaryCIF conversion
-        }
-    }
+    // Use "--" to separate options from positional arguments to prevent
+    // filenames starting with "-" from being interpreted as flags
+    cmd.arg("convert").arg("--").arg(src).arg(dest);
 
     let output = cmd.output().await?;
     if !output.status.success() {
