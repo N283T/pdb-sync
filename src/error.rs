@@ -40,6 +40,13 @@ pub enum PdbCliError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[allow(dead_code)]
+    #[error("Checksum mismatch for {0}: expected {1}, got {2}")]
+    ChecksumMismatch(String, String, String),
+
+    #[error("Checksum fetch failed: {0}")]
+    ChecksumFetch(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;

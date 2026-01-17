@@ -40,6 +40,9 @@ pub enum Commands {
 
     /// Show information about a PDB entry
     Info(InfoArgs),
+
+    /// Validate local PDB files against checksums
+    Validate(ValidateArgs),
 }
 
 #[derive(Parser)]
@@ -247,4 +250,34 @@ pub struct InfoArgs {
     /// Show all available fields
     #[arg(short, long)]
     pub all: bool,
+}
+
+#[derive(Parser)]
+pub struct ValidateArgs {
+    /// PDB IDs to validate (empty = all local files)
+    pub pdb_ids: Vec<String>,
+
+    /// Data type to validate
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_type: Option<DataType>,
+
+    /// File format to validate
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Re-download corrupted files
+    #[arg(long)]
+    pub fix: bool,
+
+    /// Show progress bar
+    #[arg(short = 'P', long)]
+    pub progress: bool,
+
+    /// Show only errors (skip valid files)
+    #[arg(long)]
+    pub errors_only: bool,
+
+    /// Mirror to use for checksums (and --fix downloads)
+    #[arg(short, long, value_enum)]
+    pub mirror: Option<MirrorId>,
 }

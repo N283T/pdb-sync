@@ -1,7 +1,7 @@
 use crate::error::{PdbCliError, Result};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum MirrorId {
     /// RCSB (US)
     Rcsb,

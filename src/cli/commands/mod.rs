@@ -5,6 +5,7 @@ pub mod env;
 pub mod info;
 pub mod setup;
 pub mod sync;
+pub mod validate;
 
 pub use config::run_config;
 pub use copy::run_copy;
@@ -13,3 +14,4 @@ pub use env::run_env;
 pub use info::run_info;
 pub use setup::{needs_setup, run_setup};
 pub use sync::run_sync;
+pub use validate::run_validate;
