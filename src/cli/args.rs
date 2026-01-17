@@ -115,19 +115,29 @@ pub struct DownloadArgs {
 
 #[derive(Parser)]
 pub struct CopyArgs {
-    /// Source file or directory
-    pub source: PathBuf,
+    /// PDB IDs to copy from local mirror
+    #[arg(required_unless_present = "list")]
+    pub pdb_ids: Vec<String>,
 
     /// Destination directory
+    #[arg(short, long)]
     pub dest: PathBuf,
 
-    /// Flatten directory structure
+    /// File format
+    #[arg(short, long, value_enum, default_value = "cif-gz")]
+    pub format: FileFormat,
+
+    /// Keep directory structure from mirror (default: flat)
     #[arg(long)]
-    pub flatten: bool,
+    pub keep_structure: bool,
 
     /// Create symbolic links instead of copying
-    #[arg(long)]
+    #[arg(short, long)]
     pub symlink: bool,
+
+    /// Read PDB IDs from a file (one per line)
+    #[arg(short, long)]
+    pub list: Option<PathBuf>,
 }
 
 #[derive(Parser)]
