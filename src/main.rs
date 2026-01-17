@@ -7,6 +7,7 @@ mod error;
 mod files;
 mod mirrors;
 mod sync;
+mod utils;
 mod validation;
 
 // Re-export from library crate

@@ -1,10 +1,11 @@
 //! Validate command implementation.
 
-use crate::cli::args::ValidateArgs;
+use crate::cli::args::{OutputFormat, ValidateArgs};
 use crate::context::AppContext;
 use crate::download::{DownloadOptions, HttpsDownloader};
 use crate::error::{PdbCliError, Result};
 use crate::files::{paths::build_relative_path, FileFormat, PdbId};
+use crate::utils::IdSource;
 use crate::validation::{ChecksumVerifier, VerifyResult};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
@@ -30,22 +31,29 @@ impl ValidationStats {
 pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
     let mirror = args.mirror.unwrap_or(ctx.mirror);
     let format = args.format.unwrap_or(FileFormat::CifGz);
+    let is_ids_output = args.output == OutputFormat::Ids;
+
+    // Collect PDB IDs from args, list file, and/or stdin
+    let id_source =
+        IdSource::collect(args.pdb_ids.clone(), args.list.as_deref(), args.stdin).await?;
 
     // Collect files to validate
-    let files_to_validate = if args.pdb_ids.is_empty() {
+    let files_to_validate = if id_source.is_empty() {
         // Scan local directory for all PDB files
         scan_local_files(&ctx.pdb_dir, format).await?
     } else {
         // Validate specific PDB IDs
         let mut files = Vec::new();
-        for id_str in &args.pdb_ids {
+        for id_str in &id_source.ids {
             match PdbId::new(id_str) {
                 Ok(pdb_id) => {
                     let path = ctx.pdb_dir.join(build_relative_path(&pdb_id, format));
                     files.push((pdb_id, path));
                 }
                 Err(e) => {
-                    eprintln!("Warning: Invalid PDB ID '{}': {}", id_str, e);
+                    if !is_ids_output {
+                        eprintln!("Warning: Invalid PDB ID '{}': {}", id_str, e);
+                    }
                 }
             }
         }
@@ -53,18 +61,22 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
     };
 
     if files_to_validate.is_empty() {
-        println!("No files to validate.");
+        if !is_ids_output {
+            println!("No files to validate.");
+        }
         return Ok(());
     }
 
-    println!(
-        "Validating {} file(s) against {} checksums...\n",
-        files_to_validate.len(),
-        mirror
-    );
+    if !is_ids_output {
+        println!(
+            "Validating {} file(s) against {} checksums...\n",
+            files_to_validate.len(),
+            mirror
+        );
+    }
 
-    // Set up progress bar
-    let pb = if args.progress {
+    // Set up progress bar (only for non-ids output)
+    let pb = if args.progress && !is_ids_output {
         let pb = ProgressBar::new(files_to_validate.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()
@@ -76,6 +88,9 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
     } else {
         None
     };
+
+    // Track IDs with issues for -o ids output
+    let mut failed_ids: Vec<String> = Vec::new();
 
     // Create verifier and downloader (for --fix)
     let mut verifier = ChecksumVerifier::new();
@@ -108,7 +123,7 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
         match &result {
             VerifyResult::Valid => {
                 stats.valid += 1;
-                if !args.errors_only {
+                if !is_ids_output && !args.errors_only {
                     if let Some(ref pb) = pb {
                         pb.println(format!("✓ {}", pdb_id));
                     } else {
@@ -118,14 +133,17 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
             }
             VerifyResult::Invalid { expected, actual } => {
                 stats.invalid += 1;
+                failed_ids.push(pdb_id.to_string());
 
-                if let Some(ref pb) = pb {
-                    pb.println(format!(
-                        "✗ {} (expected: {}, got: {})",
-                        pdb_id, expected, actual
-                    ));
-                } else {
-                    eprintln!("✗ {} (expected: {}, got: {})", pdb_id, expected, actual);
+                if !is_ids_output {
+                    if let Some(ref pb) = pb {
+                        pb.println(format!(
+                            "✗ {} (expected: {}, got: {})",
+                            pdb_id, expected, actual
+                        ));
+                    } else {
+                        eprintln!("✗ {} (expected: {}, got: {})", pdb_id, expected, actual);
+                    }
                 }
 
                 // Attempt to fix if requested
@@ -133,18 +151,24 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
                     match fix_file(dl, pdb_id, format, &ctx.pdb_dir).await {
                         Ok(()) => {
                             stats.fixed += 1;
-                            if let Some(ref pb) = pb {
-                                pb.println(format!("  → Fixed: {}", pdb_id));
-                            } else {
-                                println!("  → Fixed: {}", pdb_id);
+                            // Remove from failed_ids if fixed successfully
+                            failed_ids.pop();
+                            if !is_ids_output {
+                                if let Some(ref pb) = pb {
+                                    pb.println(format!("  → Fixed: {}", pdb_id));
+                                } else {
+                                    println!("  → Fixed: {}", pdb_id);
+                                }
                             }
                         }
                         Err(e) => {
                             stats.fix_failed += 1;
-                            if let Some(ref pb) = pb {
-                                pb.println(format!("  → Fix failed: {} ({})", pdb_id, e));
-                            } else {
-                                eprintln!("  → Fix failed: {} ({})", pdb_id, e);
+                            if !is_ids_output {
+                                if let Some(ref pb) = pb {
+                                    pb.println(format!("  → Fix failed: {} ({})", pdb_id, e));
+                                } else {
+                                    eprintln!("  → Fix failed: {} ({})", pdb_id, e);
+                                }
                             }
                         }
                     }
@@ -152,15 +176,18 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
             }
             VerifyResult::Missing => {
                 stats.missing += 1;
-                if let Some(ref pb) = pb {
-                    pb.println(format!("? {} (file missing)", pdb_id));
-                } else {
-                    eprintln!("? {} (file missing)", pdb_id);
+                failed_ids.push(pdb_id.to_string());
+                if !is_ids_output {
+                    if let Some(ref pb) = pb {
+                        pb.println(format!("? {} (file missing)", pdb_id));
+                    } else {
+                        eprintln!("? {} (file missing)", pdb_id);
+                    }
                 }
             }
             VerifyResult::NoChecksum => {
                 stats.no_checksum += 1;
-                if !args.errors_only {
+                if !is_ids_output && !args.errors_only {
                     if let Some(ref pb) = pb {
                         pb.println(format!("- {} (no checksum available)", pdb_id));
                     } else {
@@ -179,23 +206,31 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
         pb.finish_and_clear();
     }
 
-    // Print summary
-    println!("\n--- Validation Summary ---");
-    println!("Total files:    {}", stats.total());
-    println!("Valid:          {}", stats.valid);
-    println!("Invalid:        {}", stats.invalid);
-    println!("Missing:        {}", stats.missing);
-    println!("No checksum:    {}", stats.no_checksum);
-
-    if args.fix {
-        println!("Fixed:          {}", stats.fixed);
-        if stats.fix_failed > 0 {
-            println!("Fix failed:     {}", stats.fix_failed);
+    // Output based on format
+    if is_ids_output {
+        // Print only failed/invalid IDs, one per line (for piping)
+        for id in &failed_ids {
+            println!("{}", id);
         }
-    }
+    } else {
+        // Print summary
+        println!("\n--- Validation Summary ---");
+        println!("Total files:    {}", stats.total());
+        println!("Valid:          {}", stats.valid);
+        println!("Invalid:        {}", stats.invalid);
+        println!("Missing:        {}", stats.missing);
+        println!("No checksum:    {}", stats.no_checksum);
 
-    if stats.invalid > 0 && !args.fix {
-        println!("\nTip: Use --fix to re-download corrupted files.");
+        if args.fix {
+            println!("Fixed:          {}", stats.fixed);
+            if stats.fix_failed > 0 {
+                println!("Fix failed:     {}", stats.fix_failed);
+            }
+        }
+
+        if stats.invalid > 0 && !args.fix {
+            println!("\nTip: Use --fix to re-download corrupted files.");
+        }
     }
 
     Ok(())

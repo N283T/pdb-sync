@@ -75,12 +75,17 @@ pub async fn run_list(args: ListArgs, ctx: AppContext) -> Result<()> {
             OutputFormat::Text => print_statistics_text(&stats),
             OutputFormat::Json => print_statistics_json(&stats)?,
             OutputFormat::Csv => print_statistics_csv(&stats),
+            OutputFormat::Ids => {
+                // For stats + ids, just print the count
+                println!("{}", stats.total_files);
+            }
         }
     } else {
         match args.output {
             OutputFormat::Text => print_text(&files, args.size, args.time),
             OutputFormat::Json => print_json(&files)?,
             OutputFormat::Csv => print_csv(&files, args.size, args.time),
+            OutputFormat::Ids => print_ids(&files),
         }
     }
 
@@ -235,6 +240,13 @@ fn compute_statistics(files: &[LocalFile]) -> Statistics {
     }
 
     stats
+}
+
+/// Print only PDB IDs, one per line (for piping)
+fn print_ids(files: &[LocalFile]) {
+    for file in files {
+        println!("{}", file.pdb_id);
+    }
 }
 
 /// Print files in text format
