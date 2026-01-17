@@ -162,12 +162,6 @@ impl Mirror {
     /// Get PDBj-specific rsync URL (only valid for PDBj mirror).
     ///
     /// Returns `None` if called on a non-PDBj mirror.
-    ///
-    /// # Example
-    /// ```
-    /// use pdb_cli::data_types::PdbjDataType;
-    /// use crate::mirrors::MirrorId;
-    /// ```
     pub fn pdbj_rsync_url(&self, data_type: PdbjDataType) -> Option<String> {
         if self.id != MirrorId::Pdbj {
             return None;
