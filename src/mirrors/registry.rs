@@ -1,3 +1,4 @@
+use crate::data_types::{PdbeDataType, PdbjDataType};
 use crate::error::{PdbCliError, Result};
 use crate::files::{FileFormat, PdbId};
 use std::str::FromStr;
@@ -157,6 +158,36 @@ impl Mirror {
             }
         }
     }
+
+    /// Get PDBj-specific rsync URL (only valid for PDBj mirror).
+    ///
+    /// Returns `None` if called on a non-PDBj mirror.
+    ///
+    /// # Example
+    /// ```
+    /// use pdb_cli::data_types::PdbjDataType;
+    /// use crate::mirrors::MirrorId;
+    /// ```
+    pub fn pdbj_rsync_url(&self, data_type: PdbjDataType) -> Option<String> {
+        if self.id != MirrorId::Pdbj {
+            return None;
+        }
+        // Extract host from rsync_host (which has format "rsync://host")
+        let host = self.rsync_host.trim_start_matches("rsync://");
+        Some(format!("rsync://{}/{}/", host, data_type.rsync_module()))
+    }
+
+    /// Get PDBe-specific rsync URL (only valid for PDBe mirror).
+    ///
+    /// Returns `None` if called on a non-PDBe mirror.
+    pub fn pdbe_rsync_url(&self, data_type: PdbeDataType) -> Option<String> {
+        if self.id != MirrorId::Pdbe {
+            return None;
+        }
+        // Extract host from rsync_host (which has format "rsync://host")
+        let host = self.rsync_host.trim_start_matches("rsync://");
+        Some(format!("rsync://{}/{}", host, data_type.rsync_path()))
+    }
 }
 
 // RCSB: rsync://rsync.rcsb.org:33444/ftp_data/structures/divided/
@@ -295,6 +326,27 @@ mod tests {
         );
     }
 
+    // Tests for PDBj-specific rsync URL builder
+    #[test]
+    fn test_pdbj_rsync_url_returns_url_for_pdbj() {
+        use crate::data_types::PdbjDataType;
+
+        let pdbj = Mirror::get(MirrorId::Pdbj);
+
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::Emdb),
+            Some("rsync://rsync.pdbj.org/emdb/".to_string())
+        );
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::PdbIhm),
+            Some("rsync://rsync.pdbj.org/pdb_ihm/".to_string())
+        );
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::Derived),
+            Some("rsync://rsync.pdbj.org/ftp_derived/".to_string())
+        );
+    }
+
     #[test]
     fn test_build_structure_url_wwpdb_classic() {
         let mirror = Mirror::get(MirrorId::Wwpdb);
@@ -307,6 +359,46 @@ mod tests {
         assert_eq!(
             mirror.build_structure_url(&pdb_id, FileFormat::Pdb),
             "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/ab/pdb1abc.ent.gz"
+        );
+    }
+
+    #[test]
+    fn test_pdbj_rsync_url_returns_none_for_other_mirrors() {
+        use crate::data_types::PdbjDataType;
+
+        // Should return None for non-PDBj mirrors
+        assert_eq!(
+            Mirror::get(MirrorId::Rcsb).pdbj_rsync_url(PdbjDataType::Emdb),
+            None
+        );
+        assert_eq!(
+            Mirror::get(MirrorId::Pdbe).pdbj_rsync_url(PdbjDataType::Emdb),
+            None
+        );
+        assert_eq!(
+            Mirror::get(MirrorId::Wwpdb).pdbj_rsync_url(PdbjDataType::Emdb),
+            None
+        );
+    }
+
+    // Tests for PDBe-specific rsync URL builder
+    #[test]
+    fn test_pdbe_rsync_url_returns_url_for_pdbe() {
+        use crate::data_types::PdbeDataType;
+
+        let pdbe = Mirror::get(MirrorId::Pdbe);
+
+        assert_eq!(
+            pdbe.pdbe_rsync_url(PdbeDataType::Sifts),
+            Some("rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/".to_string())
+        );
+        assert_eq!(
+            pdbe.pdbe_rsync_url(PdbeDataType::Pdbechem),
+            Some("rsync://rsync.ebi.ac.uk/pub/databases/msd/pdbechem_v2/".to_string())
+        );
+        assert_eq!(
+            pdbe.pdbe_rsync_url(PdbeDataType::Foldseek),
+            Some("rsync://rsync.ebi.ac.uk/pub/databases/msd/foldseek/".to_string())
         );
     }
 
@@ -375,6 +467,25 @@ mod tests {
         assert_eq!(
             mirror.build_structure_url(&pdb_id, FileFormat::Mmcif),
             "https://pdbj.org/rest/downloadPDBfile?format=mmcif&id=pdb_00001abc"
+        );
+    }
+
+    #[test]
+    fn test_pdbe_rsync_url_returns_none_for_other_mirrors() {
+        use crate::data_types::PdbeDataType;
+
+        // Should return None for non-PDBe mirrors
+        assert_eq!(
+            Mirror::get(MirrorId::Rcsb).pdbe_rsync_url(PdbeDataType::Sifts),
+            None
+        );
+        assert_eq!(
+            Mirror::get(MirrorId::Pdbj).pdbe_rsync_url(PdbeDataType::Sifts),
+            None
+        );
+        assert_eq!(
+            Mirror::get(MirrorId::Wwpdb).pdbe_rsync_url(PdbeDataType::Sifts),
+            None
         );
     }
 }
