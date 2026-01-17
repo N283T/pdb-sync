@@ -94,6 +94,10 @@ pub struct Cli {
     #[arg(long, global = true, env = "PDB_DIR")]
     pub pdb_dir: Option<PathBuf>,
 
+    /// Internal: Job ID for background execution (hidden)
+    #[arg(long = "_job-id", hide = true)]
+    pub job_id: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -144,9 +148,12 @@ pub enum Commands {
 
     /// Check for and download updates to local files
     Update(UpdateArgs),
+
+    /// Manage background jobs
+    Jobs(JobsArgs),
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct SyncArgs {
     /// Mirror to sync from
     #[arg(short, long, value_enum)]
@@ -187,6 +194,10 @@ pub struct SyncArgs {
     /// Filter patterns (PDB ID prefixes)
     #[arg(trailing_var_arg = true)]
     pub filters: Vec<String>,
+
+    /// Run in background
+    #[arg(long)]
+    pub bg: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -206,7 +217,7 @@ impl SyncFormat {
     }
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct DownloadArgs {
     /// PDB IDs to download
     #[arg(required_unless_present_any = ["list", "stdin"])]
@@ -271,9 +282,13 @@ pub struct DownloadArgs {
     /// Export aria2c input file to stdout instead of downloading
     #[arg(long)]
     pub export_aria2c: bool,
+
+    /// Run in background
+    #[arg(long)]
+    pub bg: bool,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct CopyArgs {
     /// PDB IDs to copy from local mirror
     #[arg(required_unless_present_any = ["list", "stdin"])]
@@ -304,7 +319,7 @@ pub struct CopyArgs {
     pub stdin: bool,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct ListArgs {
     /// Pattern to filter PDB IDs (supports glob patterns like "1ab*", "*xyz")
     pub pattern: Option<String>,
@@ -338,7 +353,7 @@ pub struct ListArgs {
     pub reverse: bool,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct FindArgs {
     /// PDB IDs or patterns to find
     pub patterns: Vec<String>,
@@ -372,13 +387,13 @@ pub struct FindArgs {
     pub count: bool,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct ConfigArgs {
     #[command(subcommand)]
     pub action: ConfigAction,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum ConfigAction {
     /// Initialize configuration file
     Init,
@@ -400,13 +415,13 @@ pub enum ConfigAction {
     TestMirrors,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct EnvArgs {
     #[command(subcommand)]
     pub action: EnvAction,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum EnvAction {
     /// Show relevant environment variables
     Show,
@@ -421,7 +436,7 @@ pub enum EnvAction {
     },
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct InfoArgs {
     /// PDB ID to query
     pub pdb_id: String,
@@ -439,7 +454,7 @@ pub struct InfoArgs {
     pub all: bool,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct ValidateArgs {
     /// PDB IDs to validate (empty = all local files)
     pub pdb_ids: Vec<String>,
@@ -740,4 +755,46 @@ pub struct UpdateArgs {
     /// Number of parallel checks
     #[arg(short = 'j', long, default_value = "10")]
     pub parallel: usize,
+}
+
+#[derive(Parser, Clone)]
+pub struct JobsArgs {
+    /// Show all jobs (including old completed ones)
+    #[arg(short, long)]
+    pub all: bool,
+
+    /// Show only running jobs
+    #[arg(long)]
+    pub running: bool,
+
+    #[command(subcommand)]
+    pub action: Option<JobsAction>,
+}
+
+#[derive(Subcommand, Clone)]
+pub enum JobsAction {
+    /// Show status of a specific job
+    Status {
+        /// Job ID
+        job_id: String,
+    },
+    /// Show logs for a job
+    Log {
+        /// Job ID
+        job_id: String,
+        /// Follow log output (like tail -f)
+        #[arg(short, long)]
+        follow: bool,
+    },
+    /// Cancel a running job
+    Cancel {
+        /// Job ID
+        job_id: String,
+    },
+    /// Clean up old job directories
+    Clean {
+        /// Remove jobs older than this duration (e.g., "7d", "24h")
+        #[arg(long, default_value = "7d")]
+        older_than: String,
+    },
 }

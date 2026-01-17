@@ -83,6 +83,9 @@ pub enum PdbCliError {
 
     #[error("External tool not found: {0}")]
     ToolNotFound(String),
+
+    #[error("Job error: {0}")]
+    Job(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;
