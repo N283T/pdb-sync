@@ -2,6 +2,7 @@ mod api;
 mod cli;
 mod config;
 mod context;
+mod convert;
 mod download;
 mod error;
 mod files;
@@ -80,6 +81,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Watch(args) => {
             cli::commands::run_watch(args, ctx).await?;
+        }
+        Commands::Convert(args) => {
+            cli::commands::run_convert(args, ctx).await?;
         }
     }
 

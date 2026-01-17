@@ -27,6 +27,7 @@ chrono = { version = "0.4", features = ["serde"] }
 md-5 = "0.10"
 humantime = "2"
 which = "7.0"
+tempfile = "3.10"
 
 [dependencies.notify-rust]
 version = "4"
@@ -44,4 +45,3 @@ desktop-notify = ["notify-rust"]
 email-notify = ["lettre"]
 
 [dev-dependencies]
-tempfile = "3.10"

@@ -77,6 +77,12 @@ pub enum PdbCliError {
     #[allow(dead_code)]
     #[error("aria2c execution failed: {0}")]
     Aria2cFailed(String),
+
+    #[error("Conversion error: {0}")]
+    Conversion(String),
+
+    #[error("External tool not found: {0}")]
+    ToolNotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;
