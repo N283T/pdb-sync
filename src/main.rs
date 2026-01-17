@@ -9,6 +9,7 @@ mod mirrors;
 mod sync;
 mod utils;
 mod validation;
+mod watch;
 
 // Re-export from library crate
 pub use pdb_cli::data_types;
@@ -76,6 +77,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Validate(args) => {
             cli::commands::run_validate(args, ctx).await?;
+        }
+        Commands::Watch(args) => {
+            cli::commands::run_watch(args, ctx).await?;
         }
     }
 

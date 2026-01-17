@@ -2,6 +2,7 @@ use crate::data_types::{DataType, Layout};
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use clap::{Parser, Subcommand, ValueEnum};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Output format for list command
@@ -28,6 +29,54 @@ pub enum SortField {
     Size,
     /// Sort by modification time
     Time,
+}
+
+/// Notification method for watch command
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum NotifyMethod {
+    /// Desktop notification
+    Desktop,
+    /// Email notification
+    Email,
+}
+
+/// Experimental method filter for watch command
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExperimentalMethod {
+    /// X-ray crystallography
+    #[serde(rename = "X-RAY DIFFRACTION")]
+    #[value(name = "xray")]
+    Xray,
+    /// Nuclear Magnetic Resonance
+    #[serde(rename = "SOLUTION NMR")]
+    #[value(name = "nmr")]
+    Nmr,
+    /// Electron Microscopy
+    #[serde(rename = "ELECTRON MICROSCOPY")]
+    #[value(name = "em")]
+    Em,
+    /// Neutron diffraction
+    #[serde(rename = "NEUTRON DIFFRACTION")]
+    #[value(name = "neutron")]
+    Neutron,
+    /// Other methods
+    #[serde(rename = "OTHER")]
+    #[value(name = "other")]
+    Other,
+}
+
+impl ExperimentalMethod {
+    /// Get the RCSB API value for this method
+    pub fn as_rcsb_value(&self) -> &str {
+        match self {
+            ExperimentalMethod::Xray => "X-RAY DIFFRACTION",
+            ExperimentalMethod::Nmr => "SOLUTION NMR",
+            ExperimentalMethod::Em => "ELECTRON MICROSCOPY",
+            ExperimentalMethod::Neutron => "NEUTRON DIFFRACTION",
+            ExperimentalMethod::Other => "OTHER",
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -78,6 +127,9 @@ pub enum Commands {
     /// Validate local PDB files against checksums
     #[command(visible_alias = "val")]
     Validate(ValidateArgs),
+
+    /// Watch for new PDB entries and download automatically
+    Watch(WatchArgs),
 }
 
 #[derive(Parser)]
@@ -397,4 +449,98 @@ pub struct ValidateArgs {
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
     pub output: OutputFormat,
+}
+
+/// Validate resolution filter (must be in range 0.0-100.0)
+fn validate_resolution(s: &str) -> Result<f64, String> {
+    let value: f64 = s.parse().map_err(|_| format!("Invalid number: {}", s))?;
+    if !(0.0..=100.0).contains(&value) {
+        return Err(format!(
+            "Resolution must be between 0.0 and 100.0, got {}",
+            value
+        ));
+    }
+    Ok(value)
+}
+
+/// Validate organism filter string (max 200 chars, alphanumeric + basic punctuation)
+fn validate_organism(s: &str) -> Result<String, String> {
+    const MAX_LEN: usize = 200;
+    if s.len() > MAX_LEN {
+        return Err(format!(
+            "Organism name too long ({} chars, max {})",
+            s.len(),
+            MAX_LEN
+        ));
+    }
+    // Allow alphanumeric, spaces, hyphens, periods, parentheses
+    if s.chars()
+        .all(|c| c.is_alphanumeric() || " -._()".contains(c))
+    {
+        Ok(s.to_string())
+    } else {
+        Err(
+            "Organism name contains invalid characters (allowed: alphanumeric, space, -._())"
+                .into(),
+        )
+    }
+}
+
+#[derive(Parser)]
+pub struct WatchArgs {
+    /// Check interval (e.g., "1h", "30m", "1d")
+    #[arg(short, long, default_value = "1h")]
+    pub interval: String,
+
+    /// Filter by experimental method
+    #[arg(long, value_enum)]
+    pub method: Option<ExperimentalMethod>,
+
+    /// Filter by maximum resolution (Å), range: 0.0-100.0
+    #[arg(long, value_parser = validate_resolution)]
+    pub resolution: Option<f64>,
+
+    /// Filter by source organism (scientific name), max 200 characters
+    #[arg(long, value_parser = validate_organism)]
+    pub organism: Option<String>,
+
+    /// Data types to download (can specify multiple times)
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_types: Vec<DataType>,
+
+    /// File format to download
+    #[arg(short, long, value_enum, default_value = "mmcif")]
+    pub format: FileFormat,
+
+    /// Dry run (don't download, just show what would be downloaded)
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
+
+    /// Send notification on new entries
+    #[arg(long, value_enum)]
+    pub notify: Option<NotifyMethod>,
+
+    /// Email address for notifications (requires --notify email)
+    #[arg(long, requires = "notify")]
+    pub email: Option<String>,
+
+    /// Script to run on each new entry (receives PDB_ID and PDB_FILE as env vars)
+    #[arg(long)]
+    pub on_new: Option<PathBuf>,
+
+    /// Destination directory for downloads
+    #[arg(short, long)]
+    pub dest: Option<PathBuf>,
+
+    /// Mirror to download from
+    #[arg(short, long, value_enum)]
+    pub mirror: Option<MirrorId>,
+
+    /// Run once and exit (don't loop)
+    #[arg(long)]
+    pub once: bool,
+
+    /// Start watching from this date (YYYY-MM-DD), default: 7 days ago or last check
+    #[arg(long)]
+    pub since: Option<String>,
 }
