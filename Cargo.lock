@@ -1418,6 +1418,7 @@ dependencies = [
  "humantime",
  "indicatif",
  "lettre",
+ "libc",
  "md-5",
  "notify-rust",
  "regex",

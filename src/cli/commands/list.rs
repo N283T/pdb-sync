@@ -4,7 +4,7 @@ use crate::cli::args::{ListArgs, OutputFormat, SortField};
 use crate::context::AppContext;
 use crate::error::{PdbCliError, Result};
 use crate::files::FileFormat;
-use crate::utils::human_bytes;
+use crate::utils::{escape_csv_field, human_bytes};
 use chrono::{DateTime, Local};
 use glob::Pattern;
 use serde::Serialize;
@@ -190,11 +190,16 @@ fn extract_pdb_id(filename: &str, format: &str) -> Option<String> {
             filename.strip_suffix(".cif.gz").map(|s| s.to_string())
         }
         "pdb" => {
-            // Format: pdb{pdb_id}.ent.gz
-            filename
-                .strip_prefix("pdb")
-                .and_then(|s| s.strip_suffix(".ent.gz"))
-                .map(|s| s.to_string())
+            // Classic format: pdb{pdb_id}.ent.gz (e.g., pdb1abc.ent.gz -> 1abc)
+            // Extended format: pdb_{pdb_id}.ent.gz (e.g., pdb_00001abc.ent.gz -> pdb_00001abc)
+            let without_ext = filename.strip_suffix(".ent.gz")?;
+            if without_ext.starts_with("pdb_") {
+                // Extended ID: keep as-is
+                Some(without_ext.to_string())
+            } else {
+                // Classic ID: strip "pdb" prefix
+                without_ext.strip_prefix("pdb").map(|s| s.to_string())
+            }
         }
         "bcif" => {
             // Format: {pdb_id}.bcif.gz
@@ -320,17 +325,6 @@ fn print_csv(files: &[LocalFile], show_size: bool, show_time: bool) {
     }
 }
 
-/// Escape a CSV field to prevent injection and handle special characters
-fn escape_csv_field(s: &str) -> String {
-    // Check if escaping is needed
-    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
-        // Escape quotes by doubling them and wrap in quotes
-        format!("\"{}\"", s.replace('"', "\"\""))
-    } else {
-        s.to_string()
-    }
-}
-
 /// Print statistics in text format
 fn print_statistics_text(stats: &Statistics) {
     println!("Local PDB Mirror Statistics");
@@ -396,6 +390,14 @@ mod tests {
             Some("2xyz".to_string())
         );
         assert_eq!(extract_pdb_id("1abc.ent.gz", "pdb"), None);
+    }
+
+    #[test]
+    fn test_extract_pdb_id_pdbgz_extended() {
+        assert_eq!(
+            extract_pdb_id("pdb_00001abc.ent.gz", "pdb"),
+            Some("pdb_00001abc".to_string())
+        );
     }
 
     #[test]
@@ -506,17 +508,5 @@ mod tests {
         assert_eq!(stats.by_format.get("mmcif").unwrap().size, 300);
         assert_eq!(stats.by_format.get("pdb").unwrap().count, 1);
         assert_eq!(stats.by_format.get("pdb").unwrap().size, 150);
-    }
-
-    #[test]
-    fn test_escape_csv_field() {
-        assert_eq!(escape_csv_field("simple"), "simple");
-        assert_eq!(escape_csv_field("with,comma"), "\"with,comma\"");
-        assert_eq!(escape_csv_field("with\"quote"), "\"with\"\"quote\"");
-        assert_eq!(escape_csv_field("with\nnewline"), "\"with\nnewline\"");
-        assert_eq!(
-            escape_csv_field("/path/to,file\"name"),
-            "\"/path/to,file\"\"name\""
-        );
     }
 }

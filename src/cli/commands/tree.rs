@@ -5,6 +5,7 @@ use crate::context::AppContext;
 use crate::error::{PdbCliError, Result};
 use crate::tree::render::{render_top_directories, RenderOptions};
 use crate::tree::{build_tree, render_tree, DirNode, TreeOptions};
+use crate::utils::escape_csv_field;
 
 /// Main entry point for the tree command
 pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
@@ -97,27 +98,5 @@ fn print_csv_node(node: &DirNode) {
 
     for child in &node.children {
         print_csv_node(child);
-    }
-}
-
-/// Escape a CSV field to prevent injection and handle special characters
-fn escape_csv_field(s: &str) -> String {
-    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
-        format!("\"{}\"", s.replace('"', "\"\""))
-    } else {
-        s.to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_escape_csv_field() {
-        assert_eq!(escape_csv_field("simple"), "simple");
-        assert_eq!(escape_csv_field("with,comma"), "\"with,comma\"");
-        assert_eq!(escape_csv_field("with\"quote"), "\"with\"\"quote\"");
-        assert_eq!(escape_csv_field("with\nnewline"), "\"with\nnewline\"");
     }
 }
