@@ -244,8 +244,8 @@ pub struct DownloadArgs {
     pub stdin: bool,
 
     /// Download engine to use
-    #[arg(long, value_enum, default_value = "builtin")]
-    pub engine: EngineType,
+    #[arg(long, value_enum)]
+    pub engine: Option<EngineType>,
 
     /// Number of connections per server (aria2c only)
     #[arg(long, default_value = "4")]

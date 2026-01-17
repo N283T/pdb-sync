@@ -37,29 +37,6 @@ impl FromStr for EngineType {
     }
 }
 
-/// Configuration options specific to aria2c.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Aria2cOptions {
-    /// Number of connections per server (-x flag)
-    pub connections: u32,
-    /// Number of splits for each download (-s flag)
-    pub split: u32,
-    /// Maximum concurrent downloads (-j flag)
-    pub max_concurrent: u32,
-}
-
-impl Default for Aria2cOptions {
-    fn default() -> Self {
-        Self {
-            connections: 4,
-            split: 1,
-            max_concurrent: 4,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,14 +60,6 @@ mod tests {
     #[test]
     fn test_engine_type_default() {
         assert_eq!(EngineType::default(), EngineType::Builtin);
-    }
-
-    #[test]
-    fn test_aria2c_options_default() {
-        let options = Aria2cOptions::default();
-        assert_eq!(options.connections, 4);
-        assert_eq!(options.split, 1);
-        assert_eq!(options.max_concurrent, 4);
     }
 
     #[test]

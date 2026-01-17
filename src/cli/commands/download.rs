@@ -70,13 +70,17 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
     let tasks = build_tasks(&pdb_ids, args.data_type, args.format, args.assembly);
 
     // Determine engine type (CLI arg overrides config)
-    let engine = if args.engine != EngineType::Builtin {
-        args.engine
-    } else if let Ok(engine) = ctx.config.download.engine.parse::<EngineType>() {
-        engine
-    } else {
-        EngineType::Builtin
-    };
+    let engine = args
+        .engine
+        .or_else(|| ctx.config.download.engine.parse::<EngineType>().ok())
+        .unwrap_or(EngineType::Builtin);
+
+    // Warn if --decompress is used with aria2c (aria2c downloads raw files)
+    if engine == EngineType::Aria2c && (args.decompress || ctx.config.download.auto_decompress) {
+        eprintln!(
+            "Warning: --decompress is not supported with aria2c engine; files will remain compressed"
+        );
+    }
 
     // Handle export option
     if args.export_aria2c {
