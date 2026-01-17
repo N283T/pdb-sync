@@ -1,16 +1,85 @@
+# Phase 11: Find Command Implementation Plan
+
+## Summary
+
+Implement a `find` command for searching local PDB files with path output, optimized for scripting and existence checks. This differs from `list` by outputting paths (script-friendly) instead of formatted tables, and supporting existence checking with exit codes.
+
+## Files to Create/Modify
+
+### New Files
+1. `src/cli/commands/find.rs` - Command handler (main implementation)
+
+### Modified Files
+1. `src/cli/args.rs` - Add `FindArgs` struct and `Find` command variant
+2. `src/cli/commands/mod.rs` - Export find module
+3. `src/main.rs` - Add Find command dispatch
+
+## Implementation Steps
+
+### Step 1: Add FindArgs to args.rs
+
+Add after line 241 (after `ListArgs`):
+
+```rust
+#[derive(Parser)]
+pub struct FindArgs {
+    /// PDB IDs or patterns to find
+    pub patterns: Vec<String>,
+
+    /// Read patterns from stdin
+    #[arg(long)]
+    pub stdin: bool,
+
+    /// Data type to search (default: structures)
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_type: Option<DataType>,
+
+    /// File format to search
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Show all formats for each entry
+    #[arg(long)]
+    pub all_formats: bool,
+
+    /// Check existence (exit code only, all must exist for 0)
+    #[arg(long)]
+    pub exists: bool,
+
+    /// Show entries NOT found locally
+    #[arg(long)]
+    pub missing: bool,
+
+    /// Quiet mode (no output, just exit code)
+    #[arg(short, long)]
+    pub quiet: bool,
+
+    /// Count matches only
+    #[arg(long)]
+    pub count: bool,
+}
+```
+
+Add to `Commands` enum after `List`:
+```rust
+/// Find local PDB files (path output for scripting)
+Find(FindArgs),
+```
+
+### Step 2: Create find.rs command handler
+
+Create `src/cli/commands/find.rs`:
+
+```rust
 //! Find command - searches local PDB files with path output.
-//!
-//! This command is optimized for scripting with path output, unlike `list`
-//! which provides formatted tables. It supports existence checking with
-//! exit codes for shell scripting.
 
 use crate::cli::args::FindArgs;
 use crate::context::AppContext;
+use crate::data_types::DataType;
 use crate::error::{PdbCliError, Result};
 use crate::files::{build_full_path, FileFormat, PdbId};
 use glob::Pattern;
-use std::collections::HashSet;
-use std::io::{self, BufRead, IsTerminal};
+use std::io::{self, BufRead};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -37,7 +106,7 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
 
     if patterns.is_empty() {
         return Err(PdbCliError::InvalidInput(
-            "No PDB IDs or patterns provided. Use positional arguments or --stdin.".to_string(),
+            "No PDB IDs or patterns provided. Use positional arguments or --stdin.".to_string()
         ));
     }
 
@@ -56,10 +125,10 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
             if result.found {
                 found_count += 1;
                 if !args.quiet && !args.missing {
-                    if args.count {
-                        all_paths.extend(result.paths);
-                    } else {
-                        for path in &result.paths {
+                    for path in &result.paths {
+                        if args.count {
+                            all_paths.push(path.clone());
+                        } else {
                             println!("{}", path.display());
                         }
                     }
@@ -74,19 +143,21 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
     }
 
     // Handle count mode
-    if args.count && !args.quiet {
+    if args.count {
         println!("{}", all_paths.len());
     }
 
-    // Return error for exit code handling (main.rs converts to exit code 1)
-    let total = found_count + not_found_count;
-    if args.exists && not_found_count > 0 {
-        return Err(PdbCliError::EntriesNotFound(not_found_count, total));
-    }
-
-    if !args.exists && !args.missing && found_count == 0 && not_found_count > 0 {
-        // Normal mode: return error if nothing found
-        return Err(PdbCliError::EntriesNotFound(not_found_count, total));
+    // Exit code based on results
+    if args.exists || args.missing {
+        if args.exists && not_found_count > 0 {
+            std::process::exit(1);
+        }
+        if args.missing && not_found_count == 0 {
+            // --missing with nothing missing is "success" (exit 0)
+        }
+    } else if found_count == 0 && not_found_count > 0 {
+        // Normal mode: exit 1 if nothing found
+        std::process::exit(1);
     }
 
     Ok(())
@@ -94,25 +165,16 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
 
 /// Collect patterns from command line args and/or stdin
 fn collect_patterns(args: &FindArgs) -> Result<Vec<String>> {
-    let mut patterns = if args.stdin {
-        // When using stdin, start with command line patterns (avoid clone if empty)
-        args.patterns.clone()
-    } else {
-        // No stdin, just return the patterns directly (moved, not cloned)
-        return Ok(args.patterns.clone());
-    };
+    let mut patterns = args.patterns.clone();
 
-    // Read from stdin
-    let stdin = io::stdin();
-    if stdin.is_terminal() {
-        eprintln!("Warning: Reading from terminal. Press Ctrl+D when done, or Ctrl+C to cancel.");
-    }
-
-    for line in stdin.lock().lines() {
-        let line = line.map_err(PdbCliError::Io)?;
-        let trimmed = line.trim();
-        if !trimmed.is_empty() {
-            patterns.push(trimmed.to_string());
+    if args.stdin {
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.map_err(|e| PdbCliError::Io(e))?;
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                patterns.push(trimmed.to_string());
+            }
         }
     }
 
@@ -148,11 +210,7 @@ async fn find_single_entry(pdb_dir: &Path, id: &str, args: &FindArgs) -> FindRes
 }
 
 /// Find entries matching a glob pattern
-async fn find_by_pattern(
-    pdb_dir: &Path,
-    pattern: &str,
-    args: &FindArgs,
-) -> Result<Vec<FindResult>> {
+async fn find_by_pattern(pdb_dir: &Path, pattern: &str, args: &FindArgs) -> Result<Vec<FindResult>> {
     let glob_pattern = Pattern::new(&pattern.to_lowercase())
         .map_err(|e| PdbCliError::InvalidInput(format!("Invalid pattern '{}': {}", pattern, e)))?;
 
@@ -165,7 +223,7 @@ async fn find_by_pattern(
             continue;
         }
 
-        // Scan hash directories (divided layout)
+        // Scan hash directories
         let mut hash_entries = fs::read_dir(&format_dir).await?;
         while let Some(hash_entry) = hash_entries.next_entry().await? {
             let hash_path = hash_entry.path();
@@ -226,72 +284,53 @@ async fn search_entry_paths(pdb_dir: &Path, pdb_id: &PdbId, args: &FindArgs) -> 
     paths
 }
 
-/// Get the list of formats to search based on args.
-///
-/// Default search order (priority): CifGz > PdbGz > BcifGz
-/// This matches the most common usage patterns where mmCIF is preferred.
+/// Get the list of formats to search based on args
 fn get_formats_to_search(args: &FindArgs) -> Vec<FileFormat> {
     if let Some(format) = args.format {
         vec![format]
+    } else if args.all_formats {
+        vec![FileFormat::CifGz, FileFormat::PdbGz, FileFormat::BcifGz]
     } else {
-        // Default: search all compressed formats in priority order
-        // mmCIF (CifGz) is most common, followed by legacy PDB, then BinaryCIF
+        // Default: search all compressed formats, return first found
         vec![FileFormat::CifGz, FileFormat::PdbGz, FileFormat::BcifGz]
     }
 }
 
-/// Extract PDB ID from filename based on format.
-///
-/// Filename patterns (consistent with paths.rs):
-/// - mmCIF: `{id}.cif.gz` or `{id}.cif`
-/// - PDB classic: `pdb{id}.ent.gz` or `pdb{id}.pdb` (4-char ID like "1abc")
-/// - PDB extended: `pdb_00001abc.ent.gz` (12-char ID, no extra "pdb" prefix)
-/// - BinaryCIF: `{id}.bcif.gz` or `{id}.bcif`
+/// Extract PDB ID from filename based on format
 fn extract_pdb_id_from_filename(filename: &str, format: &FileFormat) -> Option<String> {
     match format {
         FileFormat::Mmcif | FileFormat::CifGz => {
-            // Format: {pdb_id}.cif.gz or {pdb_id}.cif
-            filename
-                .strip_suffix(".cif.gz")
+            filename.strip_suffix(".cif.gz")
                 .or_else(|| filename.strip_suffix(".cif"))
                 .map(|s| s.to_string())
         }
         FileFormat::Pdb | FileFormat::PdbGz => {
-            // Strip extension first
-            let stem = filename
-                .strip_suffix(".ent.gz")
-                .or_else(|| filename.strip_suffix(".pdb"))?;
-
-            // Classic format: pdb{4-char-id} -> extract the 4-char ID
-            // Example: "pdb1abc" (len=7) -> "1abc"
-            if stem.starts_with("pdb") && !stem.starts_with("pdb_") && stem.len() == 7 {
-                return Some(stem[3..].to_string());
-            }
-
-            // Extended format: pdb_{8-char-suffix} -> keep full ID
-            // Example: "pdb_00001abc" (len=12) -> "pdb_00001abc"
-            if stem.starts_with("pdb_") && stem.len() == 12 {
-                return Some(stem.to_string());
-            }
-
-            None
+            // PDB format: pdb{id}.ent.gz for classic, {id}.ent.gz for extended
+            filename.strip_suffix(".ent.gz")
+                .or_else(|| filename.strip_suffix(".pdb"))
+                .and_then(|s| {
+                    if s.starts_with("pdb") && s.len() == 7 {
+                        // Classic: pdb1abc -> 1abc
+                        Some(s[3..].to_string())
+                    } else if s.starts_with("pdb_") {
+                        // Extended: pdb_00001abc
+                        Some(s.to_string())
+                    } else {
+                        None
+                    }
+                })
         }
         FileFormat::Bcif | FileFormat::BcifGz => {
-            // Format: {pdb_id}.bcif.gz or {pdb_id}.bcif
-            filename
-                .strip_suffix(".bcif.gz")
+            filename.strip_suffix(".bcif.gz")
                 .or_else(|| filename.strip_suffix(".bcif"))
                 .map(|s| s.to_string())
         }
     }
 }
 
-/// Deduplicate results by PDB ID, keeping first occurrence.
-///
-/// When searching multiple formats, the same PDB ID may appear multiple times.
-/// This function keeps only the first occurrence (based on format search order).
+/// Deduplicate results by PDB ID, keeping first occurrence
 fn deduplicate_results(results: Vec<FindResult>) -> Vec<FindResult> {
-    let mut seen = HashSet::new();
+    let mut seen = std::collections::HashSet::new();
     results
         .into_iter()
         .filter(|r| seen.insert(r.pdb_id.clone()))
@@ -325,37 +364,14 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_pdb_id_pdb_classic() {
-        // Classic 4-char IDs: pdb{id}.ent.gz
+    fn test_extract_pdb_id_pdb() {
         assert_eq!(
             extract_pdb_id_from_filename("pdb1abc.ent.gz", &FileFormat::PdbGz),
             Some("1abc".to_string())
         );
         assert_eq!(
-            extract_pdb_id_from_filename("pdb4hhb.ent.gz", &FileFormat::PdbGz),
-            Some("4hhb".to_string())
-        );
-    }
-
-    #[test]
-    fn test_extract_pdb_id_pdb_extended() {
-        // Extended 12-char IDs: pdb_{8-char}.ent.gz (no extra "pdb" prefix)
-        assert_eq!(
             extract_pdb_id_from_filename("pdb_00001abc.ent.gz", &FileFormat::PdbGz),
             Some("pdb_00001abc".to_string())
-        );
-    }
-
-    #[test]
-    fn test_extract_pdb_id_pdb_invalid() {
-        // Invalid patterns should return None
-        assert_eq!(
-            extract_pdb_id_from_filename("1abc.ent.gz", &FileFormat::PdbGz),
-            None
-        );
-        assert_eq!(
-            extract_pdb_id_from_filename("pdb12345.ent.gz", &FileFormat::PdbGz),
-            None
         );
     }
 
@@ -365,76 +381,72 @@ mod tests {
             extract_pdb_id_from_filename("1abc.bcif.gz", &FileFormat::BcifGz),
             Some("1abc".to_string())
         );
-        assert_eq!(
-            extract_pdb_id_from_filename("pdb_00001abc.bcif.gz", &FileFormat::BcifGz),
-            Some("pdb_00001abc".to_string())
-        );
-    }
-
-    #[test]
-    fn test_extract_pdb_id_uncompressed() {
-        // mmCIF uncompressed
-        assert_eq!(
-            extract_pdb_id_from_filename("1abc.cif", &FileFormat::Mmcif),
-            Some("1abc".to_string())
-        );
-        // BCIF uncompressed
-        assert_eq!(
-            extract_pdb_id_from_filename("1abc.bcif", &FileFormat::Bcif),
-            Some("1abc".to_string())
-        );
-    }
-
-    #[test]
-    fn test_deduplicate_results() {
-        let results = vec![
-            FindResult {
-                pdb_id: "1abc".to_string(),
-                paths: vec![PathBuf::from("/path/to/1abc.cif.gz")],
-                found: true,
-            },
-            FindResult {
-                pdb_id: "1abc".to_string(),
-                paths: vec![PathBuf::from("/path/to/pdb1abc.ent.gz")],
-                found: true,
-            },
-            FindResult {
-                pdb_id: "2xyz".to_string(),
-                paths: vec![PathBuf::from("/path/to/2xyz.cif.gz")],
-                found: true,
-            },
-        ];
-
-        let deduped = deduplicate_results(results);
-        assert_eq!(deduped.len(), 2);
-        assert_eq!(deduped[0].pdb_id, "1abc");
-        assert_eq!(deduped[0].paths[0], PathBuf::from("/path/to/1abc.cif.gz"));
-        assert_eq!(deduped[1].pdb_id, "2xyz");
-    }
-
-    #[test]
-    fn test_deduplicate_results_empty() {
-        let results: Vec<FindResult> = vec![];
-        let deduped = deduplicate_results(results);
-        assert!(deduped.is_empty());
-    }
-
-    #[test]
-    fn test_deduplicate_results_no_duplicates() {
-        let results = vec![
-            FindResult {
-                pdb_id: "1abc".to_string(),
-                paths: vec![PathBuf::from("/path/to/1abc.cif.gz")],
-                found: true,
-            },
-            FindResult {
-                pdb_id: "2xyz".to_string(),
-                paths: vec![PathBuf::from("/path/to/2xyz.cif.gz")],
-                found: true,
-            },
-        ];
-
-        let deduped = deduplicate_results(results);
-        assert_eq!(deduped.len(), 2);
     }
 }
+```
+
+### Step 3: Update commands/mod.rs
+
+Add after line 6:
+```rust
+pub mod find;
+```
+
+Add to exports after line 16:
+```rust
+pub use find::run_find;
+```
+
+### Step 4: Update main.rs
+
+Add match arm in the command dispatch (after line 55, the List arm):
+```rust
+Commands::Find(args) => {
+    cli::commands::run_find(args, ctx).await?;
+}
+```
+
+## Testing
+
+### Unit Tests (in find.rs)
+- `test_is_glob_pattern` - Verify glob detection
+- `test_extract_pdb_id_mmcif` - Extract IDs from mmCIF filenames
+- `test_extract_pdb_id_pdb` - Extract IDs from PDB filenames
+- `test_extract_pdb_id_bcif` - Extract IDs from BCIF filenames
+
+### Integration Tests (manual or automated)
+1. **Single entry lookup**: `pdb-cli find 4hhb`
+2. **Multiple entries**: `pdb-cli find 4hhb 1abc`
+3. **Glob pattern**: `pdb-cli find "1ab*"`
+4. **Format filter**: `pdb-cli find --format cif-gz 4hhb`
+5. **All formats**: `pdb-cli find --all-formats 4hhb`
+6. **Exists check**: `pdb-cli find --exists 4hhb && echo "Found"`
+7. **Missing mode**: `pdb-cli find --missing 4hhb nonexistent`
+8. **Quiet mode**: `pdb-cli find -q 4hhb`
+9. **Count mode**: `pdb-cli find "1*" --count`
+10. **Stdin input**: `echo "4hhb" | pdb-cli find --stdin`
+
+### Exit Code Tests
+- Exit 0 when all entries found
+- Exit 1 when one or more entries not found
+- Exit 2 on errors (invalid args, IO errors)
+
+## Verification
+
+```bash
+# Build and check for errors
+cargo build
+cargo clippy -- -D warnings
+
+# Run tests
+cargo test find
+
+# Format code
+cargo fmt
+
+# Manual smoke tests (if local mirror exists)
+pdb-cli find --help
+pdb-cli find 4hhb
+pdb-cli find --exists 4hhb && echo "Found"
+pdb-cli find --missing 4hhb nonexistent_id
+```

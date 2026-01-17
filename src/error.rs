@@ -47,6 +47,9 @@ pub enum PdbCliError {
 
     #[error("Checksum fetch failed: {0}")]
     ChecksumFetch(String),
+
+    #[error("Entries not found: {0} of {1} entries missing")]
+    EntriesNotFound(usize, usize),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;

@@ -56,7 +56,13 @@ async fn main() -> anyhow::Result<()> {
             cli::commands::run_list(args, ctx).await?;
         }
         Commands::Find(args) => {
-            cli::commands::run_find(args, ctx).await?;
+            if let Err(e) = cli::commands::run_find(args, ctx).await {
+                if matches!(e, error::PdbCliError::EntriesNotFound(_, _)) {
+                    // Exit with code 1 for scripting (no error message)
+                    std::process::exit(1);
+                }
+                return Err(e.into());
+            }
         }
         Commands::Config(args) => {
             cli::commands::run_config(args, ctx).await?;

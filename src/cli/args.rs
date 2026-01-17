@@ -252,10 +252,6 @@ pub struct FindArgs {
     #[arg(long)]
     pub stdin: bool,
 
-    /// Data type to search (default: structures)
-    #[arg(short = 't', long = "type", value_enum)]
-    pub data_type: Option<DataType>,
-
     /// File format to search
     #[arg(short, long, value_enum)]
     pub format: Option<FileFormat>,
