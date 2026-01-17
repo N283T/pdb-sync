@@ -38,7 +38,9 @@ pub async fn run_stats(args: StatsArgs, ctx: AppContext) -> Result<()> {
 
     // Output based on format
     match args.output {
-        OutputFormat::Text => print_text(&stats, comparison.as_ref(), args.detailed),
+        OutputFormat::Text | OutputFormat::Ids => {
+            print_text(&stats, comparison.as_ref(), args.detailed)
+        }
         OutputFormat::Json => print_json(&stats, comparison.as_ref())?,
         OutputFormat::Csv => print_csv(&stats, comparison.as_ref()),
     }

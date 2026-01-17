@@ -32,7 +32,14 @@ impl HistoryTracker {
     pub fn load_from(path: &PathBuf) -> Result<Self> {
         let history = if path.exists() {
             let content = std::fs::read_to_string(path)?;
-            serde_json::from_str(&content).unwrap_or_default()
+            serde_json::from_str(&content).unwrap_or_else(|e| {
+                eprintln!(
+                    "Warning: Failed to parse history file {}: {}",
+                    path.display(),
+                    e
+                );
+                OperationHistory::default()
+            })
         } else {
             OperationHistory::default()
         };

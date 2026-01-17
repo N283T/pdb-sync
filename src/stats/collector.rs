@@ -9,6 +9,15 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
+/// Length of classic PDB IDs (e.g., "1abc")
+const CLASSIC_PDB_ID_LEN: usize = 4;
+
+/// Length of extended PDB IDs (e.g., "pdb_00001abc")
+const EXTENDED_PDB_ID_LEN: usize = 12;
+
+/// Length of "pdb" prefix in filenames like "pdb1abc.ent.gz"
+const PDB_PREFIX_LEN: usize = 3;
+
 /// Collector for local PDB statistics.
 pub struct LocalStatsCollector {
     pdb_dir: PathBuf,
@@ -76,7 +85,6 @@ impl LocalStatsCollector {
             self.scan_directory(
                 &dir_path,
                 &format_name,
-                &data_type,
                 &mut total_entries,
                 &mut total_size,
                 &mut all_pdb_ids,
@@ -178,7 +186,6 @@ impl LocalStatsCollector {
         &self,
         dir_path: &Path,
         format_name: &str,
-        _data_type: &DataType,
         total_entries: &mut usize,
         total_size: &mut u64,
         all_pdb_ids: &mut HashSet<String>,
@@ -206,7 +213,6 @@ impl LocalStatsCollector {
                 Box::pin(self.scan_directory(
                     &path,
                     format_name,
-                    _data_type,
                     total_entries,
                     total_size,
                     all_pdb_ids,
@@ -301,9 +307,13 @@ impl LocalStatsCollector {
         let name = filename.to_lowercase();
 
         // Extended PDB ID (pdb_XXXXXXXX)
-        if name.starts_with("pdb_") && name.len() >= 12 {
-            let id = &name[0..12];
-            if id.chars().skip(4).all(|c| c.is_alphanumeric()) {
+        if name.starts_with("pdb_") && name.len() >= EXTENDED_PDB_ID_LEN {
+            let id = &name[0..EXTENDED_PDB_ID_LEN];
+            if id
+                .chars()
+                .skip(CLASSIC_PDB_ID_LEN)
+                .all(|c| c.is_alphanumeric())
+            {
                 return Some(id.to_string());
             }
         }
@@ -313,7 +323,7 @@ impl LocalStatsCollector {
             let id_part = &name[1..];
             if let Some(sf_pos) = id_part.find("sf") {
                 let id = &id_part[..sf_pos];
-                if id.len() == 4 {
+                if id.len() == CLASSIC_PDB_ID_LEN {
                     return Some(id.to_string());
                 }
             }
@@ -321,9 +331,9 @@ impl LocalStatsCollector {
 
         // PDB format with prefix (pdb1abc.ent.gz)
         if name.starts_with("pdb") && !name.starts_with("pdb_") {
-            let id_part = &name[3..];
-            if id_part.len() >= 4 {
-                let id = &id_part[..4];
+            let id_part = &name[PDB_PREFIX_LEN..];
+            if id_part.len() >= CLASSIC_PDB_ID_LEN {
+                let id = &id_part[..CLASSIC_PDB_ID_LEN];
                 if Self::is_classic_pdb_id(id) {
                     return Some(id.to_string());
                 }
@@ -332,7 +342,7 @@ impl LocalStatsCollector {
 
         // Standard pattern (1abc.cif.gz) or assembly (1abc-assembly1.cif.gz)
         let id_part = name.split(&['.', '-'][..]).next()?;
-        if id_part.len() == 4 && Self::is_classic_pdb_id(id_part) {
+        if id_part.len() == CLASSIC_PDB_ID_LEN && Self::is_classic_pdb_id(id_part) {
             return Some(id_part.to_string());
         }
 
@@ -341,7 +351,7 @@ impl LocalStatsCollector {
 
     /// Check if a string matches the classic 4-character PDB ID pattern.
     fn is_classic_pdb_id(s: &str) -> bool {
-        if s.len() != 4 {
+        if s.len() != CLASSIC_PDB_ID_LEN {
             return false;
         }
         let mut chars = s.chars();
