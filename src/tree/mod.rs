@@ -35,11 +35,12 @@ impl DirNode {
 }
 
 /// Field to sort top directories by
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
 pub enum SortBy {
+    /// Sort by file count
     #[default]
     Count,
+    /// Sort by total size
     Size,
 }
 

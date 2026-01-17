@@ -4,7 +4,7 @@ use crate::cli::args::{OutputFormat, TreeArgs};
 use crate::context::AppContext;
 use crate::error::{PdbCliError, Result};
 use crate::tree::render::{render_top_directories, RenderOptions};
-use crate::tree::{build_tree, render_tree, DirNode, SortBy, TreeOptions};
+use crate::tree::{build_tree, render_tree, DirNode, TreeOptions};
 
 /// Main entry point for the tree command
 pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
@@ -39,7 +39,7 @@ pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
         OutputFormat::Text => {
             if let Some(top_n) = args.top {
                 // Top N mode
-                let output = render_top_directories(&tree, top_n, SortBy::Count);
+                let output = render_top_directories(&tree, top_n, args.sort_by);
                 print!("{}", output);
             } else {
                 // Normal tree mode
@@ -52,6 +52,16 @@ pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
         }
         OutputFormat::Csv => {
             print_csv(&tree);
+        }
+        OutputFormat::Ids => {
+            // Ids format doesn't apply to tree command, fall back to text
+            if let Some(top_n) = args.top {
+                let output = render_top_directories(&tree, top_n, args.sort_by);
+                print!("{}", output);
+            } else {
+                let output = render_tree(&tree, &render_options);
+                print!("{}", output);
+            }
         }
     }
 

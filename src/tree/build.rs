@@ -50,7 +50,14 @@ async fn build_tree_recursive(
     // Read directory entries
     let mut entries = match fs::read_dir(&node.path).await {
         Ok(entries) => entries,
-        Err(_) => return Ok(()), // Directory not accessible
+        Err(e) => {
+            tracing::debug!(
+                "Skipping inaccessible directory {}: {}",
+                node.path.display(),
+                e
+            );
+            return Ok(());
+        }
     };
 
     let mut children = Vec::new();
@@ -119,7 +126,14 @@ async fn count_files_recursive(path: &Path, options: &TreeOptions) -> Result<(u6
     while let Some(current) = stack.pop() {
         let mut entries = match fs::read_dir(&current).await {
             Ok(entries) => entries,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!(
+                    "Skipping inaccessible directory {}: {}",
+                    current.display(),
+                    e
+                );
+                continue;
+            }
         };
 
         while let Some(entry) = entries.next_entry().await? {
