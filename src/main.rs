@@ -51,6 +51,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Copy(args) => {
             cli::commands::run_copy(args, ctx).await?;
         }
+        Commands::List(args) => {
+            cli::commands::run_list(args, ctx).await?;
+        }
         Commands::Config(args) => {
             cli::commands::run_config(args, ctx).await?;
         }
