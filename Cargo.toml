@@ -22,7 +22,6 @@ regex = "1.10"
 url = "2.5"
 futures-util = "0.3"
 async-compression = { version = "0.4", features = ["tokio", "gzip"] }
-serde_json = "1.0"
 glob = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 

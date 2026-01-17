@@ -2,7 +2,6 @@ use crate::data_types::{DataType, Layout};
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use clap::{Parser, Subcommand, ValueEnum};
-use pdb_cli::data_types::DataType;
 use std::path::PathBuf;
 
 /// Output format for list command
@@ -130,14 +129,6 @@ impl SyncFormat {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
-pub enum OutputFormat {
-    #[default]
-    Text,
-    Json,
-    Csv,
-}
-
 #[derive(Parser)]
 pub struct DownloadArgs {
     /// PDB IDs to download
@@ -216,10 +207,6 @@ pub struct CopyArgs {
 pub struct ListArgs {
     /// Pattern to filter PDB IDs (supports glob patterns like "1ab*", "*xyz")
     pub pattern: Option<String>,
-
-    /// Data type to list (default: structures)
-    #[arg(short = 't', long, value_enum)]
-    pub data_type: Option<DataType>,
 
     /// File format to list
     #[arg(short, long, value_enum)]

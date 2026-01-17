@@ -18,7 +18,6 @@ pub struct LocalFile {
     pub path: PathBuf,
     pub size: u64,
     pub modified: Option<DateTime<Local>>,
-    pub data_type: String,
     pub format: String,
 }
 
@@ -27,7 +26,7 @@ pub struct LocalFile {
 struct Statistics {
     total_files: usize,
     total_size: u64,
-    by_format: std::collections::HashMap<String, FormatStats>,
+    by_format: std::collections::BTreeMap<String, FormatStats>,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -168,7 +167,6 @@ async fn scan_local_files(
                     path: file_path,
                     size: metadata.len(),
                     modified,
-                    data_type: "structures".to_string(),
                     format: format_name.to_string(),
                 });
             }
@@ -226,7 +224,7 @@ fn compute_statistics(files: &[LocalFile]) -> Statistics {
     let mut stats = Statistics {
         total_files: files.len(),
         total_size: 0,
-        by_format: std::collections::HashMap::new(),
+        by_format: std::collections::BTreeMap::new(),
     };
 
     for file in files {
@@ -288,7 +286,7 @@ fn print_csv(files: &[LocalFile], show_size: bool, show_time: bool) {
 
     // Print rows
     for file in files {
-        let mut parts = vec![file.pdb_id.clone()];
+        let mut parts = vec![escape_csv_field(&file.pdb_id)];
 
         if show_size {
             parts.push(file.size.to_string());
@@ -296,16 +294,27 @@ fn print_csv(files: &[LocalFile], show_size: bool, show_time: bool) {
 
         if show_time {
             if let Some(modified) = &file.modified {
-                parts.push(modified.to_rfc3339());
+                parts.push(escape_csv_field(&modified.to_rfc3339()));
             } else {
                 parts.push(String::new());
             }
         }
 
-        parts.push(file.format.clone());
-        parts.push(file.path.display().to_string());
+        parts.push(escape_csv_field(&file.format));
+        parts.push(escape_csv_field(&file.path.display().to_string()));
 
         println!("{}", parts.join(","));
+    }
+}
+
+/// Escape a CSV field to prevent injection and handle special characters
+fn escape_csv_field(s: &str) -> String {
+    // Check if escaping is needed
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        // Escape quotes by doubling them and wrap in quotes
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
     }
 }
 
@@ -423,7 +432,6 @@ mod tests {
                 path: PathBuf::from("/tmp/2abc.cif.gz"),
                 size: 100,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
             LocalFile {
@@ -431,7 +439,6 @@ mod tests {
                 path: PathBuf::from("/tmp/1abc.cif.gz"),
                 size: 200,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
         ];
@@ -453,7 +460,6 @@ mod tests {
                 path: PathBuf::from("/tmp/1abc.cif.gz"),
                 size: 200,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
             LocalFile {
@@ -461,7 +467,6 @@ mod tests {
                 path: PathBuf::from("/tmp/2abc.cif.gz"),
                 size: 100,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
         ];
@@ -483,7 +488,6 @@ mod tests {
                 path: PathBuf::from("/tmp/1abc.cif.gz"),
                 size: 100,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
             LocalFile {
@@ -491,7 +495,6 @@ mod tests {
                 path: PathBuf::from("/tmp/2abc.cif.gz"),
                 size: 200,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "mmcif".to_string(),
             },
             LocalFile {
@@ -499,7 +502,6 @@ mod tests {
                 path: PathBuf::from("/tmp/3abc.ent.gz"),
                 size: 150,
                 modified: None,
-                data_type: "structures".to_string(),
                 format: "pdb".to_string(),
             },
         ];
@@ -511,5 +513,17 @@ mod tests {
         assert_eq!(stats.by_format.get("mmcif").unwrap().size, 300);
         assert_eq!(stats.by_format.get("pdb").unwrap().count, 1);
         assert_eq!(stats.by_format.get("pdb").unwrap().size, 150);
+    }
+
+    #[test]
+    fn test_escape_csv_field() {
+        assert_eq!(escape_csv_field("simple"), "simple");
+        assert_eq!(escape_csv_field("with,comma"), "\"with,comma\"");
+        assert_eq!(escape_csv_field("with\"quote"), "\"with\"\"quote\"");
+        assert_eq!(escape_csv_field("with\nnewline"), "\"with\nnewline\"");
+        assert_eq!(
+            escape_csv_field("/path/to,file\"name"),
+            "\"/path/to,file\"\"name\""
+        );
     }
 }
