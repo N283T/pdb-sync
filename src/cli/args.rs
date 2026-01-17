@@ -137,6 +137,9 @@ pub enum Commands {
 
     /// Show statistics about the local PDB collection
     Stats(StatsArgs),
+
+    /// Show directory tree of local PDB mirror
+    Tree(TreeArgs),
 }
 
 #[derive(Parser)]
@@ -623,6 +626,41 @@ pub struct StatsArgs {
     /// Filter by data type
     #[arg(short = 't', long = "type", value_enum)]
     pub data_type: Option<DataType>,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
+}
+
+#[derive(Parser)]
+pub struct TreeArgs {
+    /// Maximum depth to display (0 = root only)
+    #[arg(short, long)]
+    pub depth: Option<usize>,
+
+    /// Filter by file format
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Show file sizes
+    #[arg(short, long)]
+    pub size: bool,
+
+    /// Show file counts
+    #[arg(short, long)]
+    pub count: bool,
+
+    /// Hide summary line
+    #[arg(long)]
+    pub no_summary: bool,
+
+    /// Show only non-empty directories
+    #[arg(long)]
+    pub non_empty: bool,
+
+    /// Show top N directories by file count
+    #[arg(long)]
+    pub top: Option<usize>,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
