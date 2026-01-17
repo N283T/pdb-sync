@@ -69,6 +69,12 @@ pub struct DownloadConfig {
     pub default_format: String,
     /// Number of retry attempts for failed downloads
     pub retry_count: u32,
+    /// Download engine: "builtin" or "aria2c"
+    pub engine: String,
+    /// Number of connections per server for aria2c (-x flag)
+    pub aria2c_connections: u32,
+    /// Number of splits per download for aria2c (-s flag)
+    pub aria2c_split: u32,
 }
 
 impl Default for DownloadConfig {
@@ -78,6 +84,9 @@ impl Default for DownloadConfig {
             parallel: 4,
             default_format: "mmcif".to_string(),
             retry_count: 3,
+            engine: "builtin".to_string(),
+            aria2c_connections: 4,
+            aria2c_split: 1,
         }
     }
 }

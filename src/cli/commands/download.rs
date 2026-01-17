@@ -1,7 +1,10 @@
 use crate::cli::args::DownloadArgs;
 use crate::context::AppContext;
 use crate::data_types::DataType;
-use crate::download::{DownloadOptions, DownloadResult, DownloadTask, HttpsDownloader};
+use crate::download::{
+    aria2c, Aria2cDownloader, DownloadOptions, DownloadResult, DownloadTask, EngineType,
+    HttpsDownloader,
+};
 use crate::error::{PdbCliError, Result};
 use crate::files::PdbId;
 use crate::utils::IdSource;
@@ -66,6 +69,26 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
     // Build download tasks
     let tasks = build_tasks(&pdb_ids, args.data_type, args.format, args.assembly);
 
+    // Determine engine type (CLI arg overrides config)
+    let engine = args
+        .engine
+        .or_else(|| ctx.config.download.engine.parse::<EngineType>().ok())
+        .unwrap_or(EngineType::Builtin);
+
+    // Warn if --decompress is used with aria2c (aria2c downloads raw files)
+    if engine == EngineType::Aria2c && (args.decompress || ctx.config.download.auto_decompress) {
+        eprintln!(
+            "Warning: --decompress is not supported with aria2c engine; files will remain compressed"
+        );
+    }
+
+    // Handle export option
+    if args.export_aria2c {
+        let content = aria2c::generate_export_input(&tasks, &dest, &options);
+        print!("{}", content);
+        return Ok(());
+    }
+
     println!(
         "Downloading {} {} ({} tasks, {} parallel)...",
         pdb_ids.len(),
@@ -74,9 +97,37 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
         args.parallel
     );
 
-    // Create downloader and execute
-    let downloader = HttpsDownloader::new(options);
-    let results = downloader.download_many(tasks, &dest).await;
+    // Execute download based on engine type
+    let results = match engine {
+        EngineType::Builtin => {
+            let downloader = HttpsDownloader::new(options);
+            downloader.download_many(tasks, &dest).await
+        }
+        EngineType::Aria2c => {
+            // Get aria2c-specific options
+            let connections = if args.connections != 4 {
+                args.connections
+            } else {
+                ctx.config.download.aria2c_connections
+            };
+            let split = if args.split != 1 {
+                args.split
+            } else {
+                ctx.config.download.aria2c_split
+            };
+
+            match Aria2cDownloader::new(options.clone(), connections, split) {
+                Some(downloader) => downloader.download_many(tasks, &dest).await,
+                None => {
+                    eprintln!(
+                        "Warning: aria2c not found in PATH, falling back to built-in downloader"
+                    );
+                    let downloader = HttpsDownloader::new(options);
+                    downloader.download_many(tasks, &dest).await
+                }
+            }
+        }
+    };
 
     // Count results
     let success_count = results.iter().filter(|r| r.is_success()).count();

@@ -14,6 +14,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Semaphore;
 
 /// Download configuration options.
+#[derive(Clone)]
 pub struct DownloadOptions {
     pub mirror: MirrorId,
     pub decompress: bool,
@@ -265,7 +266,7 @@ impl HttpsDownloader {
     }
 
     /// Build URL for a download task based on data type and mirror.
-    fn build_url_for_task(&self, task: &DownloadTask) -> String {
+    pub fn build_url_for_task(&self, task: &DownloadTask) -> String {
         let mirror = Mirror::get(self.options.mirror);
         let id = task.pdb_id.as_str();
 
@@ -482,7 +483,7 @@ impl HttpsDownloader {
     }
 
     /// Build destination path for a download task.
-    fn build_dest_path_for_task(&self, dest: &Path, task: &DownloadTask) -> PathBuf {
+    pub fn build_dest_path_for_task(&self, dest: &Path, task: &DownloadTask) -> PathBuf {
         let id = task.pdb_id.as_str();
 
         match task.data_type {
