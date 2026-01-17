@@ -26,6 +26,15 @@ use state::WatchState;
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// Default number of parallel downloads for watch command
+const DEFAULT_PARALLEL_DOWNLOADS: usize = 4;
+
+/// Default number of retry attempts for downloads
+const DEFAULT_RETRY_COUNT: u32 = 3;
+
+/// Default delay between retry attempts
+const DEFAULT_RETRY_DELAY_SECS: u64 = 1;
+
 /// Watch configuration parsed from CLI args
 pub struct WatchConfig {
     /// Check interval
@@ -128,14 +137,14 @@ impl Watcher {
         let state = WatchState::load_or_init().await?;
 
         // Create search client
-        let search_client = RcsbSearchClient::new();
+        let search_client = RcsbSearchClient::new()?;
 
         // Create downloader
         let download_options = DownloadOptions {
             mirror: config.mirror,
-            parallel: 4,
-            retry_count: 3,
-            retry_delay: Duration::from_secs(1),
+            parallel: DEFAULT_PARALLEL_DOWNLOADS,
+            retry_count: DEFAULT_RETRY_COUNT,
+            retry_delay: Duration::from_secs(DEFAULT_RETRY_DELAY_SECS),
             decompress: false,
             overwrite: false,
         };
@@ -297,35 +306,43 @@ impl Watcher {
                 .download_many(tasks, &self.config.dest)
                 .await;
 
-            // Check results
-            let mut any_success = false;
+            // Check results - require all data types to succeed (or be skipped)
+            let mut all_succeeded = true;
+            let mut success_paths = Vec::new();
+
             for result in &results {
                 match result {
                     DownloadResult::Success { path, .. } => {
                         println!("  Downloaded: {}", path.display());
-                        any_success = true;
-
-                        // Run hook if configured
-                        if let Some(runner) = &self.hook_runner {
-                            if let Err(e) = runner.run(id_str, path).await {
-                                eprintln!("  Hook failed for {}: {}", id_str, e);
-                            }
-                        }
+                        success_paths.push(path.clone());
                     }
                     DownloadResult::Failed { error, .. } => {
                         eprintln!("  Download failed for {}: {}", id_str, error);
+                        all_succeeded = false;
                     }
                     DownloadResult::Skipped { reason, .. } => {
                         println!("  Skipped {}: {}", id_str, reason);
-                        // Count skipped as success to avoid re-downloading
-                        any_success = true;
+                        // Skipped counts as success (file already exists)
                     }
                 }
             }
 
-            if any_success {
+            // Only mark as downloaded if all requested data types succeeded
+            // This ensures partial failures will be retried on next check
+            if all_succeeded && !success_paths.is_empty() {
+                // Run hook for each successfully downloaded file
+                if let Some(runner) = &self.hook_runner {
+                    for path in &success_paths {
+                        if let Err(e) = runner.run(id_str, path).await {
+                            eprintln!("  Hook failed for {}: {}", id_str, e);
+                        }
+                    }
+                }
+
                 self.state.mark_downloaded(id_str);
                 downloaded.push(id_str.clone());
+            } else if !all_succeeded {
+                eprintln!("  Entry {} had failures, will retry on next check", id_str);
             }
         }
 

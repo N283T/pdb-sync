@@ -83,15 +83,15 @@ struct TerminalParameters {
 
 impl RcsbSearchClient {
     /// Create a new RCSB Search API client
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
             .user_agent(USER_AGENT)
             .build()
-            .expect("Failed to build HTTP client");
+            .map_err(|e| PdbCliError::SearchApi(format!("Failed to build HTTP client: {}", e)))?;
 
-        Self { client }
+        Ok(Self { client })
     }
 
     /// Search for entries released since the given date
@@ -230,19 +230,13 @@ impl RcsbSearchClient {
     }
 }
 
-impl Default for RcsbSearchClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_build_query_date_only() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters::default();
 
@@ -256,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_build_query_with_method_filter() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters {
             method: Some(ExperimentalMethod::Xray),
@@ -272,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_build_query_with_resolution_filter() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters {
             resolution: Some(2.0),
@@ -289,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_build_query_with_organism_filter() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters {
             organism: Some("Homo sapiens".to_string()),
@@ -305,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_build_query_combined_filters() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters {
             method: Some(ExperimentalMethod::Em),
@@ -327,7 +321,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_search_api_call() {
-        let client = RcsbSearchClient::new();
+        let client = RcsbSearchClient::new().unwrap();
         let since = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         let filters = SearchFilters::default();
 

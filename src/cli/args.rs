@@ -451,6 +451,41 @@ pub struct ValidateArgs {
     pub output: OutputFormat,
 }
 
+/// Validate resolution filter (must be in range 0.0-100.0)
+fn validate_resolution(s: &str) -> Result<f64, String> {
+    let value: f64 = s.parse().map_err(|_| format!("Invalid number: {}", s))?;
+    if !(0.0..=100.0).contains(&value) {
+        return Err(format!(
+            "Resolution must be between 0.0 and 100.0, got {}",
+            value
+        ));
+    }
+    Ok(value)
+}
+
+/// Validate organism filter string (max 200 chars, alphanumeric + basic punctuation)
+fn validate_organism(s: &str) -> Result<String, String> {
+    const MAX_LEN: usize = 200;
+    if s.len() > MAX_LEN {
+        return Err(format!(
+            "Organism name too long ({} chars, max {})",
+            s.len(),
+            MAX_LEN
+        ));
+    }
+    // Allow alphanumeric, spaces, hyphens, periods, parentheses
+    if s.chars()
+        .all(|c| c.is_alphanumeric() || " -._()".contains(c))
+    {
+        Ok(s.to_string())
+    } else {
+        Err(
+            "Organism name contains invalid characters (allowed: alphanumeric, space, -._())"
+                .into(),
+        )
+    }
+}
+
 #[derive(Parser)]
 pub struct WatchArgs {
     /// Check interval (e.g., "1h", "30m", "1d")
@@ -461,12 +496,12 @@ pub struct WatchArgs {
     #[arg(long, value_enum)]
     pub method: Option<ExperimentalMethod>,
 
-    /// Filter by maximum resolution (Å)
-    #[arg(long)]
+    /// Filter by maximum resolution (Å), range: 0.0-100.0
+    #[arg(long, value_parser = validate_resolution)]
     pub resolution: Option<f64>,
 
-    /// Filter by source organism (scientific name)
-    #[arg(long)]
+    /// Filter by source organism (scientific name), max 200 characters
+    #[arg(long, value_parser = validate_organism)]
     pub organism: Option<String>,
 
     /// Data types to download (can specify multiple times)

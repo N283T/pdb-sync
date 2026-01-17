@@ -13,6 +13,11 @@ use tokio::fs;
 /// State file name
 const STATE_FILE: &str = "watch_state.json";
 
+/// Maximum number of downloaded IDs to keep in state
+/// This prevents unbounded growth of the state file.
+/// With ~300 new entries per week, 10000 covers about 8 months.
+const MAX_DOWNLOADED_IDS: usize = 10000;
+
 /// Watch state that persists across sessions
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WatchState {
@@ -51,8 +56,11 @@ impl WatchState {
         })
     }
 
-    /// Save state to disk
-    pub async fn save(&self) -> Result<()> {
+    /// Save state to disk (prunes old entries if needed)
+    pub async fn save(&mut self) -> Result<()> {
+        // Prune before saving to prevent unbounded growth
+        self.prune_if_needed();
+
         let path = Self::state_path()?;
 
         // Create parent directory if needed
@@ -86,6 +94,28 @@ impl WatchState {
     /// Update the last check timestamp
     pub fn update_last_check(&mut self, date: NaiveDate) {
         self.last_check = Some(date);
+    }
+
+    /// Prune old entries if the set exceeds the maximum size.
+    /// This is called automatically before saving to prevent unbounded growth.
+    /// Since we can't track insertion order with HashSet, we simply clear
+    /// half the entries when the limit is exceeded (older entries are more
+    /// likely to be irrelevant anyway since they're outside the search window).
+    pub fn prune_if_needed(&mut self) {
+        if self.downloaded_ids.len() > MAX_DOWNLOADED_IDS {
+            // Keep roughly half the entries by random sampling
+            // This is acceptable because:
+            // 1. Entries outside the search window (since last_check) won't be queried again
+            // 2. Any accidentally re-downloaded entry just gets skipped (already exists on disk)
+            let to_keep = MAX_DOWNLOADED_IDS / 2;
+            let ids: Vec<String> = self.downloaded_ids.drain().take(to_keep).collect();
+            self.downloaded_ids = ids.into_iter().collect();
+            tracing::debug!(
+                "Pruned state: kept {} of {} entries",
+                self.downloaded_ids.len(),
+                MAX_DOWNLOADED_IDS
+            );
+        }
     }
 
     /// Get the effective start date for searching
