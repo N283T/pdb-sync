@@ -31,6 +31,9 @@ pub enum PdbCliError {
 
     #[error("Download failed: {0}")]
     Download(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;
