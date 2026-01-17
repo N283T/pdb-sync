@@ -1,3 +1,5 @@
+pub mod progress;
 pub mod rsync;
 
-pub use rsync::{RsyncOptions, RsyncRunner};
+pub use progress::SyncProgress;
+pub use rsync::{RsyncOptions, RsyncRunner, SyncResult};
