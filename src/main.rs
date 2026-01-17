@@ -6,7 +6,9 @@ mod convert;
 mod download;
 mod error;
 mod files;
+mod history;
 mod mirrors;
+mod stats;
 mod sync;
 mod utils;
 mod validation;
@@ -84,6 +86,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Convert(args) => {
             cli::commands::run_convert(args, ctx).await?;
+        }
+        Commands::Stats(args) => {
+            cli::commands::run_stats(args, ctx).await?;
         }
     }
 
