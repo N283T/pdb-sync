@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 const RCSB_API_BASE: &str = "https://data.rcsb.org/rest/v1/core/entry";
+const RCSB_SEARCH_API: &str = "https://search.rcsb.org/rcsbsearch/v2/query";
 const USER_AGENT: &str = concat!("pdb-cli/", env!("CARGO_PKG_VERSION"));
 
 /// Client for interacting with RCSB Data API
@@ -47,6 +48,57 @@ impl RcsbClient {
 
         let entry: EntryMetadata = response.json().await?;
         Ok(entry)
+    }
+
+    /// Get the total number of entries in the PDB archive.
+    ///
+    /// This uses the RCSB Search API to query the total count of all entries.
+    pub async fn get_total_entry_count(&self) -> Result<usize> {
+        // Minimal search query that matches all entries
+        let query = serde_json::json!({
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "rcsb_entry_info.structure_determination_methodology",
+                    "operator": "exists"
+                }
+            },
+            "return_type": "entry",
+            "request_options": {
+                "return_all_hits": false,
+                "results_content_type": ["experimental"],
+                "results_verbosity": "minimal",
+                "paginate": {
+                    "start": 0,
+                    "rows": 0
+                }
+            }
+        });
+
+        let response = self
+            .client
+            .post(RCSB_SEARCH_API)
+            .header("User-Agent", USER_AGENT)
+            .header("Content-Type", "application/json")
+            .json(&query)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(PdbCliError::Download(format!(
+                "Search API request failed with status {}",
+                response.status()
+            )));
+        }
+
+        #[derive(Deserialize)]
+        struct SearchResponse {
+            total_count: usize,
+        }
+
+        let result: SearchResponse = response.json().await?;
+        Ok(result.total_count)
     }
 }
 
@@ -223,5 +275,18 @@ mod tests {
 
         // Should return a NotFound error for non-existent entry
         assert!(matches!(result, Err(PdbCliError::NotFound(_))));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires network access"]
+    async fn test_get_total_entry_count() {
+        let client = RcsbClient::new();
+        let count = client
+            .get_total_entry_count()
+            .await
+            .expect("Failed to get total entry count");
+
+        // PDB should have over 200,000 entries
+        assert!(count > 200_000);
     }
 }

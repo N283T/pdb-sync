@@ -134,6 +134,9 @@ pub enum Commands {
 
     /// Convert file formats (compression, decompression, format conversion)
     Convert(ConvertArgs),
+
+    /// Show statistics about the local PDB collection
+    Stats(StatsArgs),
 }
 
 #[derive(Parser)]
@@ -601,4 +604,27 @@ pub struct ConvertArgs {
     /// Number of parallel conversions (1-64)
     #[arg(short, long, default_value = "4", value_parser = clap::value_parser!(u8).range(1..=64))]
     pub parallel: u8,
+}
+
+#[derive(Parser)]
+pub struct StatsArgs {
+    /// Show detailed statistics (size distribution, oldest/newest files)
+    #[arg(long)]
+    pub detailed: bool,
+
+    /// Compare with remote PDB archive
+    #[arg(long)]
+    pub compare_remote: bool,
+
+    /// Filter by file format
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Filter by data type
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_type: Option<DataType>,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
 }
