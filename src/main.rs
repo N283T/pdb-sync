@@ -7,6 +7,9 @@ mod files;
 mod mirrors;
 mod sync;
 
+// Re-export from library crate
+pub use pdb_cli::data_types;
+
 use clap::Parser;
 use cli::{Cli, Commands};
 use context::AppContext;
