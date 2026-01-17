@@ -7,6 +7,7 @@ mod download;
 mod error;
 mod files;
 mod history;
+mod jobs;
 mod mirrors;
 mod stats;
 mod sync;
@@ -39,6 +40,16 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(filter)
         .with_target(false)
         .init();
+
+    // Check if running as a background job
+    if let Some(job_id) = &cli.job_id {
+        return run_as_background_job(&cli, job_id).await;
+    }
+
+    // Check if --bg flag is set for supported commands
+    if should_run_background(&cli) {
+        return spawn_background_job();
+    }
 
     // Check for first-run setup
     if cli::commands::needs_setup() {
@@ -97,6 +108,117 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Update(args) => {
             cli::commands::run_update(args, ctx).await?;
+        }
+        Commands::Jobs(args) => {
+            cli::commands::run_jobs(args).await?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if the command should run in background
+fn should_run_background(cli: &Cli) -> bool {
+    match &cli.command {
+        Commands::Sync(args) => args.bg,
+        Commands::Download(args) => args.bg,
+        _ => false,
+    }
+}
+
+/// Spawn a background job and exit immediately
+fn spawn_background_job() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
+    let (job_id, job_dir) = jobs::spawn::spawn_background(&args)?;
+
+    println!("Job started: {}", job_id);
+    println!("Log: {}", job_dir.join("stdout.log").display());
+    println!();
+    println!("Use 'pdb-cli jobs' to check status");
+    println!(
+        "Use 'pdb-cli jobs log {} --follow' to tail the output",
+        job_id
+    );
+
+    Ok(())
+}
+
+/// Run as a background job (called when --_job-id is set)
+async fn run_as_background_job(cli: &Cli, job_id: &str) -> anyhow::Result<()> {
+    // Run the actual command
+    let result = run_command(cli).await;
+
+    // Finalize job with exit code
+    let exit_code = if result.is_ok() { 0 } else { 1 };
+    jobs::spawn::finalize_job(job_id, exit_code)?;
+
+    result
+}
+
+/// Run the command (without background handling)
+async fn run_command(cli: &Cli) -> anyhow::Result<()> {
+    // Check for first-run setup
+    if cli::commands::needs_setup() {
+        cli::commands::run_setup()?;
+    }
+
+    // Load context
+    let ctx = AppContext::new()
+        .await?
+        .with_overrides(cli.pdb_dir.clone(), None);
+
+    // Dispatch to command handlers
+    match &cli.command {
+        Commands::Sync(args) => {
+            cli::commands::run_sync(args.clone(), ctx).await?;
+        }
+        Commands::Download(args) => {
+            cli::commands::run_download(args.clone(), ctx).await?;
+        }
+        Commands::Copy(args) => {
+            cli::commands::run_copy(args.clone(), ctx).await?;
+        }
+        Commands::List(args) => {
+            cli::commands::run_list(args.clone(), ctx).await?;
+        }
+        Commands::Find(args) => {
+            if let Err(e) = cli::commands::run_find(args.clone(), ctx).await {
+                if matches!(e, error::PdbCliError::EntriesNotFound(_, _)) {
+                    std::process::exit(1);
+                }
+                return Err(e.into());
+            }
+        }
+        Commands::Config(args) => {
+            cli::commands::run_config(args.clone(), ctx).await?;
+        }
+        Commands::Env(args) => {
+            cli::commands::run_env(args.clone(), ctx).await?;
+        }
+        Commands::Info(args) => {
+            cli::commands::run_info(args.clone(), ctx).await?;
+        }
+        Commands::Validate(args) => {
+            cli::commands::run_validate(args.clone(), ctx).await?;
+        }
+        Commands::Watch(args) => {
+            cli::commands::run_watch(args.clone(), ctx).await?;
+        }
+        Commands::Convert(args) => {
+            cli::commands::run_convert(args.clone(), ctx).await?;
+        }
+        Commands::Stats(args) => {
+            cli::commands::run_stats(args.clone(), ctx).await?;
+        }
+        Commands::Tree(args) => {
+            cli::commands::run_tree(args.clone(), ctx).await?;
+        }
+        Commands::Update(args) => {
+            cli::commands::run_update(args.clone(), ctx).await?;
+        }
+        Commands::Jobs(args) => {
+            cli::commands::run_jobs(args.clone()).await?;
         }
     }
 
