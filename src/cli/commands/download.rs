@@ -5,7 +5,10 @@ use crate::error::Result;
 use crate::files::PdbId;
 
 pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
-    let dest = args.dest.unwrap_or_else(|| ctx.pdb_dir.clone());
+    // Default to current directory for download
+    let dest = args
+        .dest
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ctx.pdb_dir.clone()));
     let mirror = args.mirror.unwrap_or(ctx.mirror);
 
     let options = DownloadOptions {
