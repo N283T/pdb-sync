@@ -58,6 +58,11 @@ impl LatencyCache {
 }
 
 /// Global latency cache.
+///
+/// Note: The cache is lazily initialized on first use. The TTL is only set during
+/// initialization, so subsequent calls with different TTL values will use the
+/// originally configured TTL. This is by design for CLI usage where configuration
+/// is typically constant throughout a session.
 static LATENCY_CACHE: std::sync::OnceLock<LatencyCache> = std::sync::OnceLock::new();
 
 fn get_cache(ttl: Duration) -> &'static LatencyCache {
@@ -107,8 +112,16 @@ pub async fn test_all_mirrors() -> HashMap<MirrorId, Duration> {
 
     let mut results = HashMap::new();
     for handle in handles {
-        if let Ok((id, Some(latency))) = handle.await {
-            results.insert(id, latency);
+        match handle.await {
+            Ok((id, Some(latency))) => {
+                results.insert(id, latency);
+            }
+            Ok((id, None)) => {
+                tracing::debug!("Mirror {} did not respond", id);
+            }
+            Err(e) => {
+                tracing::warn!("Task for mirror latency testing panicked: {}", e);
+            }
         }
     }
     results
@@ -187,6 +200,12 @@ pub fn find_best_from_results(
 }
 
 /// Check if a region alias matches.
+///
+/// Both inputs should be normalized to lowercase before calling this function.
+/// Maps common region aliases to mirror regions:
+/// - "us", "usa", "america" -> "us" (RCSB)
+/// - "jp", "japan" -> "japan" (PDBj)
+/// - "eu", "europe", "uk" -> "europe" (PDBe)
 fn matches_region_alias(preferred: &str, mirror_region: &str) -> bool {
     matches!(
         (preferred, mirror_region),
