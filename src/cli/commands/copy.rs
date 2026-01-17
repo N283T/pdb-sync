@@ -2,24 +2,22 @@ use crate::cli::args::CopyArgs;
 use crate::context::AppContext;
 use crate::error::{PdbCliError, Result};
 use crate::files::{paths::build_relative_path, FileFormat, PdbId};
+use crate::utils::IdSource;
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 pub async fn run_copy(args: CopyArgs, ctx: AppContext) -> Result<()> {
-    // Collect PDB IDs from args and/or list file
-    let mut pdb_ids = args.pdb_ids.clone();
+    // Collect PDB IDs from args, list file, and/or stdin
+    let id_source =
+        IdSource::collect(args.pdb_ids.clone(), args.list.as_deref(), args.stdin).await?;
 
-    if let Some(list_path) = &args.list {
-        let ids_from_file = read_id_list(list_path).await?;
-        pdb_ids.extend(ids_from_file);
-    }
-
-    if pdb_ids.is_empty() {
+    if id_source.is_empty() {
         return Err(PdbCliError::InvalidInput(
-            "No PDB IDs provided. Use positional arguments or --list".into(),
+            "No PDB IDs provided. Use positional arguments, --list, or --stdin".into(),
         ));
     }
+
+    let pdb_ids = id_source.ids;
 
     // Mirror directory is the source
     let mirror_dir = &ctx.pdb_dir;
@@ -137,43 +135,4 @@ async fn copy_pdb_file(
     }
 
     Ok(dest_path)
-}
-
-async fn read_id_list(path: &Path) -> Result<Vec<String>> {
-    let file = fs::File::open(path).await?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    let mut ids = Vec::new();
-
-    while let Some(line) = lines.next_line().await? {
-        let trimmed = line.trim();
-        // Skip empty lines and comments
-        if !trimmed.is_empty() && !trimmed.starts_with('#') {
-            ids.push(trimmed.to_string());
-        }
-    }
-
-    Ok(ids)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_read_id_list() {
-        use tokio::io::AsyncWriteExt;
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let list_file = temp_dir.path().join("ids.txt");
-
-        let mut file = fs::File::create(&list_file).await.unwrap();
-        file.write_all(b"1abc\n2xyz\n# comment\n\n3def\n")
-            .await
-            .unwrap();
-        file.flush().await.unwrap();
-
-        let ids = read_id_list(&list_file).await.unwrap();
-        assert_eq!(ids, vec!["1abc", "2xyz", "3def"]);
-    }
 }

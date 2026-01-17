@@ -82,6 +82,10 @@ fn show_local_info(pdb_id: &PdbId, ctx: &AppContext, output: OutputFormat) -> Re
                 );
             }
         }
+        OutputFormat::Ids => {
+            // For single entry info, just print the ID
+            println!("{}", pdb_id.as_str().to_uppercase());
+        }
     }
 
     Ok(())
@@ -125,6 +129,11 @@ fn print_metadata(
         OutputFormat::Text => print_metadata_text(metadata, show_all),
         OutputFormat::Json => print_metadata_json(metadata, show_all),
         OutputFormat::Csv => print_metadata_csv(metadata, show_all),
+        OutputFormat::Ids => {
+            // For single entry metadata, just print the ID
+            println!("{}", metadata.rcsb_id);
+            Ok(())
+        }
     }
 }
 

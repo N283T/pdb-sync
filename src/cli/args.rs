@@ -14,6 +14,8 @@ pub enum OutputFormat {
     Json,
     /// CSV output
     Csv,
+    /// One ID per line (for piping)
+    Ids,
 }
 
 /// Sort field for list command
@@ -135,7 +137,7 @@ impl SyncFormat {
 #[derive(Parser)]
 pub struct DownloadArgs {
     /// PDB IDs to download
-    #[arg(required_unless_present = "list")]
+    #[arg(required_unless_present_any = ["list", "stdin"])]
     pub pdb_ids: Vec<String>,
 
     /// Data type to download
@@ -177,12 +179,16 @@ pub struct DownloadArgs {
     /// Read PDB IDs from a file (one per line)
     #[arg(short, long)]
     pub list: Option<PathBuf>,
+
+    /// Read PDB IDs from stdin (one per line)
+    #[arg(long)]
+    pub stdin: bool,
 }
 
 #[derive(Parser)]
 pub struct CopyArgs {
     /// PDB IDs to copy from local mirror
-    #[arg(required_unless_present = "list")]
+    #[arg(required_unless_present_any = ["list", "stdin"])]
     pub pdb_ids: Vec<String>,
 
     /// Destination directory
@@ -204,6 +210,10 @@ pub struct CopyArgs {
     /// Read PDB IDs from a file (one per line)
     #[arg(short, long)]
     pub list: Option<PathBuf>,
+
+    /// Read PDB IDs from stdin (one per line)
+    #[arg(long)]
+    pub stdin: bool,
 }
 
 #[derive(Parser)]
@@ -335,4 +345,16 @@ pub struct ValidateArgs {
     /// Mirror to use for checksums (and --fix downloads)
     #[arg(short, long, value_enum)]
     pub mirror: Option<MirrorId>,
+
+    /// Read PDB IDs from a file (one per line)
+    #[arg(short, long)]
+    pub list: Option<PathBuf>,
+
+    /// Read PDB IDs from stdin (one per line)
+    #[arg(long)]
+    pub stdin: bool,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
 }

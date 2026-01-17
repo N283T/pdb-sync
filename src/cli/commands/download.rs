@@ -4,28 +4,25 @@ use crate::data_types::DataType;
 use crate::download::{DownloadOptions, DownloadResult, DownloadTask, HttpsDownloader};
 use crate::error::{PdbCliError, Result};
 use crate::files::PdbId;
-use std::path::Path;
+use crate::utils::IdSource;
 use std::time::Duration;
 use tokio::fs;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 /// Maximum assembly number to try when assembly=0 (try all)
 const MAX_ASSEMBLY_NUMBER: u8 = 60;
 
 pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
-    // Collect PDB IDs from args and/or list file
-    let mut pdb_id_strings = args.pdb_ids.clone();
+    // Collect PDB IDs from args, list file, and/or stdin
+    let id_source =
+        IdSource::collect(args.pdb_ids.clone(), args.list.as_deref(), args.stdin).await?;
 
-    if let Some(list_path) = &args.list {
-        let ids_from_file = read_id_list(list_path).await?;
-        pdb_id_strings.extend(ids_from_file);
-    }
-
-    if pdb_id_strings.is_empty() {
+    if id_source.is_empty() {
         return Err(PdbCliError::InvalidInput(
-            "No PDB IDs provided. Use positional arguments or --list".into(),
+            "No PDB IDs provided. Use positional arguments, --list, or --stdin".into(),
         ));
     }
+
+    let pdb_id_strings = id_source.ids;
 
     // Parse PDB IDs
     let mut pdb_ids = Vec::new();
@@ -198,24 +195,6 @@ fn build_tasks(
     tasks
 }
 
-/// Read PDB IDs from a file, one per line.
-async fn read_id_list(path: &Path) -> Result<Vec<String>> {
-    let file = fs::File::open(path).await?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    let mut ids = Vec::new();
-
-    while let Some(line) = lines.next_line().await? {
-        let trimmed = line.trim();
-        // Skip empty lines and comments
-        if !trimmed.is_empty() && !trimmed.starts_with('#') {
-            ids.push(trimmed.to_string());
-        }
-    }
-
-    Ok(ids)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,22 +244,5 @@ mod tests {
         assert_eq!(tasks.len(), 2);
         assert_eq!(tasks[0].data_type, DataType::StructureFactors);
         assert_eq!(tasks[1].data_type, DataType::StructureFactors);
-    }
-
-    #[tokio::test]
-    async fn test_read_id_list() {
-        use tokio::io::AsyncWriteExt;
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let list_file = temp_dir.path().join("ids.txt");
-
-        let mut file = fs::File::create(&list_file).await.unwrap();
-        file.write_all(b"1abc\n2xyz\n# comment\n\n3def\n")
-            .await
-            .unwrap();
-        file.flush().await.unwrap();
-
-        let ids = read_id_list(&list_file).await.unwrap();
-        assert_eq!(ids, vec!["1abc", "2xyz", "3def"]);
     }
 }
