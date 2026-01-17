@@ -1,3 +1,4 @@
+use crate::data_types::DataType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use clap::{Parser, Subcommand};
@@ -89,12 +90,20 @@ impl SyncFormat {
 #[derive(Parser)]
 pub struct DownloadArgs {
     /// PDB IDs to download
-    #[arg(required = true)]
+    #[arg(required_unless_present = "list")]
     pub pdb_ids: Vec<String>,
 
-    /// File format to download
+    /// Data type to download
+    #[arg(short = 't', long = "type", value_enum, default_value = "structures")]
+    pub data_type: DataType,
+
+    /// File format to download (for structures)
     #[arg(short, long, value_enum, default_value = "mmcif")]
     pub format: FileFormat,
+
+    /// Assembly number (for assemblies type, 0 = try all 1-60)
+    #[arg(short, long)]
+    pub assembly: Option<u8>,
 
     /// Destination directory
     #[arg(short, long)]
@@ -111,6 +120,18 @@ pub struct DownloadArgs {
     /// Overwrite existing files
     #[arg(long)]
     pub overwrite: bool,
+
+    /// Number of parallel downloads
+    #[arg(short, long, default_value = "4")]
+    pub parallel: u8,
+
+    /// Number of retry attempts
+    #[arg(long, default_value = "3")]
+    pub retry: u32,
+
+    /// Read PDB IDs from a file (one per line)
+    #[arg(short, long)]
+    pub list: Option<PathBuf>,
 }
 
 #[derive(Parser)]
