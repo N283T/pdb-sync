@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Load context
-    let ctx = AppContext::new()?.with_overrides(cli.pdb_dir, None);
+    let ctx = AppContext::new().await?.with_overrides(cli.pdb_dir, None);
 
     // Dispatch to command handlers
     match cli.command {
