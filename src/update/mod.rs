@@ -6,6 +6,7 @@ use crate::files::{paths::build_relative_path, FileFormat, PdbId};
 use crate::mirrors::{Mirror, MirrorId};
 use crate::validation::ChecksumVerifier;
 use chrono::{DateTime, Utc};
+use indicatif::ProgressBar;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -206,12 +207,15 @@ impl UpdateChecker {
     }
 
     /// Check many files in parallel.
+    ///
+    /// If a progress bar is provided, it will be updated as files are checked.
     pub async fn check_many(
         &self,
         files: Vec<(PdbId, PathBuf)>,
         mirror: MirrorId,
         format: FileFormat,
         verify: bool,
+        progress: Option<&ProgressBar>,
     ) -> Vec<UpdateResult> {
         if verify {
             // For checksum mode, we need to share the verifier
@@ -224,11 +228,15 @@ impl UpdateChecker {
                     .check_status_checksum(&pdb_id, &local_path, &mut verifier, format, mirror)
                     .await;
                 results.push(UpdateResult::new(&pdb_id, status, local_path));
+                if let Some(pb) = progress {
+                    pb.inc(1);
+                }
             }
 
             results
         } else {
             // For HEAD mode, check in parallel
+            // We collect results as they complete and update progress
             let futures: Vec<_> = files
                 .into_iter()
                 .map(|(pdb_id, local_path)| {
@@ -248,7 +256,14 @@ impl UpdateChecker {
                 })
                 .collect();
 
-            futures_util::future::join_all(futures).await
+            let results = futures_util::future::join_all(futures).await;
+
+            // Update progress bar after completion (for parallel mode)
+            if let Some(pb) = progress {
+                pb.inc(results.len() as u64);
+            }
+
+            results
         }
     }
 }
@@ -259,6 +274,7 @@ pub async fn download_updates(
     mirror: MirrorId,
     format: FileFormat,
     pdb_dir: &Path,
+    parallel: usize,
 ) -> Result<Vec<UpdateResult>> {
     if outdated.is_empty() {
         return Ok(Vec::new());
@@ -268,7 +284,7 @@ pub async fn download_updates(
         mirror,
         decompress: false,
         overwrite: true,
-        parallel: 4,
+        parallel,
         ..Default::default()
     });
 
@@ -394,69 +410,10 @@ fn compare_timestamps(local: DateTime<Utc>, remote: DateTime<Utc>) -> UpdateStat
 
 /// Build URL for structure files.
 ///
-/// Replicates logic from HttpsDownloader::build_structure_url.
+/// Delegates to `Mirror::build_structure_url` for canonical URL construction.
 fn build_structure_url(pdb_id: &PdbId, format: FileFormat, mirror: MirrorId) -> String {
     let mirror_info = Mirror::get(mirror);
-    let id = pdb_id.as_str();
-    let base = format.base_format();
-
-    match mirror {
-        MirrorId::Rcsb => match base {
-            FileFormat::Pdb => format!("{}/{}.pdb", mirror_info.https_base, id),
-            FileFormat::Mmcif => format!("{}/{}.cif", mirror_info.https_base, id),
-            FileFormat::Bcif => format!("https://models.rcsb.org/{}.bcif", id),
-            _ => unreachable!(),
-        },
-        MirrorId::Pdbj => match base {
-            FileFormat::Pdb => format!("{}?format=pdb&id={}", mirror_info.https_base, id),
-            FileFormat::Mmcif => format!("{}?format=mmcif&id={}", mirror_info.https_base, id),
-            FileFormat::Bcif => format!("{}?format=mmcif&id={}", mirror_info.https_base, id),
-            _ => unreachable!(),
-        },
-        MirrorId::Pdbe => match base {
-            FileFormat::Pdb => {
-                if pdb_id.is_classic() {
-                    format!("{}/pdb{}.ent", mirror_info.https_base, id)
-                } else {
-                    format!("{}/{}.ent", mirror_info.https_base, id)
-                }
-            }
-            FileFormat::Mmcif => format!("{}/{}.cif", mirror_info.https_base, id),
-            FileFormat::Bcif => format!("{}/{}.cif", mirror_info.https_base, id),
-            _ => unreachable!(),
-        },
-        MirrorId::Wwpdb => {
-            let middle = pdb_id.middle_chars();
-            match base {
-                FileFormat::Pdb => {
-                    if pdb_id.is_classic() {
-                        format!(
-                            "{}/divided/pdb/{}/pdb{}.ent.gz",
-                            mirror_info.https_base, middle, id
-                        )
-                    } else {
-                        format!(
-                            "{}/divided/pdb/{}/{}.ent.gz",
-                            mirror_info.https_base, middle, id
-                        )
-                    }
-                }
-                FileFormat::Mmcif => {
-                    format!(
-                        "{}/divided/mmCIF/{}/{}.cif.gz",
-                        mirror_info.https_base, middle, id
-                    )
-                }
-                FileFormat::Bcif => {
-                    format!(
-                        "{}/divided/mmCIF/{}/{}.cif.gz",
-                        mirror_info.https_base, middle, id
-                    )
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
+    mirror_info.build_structure_url(pdb_id, format)
 }
 
 /// Build the checksum subpath for a given format and PDB ID.

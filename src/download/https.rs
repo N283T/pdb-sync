@@ -289,68 +289,12 @@ impl HttpsDownloader {
         }
     }
 
-    /// Build URL for structure files (existing logic).
+    /// Build URL for structure files.
+    ///
+    /// Delegates to `Mirror::build_structure_url` for canonical URL construction.
     fn build_structure_url(&self, pdb_id: &PdbId, format: FileFormat) -> String {
         let mirror = Mirror::get(self.options.mirror);
-        let id = pdb_id.as_str();
-        let base = format.base_format();
-
-        match self.options.mirror {
-            MirrorId::Rcsb => match base {
-                FileFormat::Pdb => format!("{}/{}.pdb", mirror.https_base, id),
-                FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
-                FileFormat::Bcif => format!("https://models.rcsb.org/{}.bcif", id),
-                _ => unreachable!(),
-            },
-            MirrorId::Pdbj => match base {
-                FileFormat::Pdb => format!("{}?format=pdb&id={}", mirror.https_base, id),
-                FileFormat::Mmcif => format!("{}?format=mmcif&id={}", mirror.https_base, id),
-                FileFormat::Bcif => format!("{}?format=mmcif&id={}", mirror.https_base, id),
-                _ => unreachable!(),
-            },
-            MirrorId::Pdbe => match base {
-                // Classic IDs: pdb{id}.ent, Extended IDs: {id}.ent (no extra "pdb" prefix)
-                FileFormat::Pdb => {
-                    if pdb_id.is_classic() {
-                        format!("{}/pdb{}.ent", mirror.https_base, id)
-                    } else {
-                        format!("{}/{}.ent", mirror.https_base, id)
-                    }
-                }
-                FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
-                FileFormat::Bcif => format!("{}/{}.cif", mirror.https_base, id),
-                _ => unreachable!(),
-            },
-            MirrorId::Wwpdb => {
-                let middle = pdb_id.middle_chars();
-                match base {
-                    // Classic IDs: pdb{id}.ent.gz, Extended IDs: {id}.ent.gz
-                    FileFormat::Pdb => {
-                        if pdb_id.is_classic() {
-                            format!(
-                                "{}/divided/pdb/{}/pdb{}.ent.gz",
-                                mirror.https_base, middle, id
-                            )
-                        } else {
-                            format!("{}/divided/pdb/{}/{}.ent.gz", mirror.https_base, middle, id)
-                        }
-                    }
-                    FileFormat::Mmcif => {
-                        format!(
-                            "{}/divided/mmCIF/{}/{}.cif.gz",
-                            mirror.https_base, middle, id
-                        )
-                    }
-                    FileFormat::Bcif => {
-                        format!(
-                            "{}/divided/mmCIF/{}/{}.cif.gz",
-                            mirror.https_base, middle, id
-                        )
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
+        mirror.build_structure_url(pdb_id, format)
     }
 
     /// Build URL for assembly files.

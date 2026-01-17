@@ -105,9 +105,11 @@ pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
     };
 
     let checker = UpdateChecker::new(args.parallel);
-    let results = checker.check_many(files, mirror, format, args.verify).await;
+    let results = checker
+        .check_many(files, mirror, format, args.verify, pb.as_ref())
+        .await;
 
-    if let Some(ref pb) = pb {
+    if let Some(pb) = pb {
         pb.finish_and_clear();
     }
 
@@ -156,7 +158,8 @@ pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
     if !args.check && !args.dry_run && !outdated.is_empty() {
         println!("\nDownloading {} update(s)...\n", outdated.len());
 
-        let download_results = download_updates(&outdated, mirror, format, &ctx.pdb_dir).await?;
+        let download_results =
+            download_updates(&outdated, mirror, format, &ctx.pdb_dir, args.parallel).await?;
         let download_stats = UpdateStats::from_results(&download_results);
 
         // Print download results
@@ -198,7 +201,10 @@ async fn run_update_json(
     pdb_dir: &Path,
 ) -> Result<()> {
     let checker = UpdateChecker::new(args.parallel);
-    let results = checker.check_many(files, mirror, format, args.verify).await;
+    // JSON mode doesn't need progress bar
+    let results = checker
+        .check_many(files, mirror, format, args.verify, None)
+        .await;
 
     // Collect outdated files for update
     let outdated: Vec<_> = results
@@ -208,7 +214,8 @@ async fn run_update_json(
 
     let final_results = if !args.check && !args.dry_run && !outdated.is_empty() {
         // Download updates and merge results
-        let download_results = download_updates(&outdated, mirror, format, pdb_dir).await?;
+        let download_results =
+            download_updates(&outdated, mirror, format, pdb_dir, args.parallel).await?;
 
         // Create a map of download results by pdb_id
         let download_map: std::collections::HashMap<_, _> = download_results
