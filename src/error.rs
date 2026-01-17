@@ -50,6 +50,25 @@ pub enum PdbCliError {
 
     #[error("Entries not found: {0} of {1} entries missing")]
     EntriesNotFound(usize, usize),
+
+    #[allow(dead_code)]
+    #[error("Watch error: {0}")]
+    Watch(String),
+
+    #[error("Search API error: {0}")]
+    SearchApi(String),
+
+    #[error("State persistence error: {0}")]
+    StatePersistence(String),
+
+    #[error("Hook execution failed: {0}")]
+    HookExecution(String),
+
+    #[error("Notification error: {0}")]
+    Notification(String),
+
+    #[error("Invalid interval: {0}")]
+    InvalidInterval(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;
