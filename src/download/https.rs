@@ -51,6 +51,8 @@ impl HttpsDownloader {
         let semaphore = Arc::new(Semaphore::new(options.parallel));
         let client = reqwest::Client::builder()
             .user_agent("pdb-cli")
+            .connect_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(300)) // 5 minutes for large files
             .build()
             .expect("Failed to create HTTP client");
 
@@ -96,12 +98,15 @@ impl HttpsDownloader {
                     return DownloadResult::success(task.pdb_id.clone(), task.data_type, path);
                 }
                 Err(e) => {
-                    // Check for 404 on optional assemblies (graceful failure)
-                    if task.data_type == DataType::Assemblies && is_not_found_error(&e) {
+                    // Check for 404 on optional assemblies/biounits (graceful failure)
+                    if (task.data_type == DataType::Assemblies
+                        || task.data_type == DataType::Biounit)
+                        && is_not_found_error(&e)
+                    {
                         return DownloadResult::skipped(
                             task.pdb_id.clone(),
                             task.data_type,
-                            "Assembly not available (404)",
+                            format!("{} not available (404)", task.data_type),
                         );
                     }
                     last_error = e.to_string();
@@ -181,16 +186,16 @@ impl HttpsDownloader {
 
         // Handle compression based on user preference and what mirror provides
         let is_gzipped = self.is_gzipped(&temp_path).await;
-        let wants_compressed = task.format.is_compressed();
+        let format_expects_compressed = task.format.is_compressed();
 
-        if is_gzipped && !wants_compressed && self.options.decompress {
-            // Downloaded gzipped, user wants uncompressed -> decompress
+        // Case 1: Downloaded gzipped file, but user wants uncompressed and --decompress is set
+        if is_gzipped && !format_expects_compressed && self.options.decompress {
             self.decompress_file(&temp_path, &dest_file).await?;
             tokio::fs::remove_file(&temp_path).await?;
             println!("Saved (decompressed) to: {}", dest_file.display());
-        } else if is_gzipped && !wants_compressed && !self.options.decompress {
-            // Downloaded gzipped, user wants uncompressed but decompress=false
-            // Save with corrected extension (.cif.gz instead of .cif)
+        }
+        // Case 2: Downloaded gzipped but format expects uncompressed - save with .gz extension
+        else if is_gzipped && !format_expects_compressed {
             let corrected_path = dest.join(format!(
                 "{}.{}.gz",
                 task.pdb_id.as_str(),
@@ -202,8 +207,9 @@ impl HttpsDownloader {
                 corrected_path.display()
             );
             return Ok(corrected_path);
-        } else {
-            // Normal case: downloaded format matches requested format
+        }
+        // Case 3: Normal case - format matches downloaded content
+        else {
             tokio::fs::rename(&temp_path, &dest_file).await?;
             println!("Saved to: {}", dest_file.display());
         }
@@ -251,9 +257,8 @@ impl HttpsDownloader {
         let mut decoder = GzipDecoder::new(reader);
 
         let mut output = File::create(dest).await?;
-        let mut buffer = Vec::new();
-        decoder.read_to_end(&mut buffer).await?;
-        output.write_all(&buffer).await?;
+        // Use streaming copy instead of loading entire file into memory
+        tokio::io::copy(&mut decoder, &mut output).await?;
         output.flush().await?;
 
         Ok(())
