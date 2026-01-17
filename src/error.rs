@@ -20,6 +20,9 @@ pub enum PdbCliError {
     #[error("TOML serialize error: {0}")]
     TomlSerialize(#[from] toml::ser::Error),
 
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
     #[error("rsync failed: {0}")]
     Rsync(String),
 
@@ -31,6 +34,9 @@ pub enum PdbCliError {
 
     #[error("Download failed: {0}")]
     Download(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),

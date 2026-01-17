@@ -37,6 +37,9 @@ pub enum Commands {
 
     /// Manage environment variables
     Env(EnvArgs),
+
+    /// Show information about a PDB entry
+    Info(InfoArgs),
 }
 
 #[derive(Parser)]
@@ -85,6 +88,14 @@ impl SyncFormat {
             SyncFormat::Both => vec![FileFormat::Pdb, FileFormat::Mmcif],
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+    Csv,
 }
 
 #[derive(Parser)]
@@ -206,4 +217,22 @@ pub enum EnvAction {
         /// Value
         value: String,
     },
+}
+
+#[derive(Parser)]
+pub struct InfoArgs {
+    /// PDB ID to query
+    pub pdb_id: String,
+
+    /// Show local file info only (no network request)
+    #[arg(long)]
+    pub local: bool,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "text")]
+    pub output: OutputFormat,
+
+    /// Show all available fields
+    #[arg(short, long)]
+    pub all: bool,
 }
