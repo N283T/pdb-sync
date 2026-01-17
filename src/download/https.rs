@@ -40,6 +40,14 @@ impl HttpsDownloader {
     }
 
     pub async fn download(&self, pdb_id: &PdbId, format: FileFormat, dest: &Path) -> Result<()> {
+        // Warn if using BinaryCIF with non-RCSB mirror (will fall back to mmCIF)
+        if format.base_format() == FileFormat::Bcif && self.options.mirror != MirrorId::Rcsb {
+            eprintln!(
+                "Warning: BinaryCIF is only available from RCSB. Falling back to mmCIF for {}.",
+                self.options.mirror
+            );
+        }
+
         let url = self.build_url(pdb_id, format);
         let dest_file = self.build_dest_path(dest, pdb_id, format);
 
@@ -90,14 +98,27 @@ impl HttpsDownloader {
 
         pb.finish_with_message("done");
 
-        // Decompress if requested and file is compressed
-        let should_decompress = self.options.decompress && !format.is_compressed();
-        if should_decompress && self.is_gzipped(&temp_path).await {
-            let decompressed_path = &dest_file;
-            self.decompress_file(&temp_path, decompressed_path).await?;
+        // Handle compression based on user preference and what mirror provides
+        let is_gzipped = self.is_gzipped(&temp_path).await;
+        let wants_compressed = format.is_compressed();
+
+        if is_gzipped && !wants_compressed && self.options.decompress {
+            // Downloaded gzipped, user wants uncompressed → decompress
+            self.decompress_file(&temp_path, &dest_file).await?;
             tokio::fs::remove_file(&temp_path).await?;
-            println!("Saved to: {}", decompressed_path.display());
+            println!("Saved (decompressed) to: {}", dest_file.display());
+        } else if is_gzipped && !wants_compressed && !self.options.decompress {
+            // Downloaded gzipped, user wants uncompressed but decompress=false
+            // Save with corrected extension (.cif.gz instead of .cif)
+            let corrected_path =
+                dest.join(format!("{}.{}.gz", pdb_id.as_str(), format.extension()));
+            tokio::fs::rename(&temp_path, &corrected_path).await?;
+            println!(
+                "Saved to: {} (compressed, use --decompress to extract)",
+                corrected_path.display()
+            );
         } else {
+            // Normal case: downloaded format matches requested format
             tokio::fs::rename(&temp_path, &dest_file).await?;
             println!("Saved to: {}", dest_file.display());
         }
@@ -138,19 +159,22 @@ impl HttpsDownloader {
             MirrorId::Rcsb => match base {
                 FileFormat::Pdb => format!("{}/{}.pdb", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
-                FileFormat::Bcif => format!("{}/{}.bcif", mirror.https_base, id),
+                // BinaryCIF is served from a different host (models.rcsb.org)
+                FileFormat::Bcif => format!("https://models.rcsb.org/{}.bcif", id),
                 _ => unreachable!(),
             },
             MirrorId::Pdbj => match base {
                 FileFormat::Pdb => format!("{}?format=pdb&id={}", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}?format=mmcif&id={}", mirror.https_base, id),
-                FileFormat::Bcif => format!("{}?format=bcif&id={}", mirror.https_base, id),
+                // PDBj doesn't support BinaryCIF, fall back to mmCIF
+                FileFormat::Bcif => format!("{}?format=mmcif&id={}", mirror.https_base, id),
                 _ => unreachable!(),
             },
             MirrorId::Pdbe => match base {
                 FileFormat::Pdb => format!("{}/pdb{}.ent", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
-                FileFormat::Bcif => format!("{}/{}.bcif", mirror.https_base, id),
+                // PDBe doesn't support BinaryCIF, fall back to mmCIF
+                FileFormat::Bcif => format!("{}/{}.cif", mirror.https_base, id),
                 _ => unreachable!(),
             },
             MirrorId::Wwpdb => {
@@ -168,9 +192,10 @@ impl HttpsDownloader {
                             mirror.https_base, middle, id
                         )
                     }
+                    // wwPDB doesn't support BinaryCIF, fall back to mmCIF
                     FileFormat::Bcif => {
                         format!(
-                            "{}/divided/bcif/{}/{}.bcif.gz",
+                            "{}/divided/mmCIF/{}/{}.cif.gz",
                             mirror.https_base, middle, id
                         )
                     }
@@ -214,6 +239,30 @@ mod tests {
         assert_eq!(
             downloader.build_url(&pdb_id, FileFormat::CifGz),
             "https://files.rcsb.org/download/1abc.cif"
+        );
+        // BinaryCIF uses models.rcsb.org (different from files.rcsb.org)
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Bcif),
+            "https://models.rcsb.org/1abc.bcif"
+        );
+    }
+
+    #[test]
+    fn test_build_url_wwpdb() {
+        let downloader = HttpsDownloader::new(DownloadOptions {
+            mirror: MirrorId::Wwpdb,
+            ..Default::default()
+        });
+        let pdb_id = PdbId::new("1abc").unwrap();
+
+        // wwPDB provides compressed files via HTTPS
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Mmcif),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF/ab/1abc.cif.gz"
+        );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::Pdb),
+            "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/ab/pdb1abc.ent.gz"
         );
     }
 

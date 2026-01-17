@@ -56,8 +56,13 @@ pub struct Mirror {
     pub id: MirrorId,
     pub name: &'static str,
     pub region: &'static str,
-    pub rsync_url: &'static str,
+    /// Base rsync URL (e.g., rsync://rsync.rcsb.org)
+    pub rsync_host: &'static str,
+    /// rsync module name (e.g., ftp_data)
+    pub rsync_module: &'static str,
+    /// Custom port for rsync (None = default 873)
     pub rsync_port: Option<u16>,
+    /// Base URL for HTTPS downloads
     pub https_base: &'static str,
 }
 
@@ -71,47 +76,64 @@ impl Mirror {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn rsync_url_with_port(&self) -> String {
+    /// Build the rsync source URL for a given subpath
+    pub fn rsync_url(&self, subpath: &str) -> String {
         match self.rsync_port {
-            Some(port) => format!("rsync://rsync.rcsb.org:{}", port),
-            None => self.rsync_url.to_string(),
+            Some(port) => format!(
+                "{}:{}/{}/{}",
+                self.rsync_host, port, self.rsync_module, subpath
+            ),
+            None => format!("{}/{}/{}", self.rsync_host, self.rsync_module, subpath),
         }
+    }
+
+    /// Get rsync port arguments if needed
+    #[allow(dead_code)]
+    pub fn rsync_port_args(&self) -> Option<String> {
+        self.rsync_port.map(|p| format!("--port={}", p))
     }
 }
 
+// RCSB: rsync://rsync.rcsb.org:33444/ftp_data/structures/divided/
 static RCSB_MIRROR: Mirror = Mirror {
     id: MirrorId::Rcsb,
     name: "RCSB PDB",
     region: "US",
-    rsync_url: "rsync://rsync.rcsb.org",
+    rsync_host: "rsync://rsync.rcsb.org",
+    rsync_module: "ftp_data",
     rsync_port: Some(33444),
     https_base: "https://files.rcsb.org/download",
 };
 
+// PDBj: rsync://rsync.pdbj.org/ftp_data/structures/divided/
 static PDBJ_MIRROR: Mirror = Mirror {
     id: MirrorId::Pdbj,
     name: "PDBj",
     region: "Japan",
-    rsync_url: "rsync://rsync.pdbj.org",
+    rsync_host: "rsync://rsync.pdbj.org",
+    rsync_module: "ftp_data",
     rsync_port: None,
     https_base: "https://pdbj.org/rest/downloadPDBfile",
 };
 
+// PDBe: rsync://rsync.ebi.ac.uk/pub/databases/pdb/data/structures/divided/
 static PDBE_MIRROR: Mirror = Mirror {
     id: MirrorId::Pdbe,
     name: "PDBe",
     region: "Europe",
-    rsync_url: "rsync://rsync.ebi.ac.uk/pub/databases/pdb",
+    rsync_host: "rsync://rsync.ebi.ac.uk",
+    rsync_module: "pub/databases/pdb/data",
     rsync_port: None,
     https_base: "https://www.ebi.ac.uk/pdbe/entry-files/download",
 };
 
+// wwPDB: rsync://rsync.wwpdb.org/ftp_data/structures/divided/
 static WWPDB_MIRROR: Mirror = Mirror {
     id: MirrorId::Wwpdb,
     name: "wwPDB",
     region: "Global",
-    rsync_url: "rsync://rsync.wwpdb.org",
+    rsync_host: "rsync://rsync.wwpdb.org",
+    rsync_module: "ftp_data",
     rsync_port: None,
     https_base: "https://files.wwpdb.org/pub/pdb/data/structures",
 };
@@ -129,11 +151,23 @@ mod tests {
     }
 
     #[test]
-    fn test_rsync_url_with_port() {
+    fn test_rsync_url() {
         let rcsb = Mirror::get(MirrorId::Rcsb);
-        assert_eq!(rcsb.rsync_url_with_port(), "rsync://rsync.rcsb.org:33444");
+        assert_eq!(
+            rcsb.rsync_url("structures/divided/mmCIF/"),
+            "rsync://rsync.rcsb.org:33444/ftp_data/structures/divided/mmCIF/"
+        );
 
         let pdbj = Mirror::get(MirrorId::Pdbj);
-        assert_eq!(pdbj.rsync_url_with_port(), "rsync://rsync.pdbj.org");
+        assert_eq!(
+            pdbj.rsync_url("structures/divided/mmCIF/"),
+            "rsync://rsync.pdbj.org/ftp_data/structures/divided/mmCIF/"
+        );
+
+        let pdbe = Mirror::get(MirrorId::Pdbe);
+        assert_eq!(
+            pdbe.rsync_url("structures/divided/mmCIF/"),
+            "rsync://rsync.ebi.ac.uk/pub/databases/pdb/data/structures/divided/mmCIF/"
+        );
     }
 }

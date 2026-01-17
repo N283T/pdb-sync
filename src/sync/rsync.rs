@@ -80,12 +80,9 @@ impl RsyncRunner {
             cmd.arg(format!("--include=**/{}*", filter));
         }
 
-        // Source URL
-        let source = format!(
-            "{}/ftp/data/structures/divided/{}/",
-            mirror.rsync_url,
-            format.subdir()
-        );
+        // Source URL (uses wwPDB standard structure)
+        let subpath = format!("structures/divided/{}/", format.subdir());
+        let source = mirror.rsync_url(&subpath);
         cmd.arg(&source);
 
         // Destination
@@ -147,11 +144,8 @@ impl RsyncRunner {
         }
 
         for format in &self.options.formats {
-            let source = format!(
-                "{}/ftp/data/structures/divided/{}/",
-                mirror.rsync_url,
-                format.subdir()
-            );
+            let subpath = format!("structures/divided/{}/", format.subdir());
+            let source = mirror.rsync_url(&subpath);
             args.push(source);
         }
 
