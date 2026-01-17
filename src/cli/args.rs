@@ -1,4 +1,4 @@
-use crate::data_types::DataType;
+use crate::data_types::{DataType, Layout};
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use clap::{Parser, Subcommand};
@@ -48,9 +48,17 @@ pub struct SyncArgs {
     #[arg(short, long, value_enum)]
     pub mirror: Option<MirrorId>,
 
+    /// Data types to sync (can specify multiple times)
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_types: Vec<DataType>,
+
     /// File format to sync
     #[arg(short, long, value_enum, default_value = "mmcif")]
     pub format: SyncFormat,
+
+    /// Directory layout (divided or all)
+    #[arg(short, long, value_enum, default_value = "divided")]
+    pub layout: Layout,
 
     /// Destination directory
     #[arg(short, long)]
@@ -67,6 +75,10 @@ pub struct SyncArgs {
     /// Perform a dry run without making changes
     #[arg(short = 'n', long)]
     pub dry_run: bool,
+
+    /// Show detailed progress
+    #[arg(short = 'P', long)]
+    pub progress: bool,
 
     /// Filter patterns (PDB ID prefixes)
     #[arg(trailing_var_arg = true)]
