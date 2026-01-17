@@ -51,6 +51,7 @@ pub enum Commands {
     Sync(SyncArgs),
 
     /// Download individual files via HTTPS
+    #[command(visible_alias = "dl")]
     Download(DownloadArgs),
 
     /// Copy local PDB files
@@ -60,6 +61,7 @@ pub enum Commands {
     List(ListArgs),
 
     /// Manage configuration
+    #[command(visible_alias = "cfg")]
     Config(ConfigArgs),
 
     /// Manage environment variables
@@ -69,6 +71,7 @@ pub enum Commands {
     Info(InfoArgs),
 
     /// Validate local PDB files against checksums
+    #[command(visible_alias = "val")]
     Validate(ValidateArgs),
 }
 

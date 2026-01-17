@@ -6,6 +6,7 @@ pub enum FileFormat {
     /// Legacy PDB format (decompressed)
     Pdb,
     /// mmCIF format (decompressed)
+    #[value(alias = "cif")]
     Mmcif,
     /// BinaryCIF format
     Bcif,
@@ -225,5 +226,15 @@ mod tests {
         assert!(!FileFormat::Mmcif.is_compressed());
         assert!(FileFormat::CifGz.is_compressed());
         assert!(FileFormat::PdbGz.is_compressed());
+    }
+
+    #[test]
+    fn test_format_alias_cif() {
+        use clap::ValueEnum;
+        // "cif" should be an alias for "mmcif"
+        assert_eq!(
+            FileFormat::from_str("cif", true).unwrap(),
+            FileFormat::Mmcif
+        );
     }
 }

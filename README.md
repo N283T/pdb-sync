@@ -305,6 +305,67 @@ Supports both classic (4-char) and extended PDB ID formats:
 - Classic: `1abc`, `4hhb`
 - Extended: `pdb_00001abc` (12-char format for future expansion)
 
+## Aliases
+
+Short aliases are available for commonly used commands and options.
+
+### Command Aliases
+
+| Full Command | Alias |
+|--------------|-------|
+| `download` | `dl` |
+| `validate` | `val` |
+| `config` | `cfg` |
+
+### Option Value Aliases
+
+#### Data Types (`--type` / `-t`)
+
+| Full Name | Aliases |
+|-----------|---------|
+| `structures` | `st`, `struct` |
+| `assemblies` | `asm`, `assembly` |
+| `structure-factors` | `sf`, `xray` |
+| `nmr-chemical-shifts` | `nmr-cs`, `cs` |
+| `nmr-restraints` | `nmr-r` |
+
+#### Formats (`--format` / `-f`)
+
+| Full Name | Alias |
+|-----------|-------|
+| `mmcif` | `cif` |
+
+#### Mirrors (`--mirror` / `-m`)
+
+| Full Name | Aliases |
+|-----------|---------|
+| `rcsb` | `us` |
+| `pdbj` | `jp` |
+| `pdbe` | `uk`, `eu` |
+| `wwpdb` | `global` |
+
+### Example Usage
+
+```bash
+# Before (full names)
+pdb-cli download 4hhb --type structures --format mmcif
+
+# After (with aliases)
+pdb-cli dl 4hhb -t st -f cif
+
+# Validate shorthand
+pdb-cli val --fix -P
+
+# Config shorthand
+pdb-cli cfg show
+
+# Download structure factors
+pdb-cli dl 1abc -t sf
+
+# Download from US mirror
+pdb-cli dl 4hhb -m us
+```
+
 ## License
 
 MIT
