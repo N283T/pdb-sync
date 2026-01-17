@@ -5,6 +5,7 @@ use crate::error::{PdbCliError, Result};
 use crate::files::FileFormat;
 use crate::mirrors::{Mirror, MirrorId};
 use crate::sync::SyncProgress;
+use crate::utils::human_bytes;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -117,7 +118,7 @@ impl RsyncRunner {
         let dest_path = self.build_dest_path(dest, data_type, format);
         let source = mirror.rsync_url(&source_subpath);
 
-        std::fs::create_dir_all(&dest_path)?;
+        tokio::fs::create_dir_all(&dest_path).await?;
 
         let description = match format {
             Some(f) => format!("Syncing {} ({})", data_type, f.subdir()),
@@ -348,23 +349,6 @@ impl RsyncRunner {
         args.push(dest.to_string_lossy().to_string());
 
         args
-    }
-}
-
-/// Format bytes as human-readable string.
-fn human_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-
-    if bytes >= GB {
-        format!("{:.2} GB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.2} MB", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.2} KB", bytes as f64 / KB as f64)
-    } else {
-        format!("{} B", bytes)
     }
 }
 

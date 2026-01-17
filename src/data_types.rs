@@ -143,6 +143,118 @@ impl std::fmt::Display for Layout {
     }
 }
 
+/// PDBj-specific data types (available only from PDBj mirror).
+///
+/// These data types are exclusive to the PDBj mirror and require
+/// different rsync modules than the standard wwPDB data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PdbjDataType {
+    /// EMDB (Electron Microscopy Data Bank) - rsync://rsync.pdbj.org/emdb/
+    Emdb,
+    /// PDB-IHM (Integrative/Hybrid Methods) - rsync://rsync.pdbj.org/pdb_ihm/
+    #[serde(rename = "pdb-ihm")]
+    #[value(name = "pdb-ihm")]
+    PdbIhm,
+    /// Derived data (pre-computed analyses) - rsync://rsync.pdbj.org/ftp_derived/
+    Derived,
+}
+
+impl PdbjDataType {
+    /// Get the rsync module name for this PDBj-specific data type.
+    pub fn rsync_module(&self) -> &'static str {
+        match self {
+            PdbjDataType::Emdb => "emdb",
+            PdbjDataType::PdbIhm => "pdb_ihm",
+            PdbjDataType::Derived => "ftp_derived",
+        }
+    }
+
+    /// Get a human-readable description of this data type.
+    pub fn description(&self) -> &'static str {
+        match self {
+            PdbjDataType::Emdb => "EMDB (Electron Microscopy Data Bank)",
+            PdbjDataType::PdbIhm => "PDB-IHM (Integrative/Hybrid Methods structures)",
+            PdbjDataType::Derived => "Derived data (pre-computed analyses from PDBj)",
+        }
+    }
+
+    /// Get all available PDBj data types.
+    pub fn all() -> &'static [PdbjDataType] {
+        &[
+            PdbjDataType::Emdb,
+            PdbjDataType::PdbIhm,
+            PdbjDataType::Derived,
+        ]
+    }
+}
+
+impl std::fmt::Display for PdbjDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PdbjDataType::Emdb => write!(f, "emdb"),
+            PdbjDataType::PdbIhm => write!(f, "pdb-ihm"),
+            PdbjDataType::Derived => write!(f, "derived"),
+        }
+    }
+}
+
+/// PDBe-specific data types (available only from PDBe mirror).
+///
+/// These data types are exclusive to the PDBe mirror and use
+/// different rsync paths than the standard wwPDB data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PdbeDataType {
+    /// SIFTS (Structure Integration with Function, Taxonomy and Sequences)
+    Sifts,
+    /// PDBeChem v2 (chemical component dictionary)
+    Pdbechem,
+    /// Foldseek database
+    Foldseek,
+}
+
+impl PdbeDataType {
+    /// Get the rsync path for this PDBe-specific data type.
+    pub fn rsync_path(&self) -> &'static str {
+        match self {
+            PdbeDataType::Sifts => "pub/databases/msd/sifts/",
+            PdbeDataType::Pdbechem => "pub/databases/msd/pdbechem_v2/",
+            PdbeDataType::Foldseek => "pub/databases/msd/foldseek/",
+        }
+    }
+
+    /// Get a human-readable description of this data type.
+    pub fn description(&self) -> &'static str {
+        match self {
+            PdbeDataType::Sifts => {
+                "SIFTS (Structure Integration with Function, Taxonomy and Sequences)"
+            }
+            PdbeDataType::Pdbechem => "PDBeChem v2 (chemical component dictionary)",
+            PdbeDataType::Foldseek => "Foldseek database for structural similarity search",
+        }
+    }
+
+    /// Get all available PDBe data types.
+    pub fn all() -> &'static [PdbeDataType] {
+        &[
+            PdbeDataType::Sifts,
+            PdbeDataType::Pdbechem,
+            PdbeDataType::Foldseek,
+        ]
+    }
+}
+
+impl std::fmt::Display for PdbeDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PdbeDataType::Sifts => write!(f, "sifts"),
+            PdbeDataType::Pdbechem => write!(f, "pdbechem"),
+            PdbeDataType::Foldseek => write!(f, "foldseek"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,5 +405,93 @@ mod tests {
             DataType::from_str("nmr-r", true).unwrap(),
             DataType::NmrRestraints
         );
+    }
+
+    // Tests for PdbjDataType
+    #[test]
+    fn test_pdbj_data_type_rsync_module() {
+        assert_eq!(PdbjDataType::Emdb.rsync_module(), "emdb");
+        assert_eq!(PdbjDataType::PdbIhm.rsync_module(), "pdb_ihm");
+        assert_eq!(PdbjDataType::Derived.rsync_module(), "ftp_derived");
+    }
+
+    #[test]
+    fn test_pdbj_data_type_display() {
+        assert_eq!(PdbjDataType::Emdb.to_string(), "emdb");
+        assert_eq!(PdbjDataType::PdbIhm.to_string(), "pdb-ihm");
+        assert_eq!(PdbjDataType::Derived.to_string(), "derived");
+    }
+
+    #[test]
+    fn test_pdbj_data_type_description() {
+        assert!(PdbjDataType::Emdb.description().contains("EMDB"));
+        assert!(PdbjDataType::PdbIhm.description().contains("IHM"));
+        assert!(PdbjDataType::Derived.description().contains("Derived"));
+    }
+
+    #[test]
+    fn test_pdbj_data_type_serde() {
+        let dt = PdbjDataType::PdbIhm;
+        let json = serde_json::to_string(&dt).unwrap();
+        assert_eq!(json, "\"pdb-ihm\"");
+
+        let parsed: PdbjDataType = serde_json::from_str("\"emdb\"").unwrap();
+        assert_eq!(parsed, PdbjDataType::Emdb);
+    }
+
+    #[test]
+    fn test_pdbj_data_type_all() {
+        let all = PdbjDataType::all();
+        assert_eq!(all.len(), 3);
+        assert!(all.contains(&PdbjDataType::Emdb));
+        assert!(all.contains(&PdbjDataType::PdbIhm));
+        assert!(all.contains(&PdbjDataType::Derived));
+    }
+
+    // Tests for PdbeDataType
+    #[test]
+    fn test_pdbe_data_type_rsync_path() {
+        assert_eq!(PdbeDataType::Sifts.rsync_path(), "pub/databases/msd/sifts/");
+        assert_eq!(
+            PdbeDataType::Pdbechem.rsync_path(),
+            "pub/databases/msd/pdbechem_v2/"
+        );
+        assert_eq!(
+            PdbeDataType::Foldseek.rsync_path(),
+            "pub/databases/msd/foldseek/"
+        );
+    }
+
+    #[test]
+    fn test_pdbe_data_type_display() {
+        assert_eq!(PdbeDataType::Sifts.to_string(), "sifts");
+        assert_eq!(PdbeDataType::Pdbechem.to_string(), "pdbechem");
+        assert_eq!(PdbeDataType::Foldseek.to_string(), "foldseek");
+    }
+
+    #[test]
+    fn test_pdbe_data_type_description() {
+        assert!(PdbeDataType::Sifts.description().contains("SIFTS"));
+        assert!(PdbeDataType::Pdbechem.description().contains("PDBeChem"));
+        assert!(PdbeDataType::Foldseek.description().contains("Foldseek"));
+    }
+
+    #[test]
+    fn test_pdbe_data_type_serde() {
+        let dt = PdbeDataType::Sifts;
+        let json = serde_json::to_string(&dt).unwrap();
+        assert_eq!(json, "\"sifts\"");
+
+        let parsed: PdbeDataType = serde_json::from_str("\"foldseek\"").unwrap();
+        assert_eq!(parsed, PdbeDataType::Foldseek);
+    }
+
+    #[test]
+    fn test_pdbe_data_type_all() {
+        let all = PdbeDataType::all();
+        assert_eq!(all.len(), 3);
+        assert!(all.contains(&PdbeDataType::Sifts));
+        assert!(all.contains(&PdbeDataType::Pdbechem));
+        assert!(all.contains(&PdbeDataType::Foldseek));
     }
 }

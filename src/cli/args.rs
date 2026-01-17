@@ -1,4 +1,4 @@
-use crate::data_types::{DataType, Layout};
+use crate::data_types::{DataType, Layout, PdbeDataType, PdbjDataType};
 use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
@@ -153,10 +153,24 @@ pub enum Commands {
     Jobs(JobsArgs),
 }
 
+/// Sync command with subcommands for different data sources.
+///
+/// The sync command supports multiple data sources:
+/// - wwpdb (default): Standard wwPDB data available from all mirrors
+/// - structures: Shortcut for `wwpdb --type structures`
+/// - assemblies: Shortcut for `wwpdb --type assemblies`
+/// - pdbj: PDBj-specific data (EMDB, PDB-IHM, derived data)
+/// - pdbe: PDBe-specific data (SIFTS, PDBeChem, Foldseek)
 #[derive(Parser, Clone)]
 pub struct SyncArgs {
+    /// Subcommand for sync target (defaults to wwpdb if omitted)
+    #[command(subcommand)]
+    pub command: Option<SyncCommand>,
+
+    // === Legacy/backward-compatible options ===
+    // These are used when no subcommand is specified (e.g., `pdb-cli sync --type structures`)
     /// Mirror to sync from
-    #[arg(short, long, value_enum)]
+    #[arg(short, long, value_enum, global = true)]
     pub mirror: Option<MirrorId>,
 
     /// Data types to sync (can specify multiple times)
@@ -172,23 +186,23 @@ pub struct SyncArgs {
     pub layout: Layout,
 
     /// Destination directory
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub dest: Option<PathBuf>,
 
     /// Delete files not present on the remote
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub delete: bool,
 
     /// Bandwidth limit in KB/s
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub bwlimit: Option<u32>,
 
     /// Perform a dry run without making changes
-    #[arg(short = 'n', long)]
+    #[arg(short = 'n', long, global = true)]
     pub dry_run: bool,
 
     /// Show detailed progress
-    #[arg(short = 'P', long)]
+    #[arg(short = 'P', long, global = true)]
     pub progress: bool,
 
     /// Filter patterns (PDB ID prefixes)
@@ -200,7 +214,90 @@ pub struct SyncArgs {
     pub bg: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+/// Sync subcommands for different data sources.
+#[derive(Subcommand, Debug, Clone)]
+pub enum SyncCommand {
+    /// Sync wwPDB standard data (structures, assemblies, etc.)
+    #[command(name = "wwpdb")]
+    Wwpdb(WwpdbSyncArgs),
+
+    /// Shortcut: sync structures (equivalent to `wwpdb --type structures`)
+    Structures(ShortcutSyncArgs),
+
+    /// Shortcut: sync assemblies (equivalent to `wwpdb --type assemblies`)
+    Assemblies(ShortcutSyncArgs),
+
+    /// Sync PDBj-specific data (EMDB, PDB-IHM, derived data)
+    #[command(name = "pdbj")]
+    Pdbj(PdbjSyncArgs),
+
+    /// Sync PDBe-specific data (SIFTS, PDBeChem, Foldseek)
+    #[command(name = "pdbe")]
+    Pdbe(PdbeSyncArgs),
+}
+
+/// Arguments for wwPDB standard data sync.
+#[derive(Parser, Debug, Clone)]
+pub struct WwpdbSyncArgs {
+    /// Data types to sync (can specify multiple times)
+    #[arg(short = 't', long = "type", value_enum)]
+    pub data_types: Vec<DataType>,
+
+    /// File format to sync
+    #[arg(short, long, value_enum, default_value = "mmcif")]
+    pub format: SyncFormat,
+
+    /// Directory layout (divided or all)
+    #[arg(short, long, value_enum, default_value = "divided")]
+    pub layout: Layout,
+
+    /// Filter patterns (PDB ID prefixes)
+    #[arg(trailing_var_arg = true)]
+    pub filters: Vec<String>,
+}
+
+/// Arguments for shortcut commands (structures, assemblies).
+/// These commands fix the data type but allow other options.
+#[derive(Parser, Debug, Clone)]
+pub struct ShortcutSyncArgs {
+    /// File format to sync
+    #[arg(short, long, value_enum, default_value = "mmcif")]
+    pub format: SyncFormat,
+
+    /// Directory layout (divided or all)
+    #[arg(short, long, value_enum, default_value = "divided")]
+    pub layout: Layout,
+
+    /// Filter patterns (PDB ID prefixes)
+    #[arg(trailing_var_arg = true)]
+    pub filters: Vec<String>,
+}
+
+/// Arguments for PDBj-specific data sync.
+#[derive(Parser, Debug, Clone)]
+pub struct PdbjSyncArgs {
+    /// PDBj data types to sync (required)
+    #[arg(short = 't', long = "type", value_enum, required = true)]
+    pub data_types: Vec<PdbjDataType>,
+
+    /// Subpath within the data type (optional, for partial sync)
+    #[arg(long)]
+    pub subpath: Option<String>,
+}
+
+/// Arguments for PDBe-specific data sync.
+#[derive(Parser, Debug, Clone)]
+pub struct PdbeSyncArgs {
+    /// PDBe data types to sync (required)
+    #[arg(short = 't', long = "type", value_enum, required = true)]
+    pub data_types: Vec<PdbeDataType>,
+
+    /// Subpath within the data type (optional, for partial sync)
+    #[arg(long)]
+    pub subpath: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum SyncFormat {
     Pdb,
     Mmcif,
@@ -797,4 +894,205 @@ pub enum JobsAction {
         #[arg(long, default_value = "7d")]
         older_than: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_cli_parses() {
+        // Verify CLI can be built (catches conflicts in arg definitions)
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn test_sync_backward_compat_no_subcommand() {
+        // Old-style: pdb-cli sync --type structures
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "--type", "structures"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => {
+                assert!(sync_args.command.is_none());
+                assert_eq!(sync_args.data_types, vec![DataType::Structures]);
+            }
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_backward_compat_with_mirror() {
+        // Old-style with mirror: pdb-cli sync --type structures --mirror pdbj
+        let args = Cli::try_parse_from([
+            "pdb-cli",
+            "sync",
+            "--type",
+            "structures",
+            "--mirror",
+            "pdbj",
+        ])
+        .unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => {
+                assert!(sync_args.command.is_none());
+                assert_eq!(sync_args.data_types, vec![DataType::Structures]);
+                assert_eq!(sync_args.mirror, Some(MirrorId::Pdbj));
+            }
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_wwpdb_subcommand() {
+        // New style: pdb-cli sync wwpdb --type structures
+        let args =
+            Cli::try_parse_from(["pdb-cli", "sync", "wwpdb", "--type", "structures"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Wwpdb(wwpdb_args)) => {
+                    assert_eq!(wwpdb_args.data_types, vec![DataType::Structures]);
+                }
+                _ => panic!("Expected Wwpdb subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_structures_shortcut() {
+        // Shortcut: pdb-cli sync structures
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "structures"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Structures(shortcut_args)) => {
+                    assert_eq!(shortcut_args.format, SyncFormat::Mmcif);
+                    assert_eq!(shortcut_args.layout, Layout::Divided);
+                }
+                _ => panic!("Expected Structures subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_assemblies_shortcut() {
+        // Shortcut: pdb-cli sync assemblies
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "assemblies"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Assemblies(_)) => {}
+                _ => panic!("Expected Assemblies subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_pdbj_subcommand() {
+        // PDBj: pdb-cli sync pdbj --type emdb
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbj", "--type", "emdb"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Pdbj(pdbj_args)) => {
+                    assert_eq!(pdbj_args.data_types, vec![PdbjDataType::Emdb]);
+                }
+                _ => panic!("Expected Pdbj subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_pdbj_multiple_types() {
+        // PDBj with multiple types: pdb-cli sync pdbj --type emdb --type pdb-ihm
+        let args = Cli::try_parse_from([
+            "pdb-cli", "sync", "pdbj", "--type", "emdb", "--type", "pdb-ihm",
+        ])
+        .unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Pdbj(pdbj_args)) => {
+                    assert_eq!(
+                        pdbj_args.data_types,
+                        vec![PdbjDataType::Emdb, PdbjDataType::PdbIhm]
+                    );
+                }
+                _ => panic!("Expected Pdbj subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_pdbe_subcommand() {
+        // PDBe: pdb-cli sync pdbe --type sifts
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbe", "--type", "sifts"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Pdbe(pdbe_args)) => {
+                    assert_eq!(pdbe_args.data_types, vec![PdbeDataType::Sifts]);
+                }
+                _ => panic!("Expected Pdbe subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_pdbe_foldseek() {
+        // PDBe foldseek: pdb-cli sync pdbe --type foldseek
+        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbe", "--type", "foldseek"]).unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => match sync_args.command {
+                Some(SyncCommand::Pdbe(pdbe_args)) => {
+                    assert_eq!(pdbe_args.data_types, vec![PdbeDataType::Foldseek]);
+                }
+                _ => panic!("Expected Pdbe subcommand"),
+            },
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_global_options_with_subcommand() {
+        // Global options work with subcommands: pdb-cli sync --mirror pdbj wwpdb --type structures
+        let args = Cli::try_parse_from([
+            "pdb-cli",
+            "sync",
+            "--mirror",
+            "pdbj",
+            "--dry-run",
+            "wwpdb",
+            "--type",
+            "structures",
+        ])
+        .unwrap();
+        match args.command {
+            Commands::Sync(sync_args) => {
+                assert_eq!(sync_args.mirror, Some(MirrorId::Pdbj));
+                assert!(sync_args.dry_run);
+                match sync_args.command {
+                    Some(SyncCommand::Wwpdb(wwpdb_args)) => {
+                        assert_eq!(wwpdb_args.data_types, vec![DataType::Structures]);
+                    }
+                    _ => panic!("Expected Wwpdb subcommand"),
+                }
+            }
+            _ => panic!("Expected Sync command"),
+        }
+    }
+
+    #[test]
+    fn test_sync_pdbj_requires_type() {
+        // PDBj requires --type: pdb-cli sync pdbj (should fail)
+        let result = Cli::try_parse_from(["pdb-cli", "sync", "pdbj"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sync_pdbe_requires_type() {
+        // PDBe requires --type: pdb-cli sync pdbe (should fail)
+        let result = Cli::try_parse_from(["pdb-cli", "sync", "pdbe"]);
+        assert!(result.is_err());
+    }
 }
