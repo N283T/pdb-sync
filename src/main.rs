@@ -1,3 +1,4 @@
+mod api;
 mod cli;
 mod config;
 mod context;
@@ -55,6 +56,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Env(args) => {
             cli::commands::run_env(args, ctx).await?;
+        }
+        Commands::Info(args) => {
+            cli::commands::run_info(args, ctx).await?;
         }
     }
 
