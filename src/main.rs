@@ -1,12 +1,14 @@
 mod cli;
 mod config;
 mod context;
-mod data_types;
 mod download;
 mod error;
 mod files;
 mod mirrors;
 mod sync;
+
+// Re-export from library crate
+pub use pdb_cli::data_types;
 
 use clap::Parser;
 use cli::{Cli, Commands};
