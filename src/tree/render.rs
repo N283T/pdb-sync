@@ -1,6 +1,7 @@
 //! Tree rendering logic for ASCII tree output.
 
 use super::{DirNode, SortBy};
+use crate::utils::human_bytes;
 
 /// Options for rendering the tree
 #[derive(Debug, Clone, Default)]
@@ -189,26 +190,6 @@ fn collect_leaf_directories<'a>(node: &'a DirNode, leaves: &mut Vec<&'a DirNode>
     }
 }
 
-/// Convert bytes to human-readable format
-fn human_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-    const TB: u64 = GB * 1024;
-
-    if bytes >= TB {
-        format!("{:.2} TB", bytes as f64 / TB as f64)
-    } else if bytes >= GB {
-        format!("{:.2} GB", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.2} MB", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.2} KB", bytes as f64 / KB as f64)
-    } else {
-        format!("{} B", bytes)
-    }
-}
-
 /// Format a number with thousand separators
 fn format_number(n: u64) -> String {
     let s = n.to_string();
@@ -343,18 +324,7 @@ mod tests {
 
         let stats = format_node_stats(&node, &options);
         assert!(stats.contains("1,234 files"));
-        assert!(stats.contains("1.00 GB"));
-    }
-
-    #[test]
-    fn test_human_bytes() {
-        assert_eq!(human_bytes(0), "0 B");
-        assert_eq!(human_bytes(512), "512 B");
-        assert_eq!(human_bytes(1024), "1.00 KB");
-        assert_eq!(human_bytes(1536), "1.50 KB");
-        assert_eq!(human_bytes(1048576), "1.00 MB");
-        assert_eq!(human_bytes(1073741824), "1.00 GB");
-        assert_eq!(human_bytes(1099511627776), "1.00 TB");
+        assert!(stats.contains("1.0 GB"));
     }
 
     #[test]

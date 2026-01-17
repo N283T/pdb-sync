@@ -283,18 +283,29 @@ fn extract_pdb_id_from_filename(path: &Path, format: FileFormat) -> Option<PdbId
     let filename = path.file_name()?.to_string_lossy();
 
     let id_str = match format {
-        // mmCIF: 1abc.cif or 1abc.cif.gz
+        // mmCIF: 1abc.cif or 1abc.cif.gz or pdb_00001abc.cif.gz
         FileFormat::Mmcif | FileFormat::CifGz => filename
             .strip_suffix(".cif.gz")
             .or_else(|| filename.strip_suffix(".cif"))?,
-        // PDB: pdb1abc.ent or pdb1abc.ent.gz
+        // PDB: pdb1abc.ent.gz (classic) or pdb_00001abc.ent.gz (extended)
+        // Classic IDs have "pdb" prefix in filename, extended IDs don't
         FileFormat::Pdb | FileFormat::PdbGz => {
             let without_ext = filename
                 .strip_suffix(".ent.gz")
                 .or_else(|| filename.strip_suffix(".ent"))?;
-            without_ext.strip_prefix("pdb")?
+            // Extended IDs start with "pdb_", classic filenames start with "pdb" (no underscore)
+            if without_ext.starts_with("pdb_") {
+                // Extended ID: pdb_00001abc -> keep as-is
+                without_ext
+            } else if let Some(id) = without_ext.strip_prefix("pdb") {
+                // Classic ID: pdb1abc -> 1abc
+                id
+            } else {
+                // Unknown format, try as-is
+                without_ext
+            }
         }
-        // BinaryCIF: 1abc.bcif or 1abc.bcif.gz
+        // BinaryCIF: 1abc.bcif or 1abc.bcif.gz or pdb_00001abc.bcif.gz
         FileFormat::Bcif | FileFormat::BcifGz => filename
             .strip_suffix(".bcif.gz")
             .or_else(|| filename.strip_suffix(".bcif"))?,
@@ -361,6 +372,13 @@ mod tests {
         let path = PathBuf::from("/data/pdb/ab/pdb1abc.ent.gz");
         let id = extract_pdb_id_from_filename(&path, FileFormat::PdbGz);
         assert_eq!(id.map(|i| i.to_string()), Some("1abc".to_string()));
+    }
+
+    #[test]
+    fn test_extract_pdb_id_pdb_extended() {
+        let path = PathBuf::from("/data/pdb/1a/pdb_00001abc.ent.gz");
+        let id = extract_pdb_id_from_filename(&path, FileFormat::PdbGz);
+        assert_eq!(id.map(|i| i.to_string()), Some("pdb_00001abc".to_string()));
     }
 
     #[test]
