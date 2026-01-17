@@ -4,12 +4,16 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum MirrorId {
     /// RCSB (US)
+    #[value(alias = "us")]
     Rcsb,
     /// PDBj (Japan)
+    #[value(alias = "jp")]
     Pdbj,
     /// PDBe (Europe/UK)
+    #[value(alias = "uk", alias = "eu")]
     Pdbe,
     /// wwPDB (Global)
+    #[value(alias = "global")]
     Wwpdb,
 }
 
@@ -43,7 +47,7 @@ impl FromStr for MirrorId {
         match s.to_lowercase().as_str() {
             "rcsb" | "us" => Ok(MirrorId::Rcsb),
             "pdbj" | "jp" => Ok(MirrorId::Pdbj),
-            "pdbe" | "uk" => Ok(MirrorId::Pdbe),
+            "pdbe" | "uk" | "eu" => Ok(MirrorId::Pdbe),
             "wwpdb" | "global" => Ok(MirrorId::Wwpdb),
             _ => Err(PdbCliError::UnknownMirror(s.to_string())),
         }
@@ -168,6 +172,42 @@ mod tests {
         assert_eq!(
             pdbe.rsync_url("structures/divided/mmCIF/"),
             "rsync://rsync.ebi.ac.uk/pub/databases/pdb/data/structures/divided/mmCIF/"
+        );
+    }
+
+    #[test]
+    fn test_mirror_aliases_clap() {
+        use clap::ValueEnum;
+
+        // Test alias parsing via clap ValueEnum
+        assert_eq!(
+            <MirrorId as ValueEnum>::from_str("us", true).unwrap(),
+            MirrorId::Rcsb
+        );
+        assert_eq!(
+            <MirrorId as ValueEnum>::from_str("jp", true).unwrap(),
+            MirrorId::Pdbj
+        );
+        assert_eq!(
+            <MirrorId as ValueEnum>::from_str("uk", true).unwrap(),
+            MirrorId::Pdbe
+        );
+        assert_eq!(
+            <MirrorId as ValueEnum>::from_str("eu", true).unwrap(),
+            MirrorId::Pdbe
+        );
+        assert_eq!(
+            <MirrorId as ValueEnum>::from_str("global", true).unwrap(),
+            MirrorId::Wwpdb
+        );
+    }
+
+    #[test]
+    fn test_mirror_aliases_fromstr() {
+        // Test eu alias via FromStr
+        assert_eq!(
+            <MirrorId as FromStr>::from_str("eu").unwrap(),
+            MirrorId::Pdbe
         );
     }
 }

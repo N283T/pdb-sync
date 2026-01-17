@@ -8,16 +8,21 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "kebab-case")]
 pub enum DataType {
     /// Coordinate files (structures/divided/mmCIF or pdb)
+    #[value(alias = "st", alias = "struct")]
     Structures,
     /// Biological assemblies (assemblies/mmCIF/divided)
+    #[value(alias = "asm", alias = "assembly")]
     Assemblies,
     /// Legacy biounit format (biounit/coordinates/divided)
     Biounit,
     /// Structure factors - X-ray diffraction data (structures/divided/structure_factors)
+    #[value(alias = "sf", alias = "xray")]
     StructureFactors,
     /// NMR chemical shifts (structures/divided/nmr_chemical_shifts)
+    #[value(alias = "nmr-cs", alias = "cs")]
     NmrChemicalShifts,
     /// NMR restraints (structures/divided/nmr_restraints)
+    #[value(alias = "nmr-r")]
     NmrRestraints,
     /// Obsolete entries (structures/obsolete)
     Obsolete,
@@ -237,5 +242,56 @@ mod tests {
 
         let layout: Layout = serde_json::from_str("\"all\"").unwrap();
         assert_eq!(layout, Layout::All);
+    }
+
+    #[test]
+    fn test_datatype_aliases() {
+        use clap::ValueEnum;
+
+        // Test alias parsing for structures
+        assert_eq!(
+            DataType::from_str("st", true).unwrap(),
+            DataType::Structures
+        );
+        assert_eq!(
+            DataType::from_str("struct", true).unwrap(),
+            DataType::Structures
+        );
+
+        // Test alias parsing for assemblies
+        assert_eq!(
+            DataType::from_str("asm", true).unwrap(),
+            DataType::Assemblies
+        );
+        assert_eq!(
+            DataType::from_str("assembly", true).unwrap(),
+            DataType::Assemblies
+        );
+
+        // Test alias parsing for structure-factors
+        assert_eq!(
+            DataType::from_str("sf", true).unwrap(),
+            DataType::StructureFactors
+        );
+        assert_eq!(
+            DataType::from_str("xray", true).unwrap(),
+            DataType::StructureFactors
+        );
+
+        // Test alias parsing for nmr-chemical-shifts
+        assert_eq!(
+            DataType::from_str("nmr-cs", true).unwrap(),
+            DataType::NmrChemicalShifts
+        );
+        assert_eq!(
+            DataType::from_str("cs", true).unwrap(),
+            DataType::NmrChemicalShifts
+        );
+
+        // Test alias parsing for nmr-restraints
+        assert_eq!(
+            DataType::from_str("nmr-r", true).unwrap(),
+            DataType::NmrRestraints
+        );
     }
 }
