@@ -91,7 +91,7 @@ impl HttpsDownloader {
         pb.finish_with_message("Downloaded");
 
         // Decompress if requested
-        if self.options.decompress && dest_file.extension().map_or(false, |e| e == "gz") {
+        if self.options.decompress && dest_file.extension().is_some_and(|e| e == "gz") {
             let decompressed_path = dest_file.with_extension("");
             self.decompress_file(&temp_path, &decompressed_path).await?;
             tokio::fs::remove_file(&temp_path).await?;
@@ -141,20 +141,34 @@ impl HttpsDownloader {
                 let middle = pdb_id.middle_chars();
                 match format {
                     FileFormat::Pdb => {
-                        format!("{}/divided/pdb/{}/pdb{}.ent.gz", mirror.https_base, middle, id)
+                        format!(
+                            "{}/divided/pdb/{}/pdb{}.ent.gz",
+                            mirror.https_base, middle, id
+                        )
                     }
                     FileFormat::Mmcif => {
-                        format!("{}/divided/mmCIF/{}/{}.cif.gz", mirror.https_base, middle, id)
+                        format!(
+                            "{}/divided/mmCIF/{}/{}.cif.gz",
+                            mirror.https_base, middle, id
+                        )
                     }
                     FileFormat::Bcif => {
-                        format!("{}/divided/bcif/{}/{}.bcif.gz", mirror.https_base, middle, id)
+                        format!(
+                            "{}/divided/bcif/{}/{}.bcif.gz",
+                            mirror.https_base, middle, id
+                        )
                     }
                 }
             }
         }
     }
 
-    fn build_dest_path(&self, dest: &Path, pdb_id: &PdbId, format: FileFormat) -> std::path::PathBuf {
+    fn build_dest_path(
+        &self,
+        dest: &Path,
+        pdb_id: &PdbId,
+        format: FileFormat,
+    ) -> std::path::PathBuf {
         let id = pdb_id.as_str();
         let ext = match format {
             FileFormat::Pdb => "pdb",

@@ -37,7 +37,11 @@ async fn copy_file(source: &Path, dest_dir: &Path, _flatten: bool, symlink: bool
         tokio::fs::symlink(&source_abs, &dest_path).await?;
         #[cfg(windows)]
         tokio::fs::symlink_file(&source_abs, &dest_path).await?;
-        println!("Created symlink: {} -> {}", dest_path.display(), source_abs.display());
+        println!(
+            "Created symlink: {} -> {}",
+            dest_path.display(),
+            source_abs.display()
+        );
     } else {
         tokio::fs::copy(source, &dest_path).await?;
         println!("Copied: {} -> {}", source.display(), dest_path.display());

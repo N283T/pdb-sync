@@ -37,11 +37,7 @@ impl AppContext {
         })
     }
 
-    pub fn with_overrides(
-        mut self,
-        pdb_dir: Option<PathBuf>,
-        mirror: Option<MirrorId>,
-    ) -> Self {
+    pub fn with_overrides(mut self, pdb_dir: Option<PathBuf>, mirror: Option<MirrorId>) -> Self {
         if let Some(dir) = pdb_dir {
             self.pdb_dir = dir;
         }

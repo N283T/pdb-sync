@@ -81,7 +81,11 @@ impl RsyncRunner {
         }
 
         // Source URL
-        let source = format!("{}/ftp/data/structures/divided/{}/", mirror.rsync_url, format.subdir());
+        let source = format!(
+            "{}/ftp/data/structures/divided/{}/",
+            mirror.rsync_url,
+            format.subdir()
+        );
         cmd.arg(&source);
 
         // Destination
@@ -93,10 +97,7 @@ impl RsyncRunner {
         tracing::debug!("Command: {:?}", cmd);
 
         // Execute and stream output
-        let mut child = cmd
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
@@ -121,7 +122,11 @@ impl RsyncRunner {
     /// Build the rsync command for display purposes (dry-run preview)
     pub fn build_command_string(&self, dest: &Path) -> Vec<String> {
         let mirror = Mirror::get(self.options.mirror);
-        let mut args = vec!["rsync".to_string(), "-avz".to_string(), "--progress".to_string()];
+        let mut args = vec![
+            "rsync".to_string(),
+            "-avz".to_string(),
+            "--progress".to_string(),
+        ];
 
         if let Some(port) = mirror.rsync_port {
             args.push(format!("--port={}", port));

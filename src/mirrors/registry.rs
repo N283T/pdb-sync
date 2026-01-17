@@ -14,6 +14,7 @@ pub enum MirrorId {
 }
 
 impl MirrorId {
+    #[allow(dead_code)]
     pub fn all() -> &'static [MirrorId] {
         &[
             MirrorId::Rcsb,
@@ -50,6 +51,7 @@ impl FromStr for MirrorId {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Mirror {
     pub id: MirrorId,
     pub name: &'static str,
@@ -69,6 +71,7 @@ impl Mirror {
         }
     }
 
+    #[allow(dead_code)]
     pub fn rsync_url_with_port(&self) -> String {
         match self.rsync_port {
             Some(port) => format!("rsync://rsync.rcsb.org:{}", port),
@@ -128,10 +131,7 @@ mod tests {
     #[test]
     fn test_rsync_url_with_port() {
         let rcsb = Mirror::get(MirrorId::Rcsb);
-        assert_eq!(
-            rcsb.rsync_url_with_port(),
-            "rsync://rsync.rcsb.org:33444"
-        );
+        assert_eq!(rcsb.rsync_url_with_port(), "rsync://rsync.rcsb.org:33444");
 
         let pdbj = Mirror::get(MirrorId::Pdbj);
         assert_eq!(pdbj.rsync_url_with_port(), "rsync://rsync.pdbj.org");

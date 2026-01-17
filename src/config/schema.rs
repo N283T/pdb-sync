@@ -2,7 +2,7 @@ use crate::mirrors::MirrorId;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub paths: PathsConfig,
@@ -10,26 +10,10 @@ pub struct Config {
     pub download: DownloadConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            paths: PathsConfig::default(),
-            sync: SyncConfig::default(),
-            download: DownloadConfig::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PathsConfig {
     pub pdb_dir: Option<PathBuf>,
-}
-
-impl Default for PathsConfig {
-    fn default() -> Self {
-        Self { pdb_dir: None }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

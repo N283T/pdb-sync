@@ -9,6 +9,7 @@ pub enum FileFormat {
 }
 
 impl FileFormat {
+    #[allow(dead_code)]
     pub fn extension(&self) -> &'static str {
         match self {
             FileFormat::Pdb => "ent.gz",
@@ -37,6 +38,7 @@ impl std::fmt::Display for FileFormat {
 }
 
 /// Build the relative path for a PDB file in the standard directory structure
+#[allow(dead_code)]
 pub fn build_relative_path(pdb_id: &PdbId, format: FileFormat) -> PathBuf {
     let middle = pdb_id.middle_chars();
     let id = pdb_id.as_str();
@@ -49,6 +51,7 @@ pub fn build_relative_path(pdb_id: &PdbId, format: FileFormat) -> PathBuf {
 }
 
 /// Build the full path for a PDB file given a base directory
+#[allow(dead_code)]
 pub fn build_full_path(base_dir: &std::path::Path, pdb_id: &PdbId, format: FileFormat) -> PathBuf {
     base_dir.join(build_relative_path(pdb_id, format))
 }

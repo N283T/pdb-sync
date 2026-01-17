@@ -50,11 +50,7 @@ fn get_config_value(config: &crate::config::Config, key: &str) -> Result<String>
     }
 }
 
-fn set_config_value(
-    config: &mut crate::config::Config,
-    key: &str,
-    value: &str,
-) -> Result<()> {
+fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) -> Result<()> {
     match key {
         "paths.pdb_dir" => {
             config.paths.pdb_dir = if value.is_empty() {
