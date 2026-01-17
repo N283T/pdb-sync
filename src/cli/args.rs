@@ -62,6 +62,9 @@ pub enum Commands {
     /// List local PDB files
     List(ListArgs),
 
+    /// Find local PDB files (path output for scripting)
+    Find(FindArgs),
+
     /// Manage configuration
     #[command(visible_alias = "cfg")]
     Config(ConfigArgs),
@@ -251,6 +254,40 @@ pub struct ListArgs {
     /// Reverse sort order
     #[arg(short, long)]
     pub reverse: bool,
+}
+
+#[derive(Parser)]
+pub struct FindArgs {
+    /// PDB IDs or patterns to find
+    pub patterns: Vec<String>,
+
+    /// Read patterns from stdin
+    #[arg(long)]
+    pub stdin: bool,
+
+    /// File format to search
+    #[arg(short, long, value_enum)]
+    pub format: Option<FileFormat>,
+
+    /// Show all formats for each entry
+    #[arg(long)]
+    pub all_formats: bool,
+
+    /// Check existence (exit code only, all must exist for 0)
+    #[arg(long)]
+    pub exists: bool,
+
+    /// Show entries NOT found locally
+    #[arg(long)]
+    pub missing: bool,
+
+    /// Quiet mode (no output, just exit code)
+    #[arg(short, long)]
+    pub quiet: bool,
+
+    /// Count matches only
+    #[arg(long)]
+    pub count: bool,
 }
 
 #[derive(Parser)]
