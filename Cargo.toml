@@ -24,6 +24,7 @@ futures-util = "0.3"
 async-compression = { version = "0.4", features = ["tokio", "gzip"] }
 glob = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
+md-5 = "0.10"
 
 [dev-dependencies]
 tempfile = "3.10"
