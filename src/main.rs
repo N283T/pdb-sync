@@ -20,13 +20,18 @@ async fn main() -> anyhow::Result<()> {
     let filter = if cli.verbose {
         EnvFilter::new("debug")
     } else {
-        EnvFilter::new("info")
+        EnvFilter::new("warn")
     };
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
         .init();
+
+    // Check for first-run setup
+    if cli::commands::needs_setup() {
+        cli::commands::run_setup()?;
+    }
 
     // Load context
     let ctx = AppContext::new()?.with_overrides(cli.pdb_dir, None);

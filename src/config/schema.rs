@@ -40,6 +40,7 @@ impl Default for SyncConfig {
 pub struct DownloadConfig {
     pub auto_decompress: bool,
     pub parallel: u8,
+    pub default_format: String,
 }
 
 impl Default for DownloadConfig {
@@ -47,6 +48,7 @@ impl Default for DownloadConfig {
         Self {
             auto_decompress: true,
             parallel: 4,
+            default_format: "mmcif".to_string(),
         }
     }
 }

@@ -18,7 +18,7 @@ impl Default for DownloadOptions {
     fn default() -> Self {
         Self {
             mirror: MirrorId::Rcsb,
-            decompress: true,
+            decompress: false,
             overwrite: false,
         }
     }
@@ -44,7 +44,7 @@ impl HttpsDownloader {
         let dest_file = self.build_dest_path(dest, pdb_id, format);
 
         if dest_file.exists() && !self.options.overwrite {
-            tracing::info!("File already exists: {}", dest_file.display());
+            println!("File already exists: {}", dest_file.display());
             return Ok(());
         }
 
@@ -52,7 +52,7 @@ impl HttpsDownloader {
             tokio::fs::create_dir_all(parent).await?;
         }
 
-        tracing::info!("Downloading {} to {}", url, dest_file.display());
+        println!("Downloading {} ...", url);
 
         let response = self.client.get(&url).send().await?;
 
@@ -88,18 +88,31 @@ impl HttpsDownloader {
         temp_file.flush().await?;
         drop(temp_file);
 
-        pb.finish_with_message("Downloaded");
+        pb.finish_with_message("done");
 
-        // Decompress if requested
-        if self.options.decompress && dest_file.extension().is_some_and(|e| e == "gz") {
-            let decompressed_path = dest_file.with_extension("");
-            self.decompress_file(&temp_path, &decompressed_path).await?;
+        // Decompress if requested and file is compressed
+        let should_decompress = self.options.decompress && !format.is_compressed();
+        if should_decompress && self.is_gzipped(&temp_path).await {
+            let decompressed_path = &dest_file;
+            self.decompress_file(&temp_path, decompressed_path).await?;
             tokio::fs::remove_file(&temp_path).await?;
+            println!("Saved to: {}", decompressed_path.display());
         } else {
             tokio::fs::rename(&temp_path, &dest_file).await?;
+            println!("Saved to: {}", dest_file.display());
         }
 
         Ok(())
+    }
+
+    async fn is_gzipped(&self, path: &Path) -> bool {
+        if let Ok(mut file) = File::open(path).await {
+            let mut magic = [0u8; 2];
+            if file.read_exact(&mut magic).await.is_ok() {
+                return magic == [0x1f, 0x8b];
+            }
+        }
+        false
     }
 
     async fn decompress_file(&self, src: &Path, dest: &Path) -> Result<()> {
@@ -113,33 +126,36 @@ impl HttpsDownloader {
         output.write_all(&buffer).await?;
         output.flush().await?;
 
-        tracing::info!("Decompressed to {}", dest.display());
         Ok(())
     }
 
     fn build_url(&self, pdb_id: &PdbId, format: FileFormat) -> String {
         let mirror = Mirror::get(self.options.mirror);
         let id = pdb_id.as_str();
+        let base = format.base_format();
 
         match self.options.mirror {
-            MirrorId::Rcsb => match format {
+            MirrorId::Rcsb => match base {
                 FileFormat::Pdb => format!("{}/{}.pdb", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
                 FileFormat::Bcif => format!("{}/{}.bcif", mirror.https_base, id),
+                _ => unreachable!(),
             },
-            MirrorId::Pdbj => match format {
+            MirrorId::Pdbj => match base {
                 FileFormat::Pdb => format!("{}?format=pdb&id={}", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}?format=mmcif&id={}", mirror.https_base, id),
                 FileFormat::Bcif => format!("{}?format=bcif&id={}", mirror.https_base, id),
+                _ => unreachable!(),
             },
-            MirrorId::Pdbe => match format {
+            MirrorId::Pdbe => match base {
                 FileFormat::Pdb => format!("{}/pdb{}.ent", mirror.https_base, id),
                 FileFormat::Mmcif => format!("{}/{}.cif", mirror.https_base, id),
                 FileFormat::Bcif => format!("{}/{}.bcif", mirror.https_base, id),
+                _ => unreachable!(),
             },
             MirrorId::Wwpdb => {
                 let middle = pdb_id.middle_chars();
-                match format {
+                match base {
                     FileFormat::Pdb => {
                         format!(
                             "{}/divided/pdb/{}/pdb{}.ent.gz",
@@ -158,6 +174,7 @@ impl HttpsDownloader {
                             mirror.https_base, middle, id
                         )
                     }
+                    _ => unreachable!(),
                 }
             }
         }
@@ -170,17 +187,7 @@ impl HttpsDownloader {
         format: FileFormat,
     ) -> std::path::PathBuf {
         let id = pdb_id.as_str();
-        let ext = match format {
-            FileFormat::Pdb => "pdb",
-            FileFormat::Mmcif => "cif",
-            FileFormat::Bcif => "bcif",
-        };
-
-        if self.options.decompress {
-            dest.join(format!("{}.{}", id, ext))
-        } else {
-            dest.join(format!("{}.{}.gz", id, ext))
-        }
+        dest.join(format!("{}.{}", id, format.extension()))
     }
 }
 
@@ -204,5 +211,21 @@ mod tests {
             downloader.build_url(&pdb_id, FileFormat::Mmcif),
             "https://files.rcsb.org/download/1abc.cif"
         );
+        assert_eq!(
+            downloader.build_url(&pdb_id, FileFormat::CifGz),
+            "https://files.rcsb.org/download/1abc.cif"
+        );
+    }
+
+    #[test]
+    fn test_build_dest_path() {
+        let downloader = HttpsDownloader::new(DownloadOptions::default());
+        let pdb_id = PdbId::new("1abc").unwrap();
+
+        let path = downloader.build_dest_path(Path::new("/tmp"), &pdb_id, FileFormat::Mmcif);
+        assert_eq!(path, std::path::PathBuf::from("/tmp/1abc.cif"));
+
+        let path = downloader.build_dest_path(Path::new("/tmp"), &pdb_id, FileFormat::CifGz);
+        assert_eq!(path, std::path::PathBuf::from("/tmp/1abc.cif.gz"));
     }
 }
