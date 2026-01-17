@@ -55,6 +55,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::List(args) => {
             cli::commands::run_list(args, ctx).await?;
         }
+        Commands::Find(args) => {
+            cli::commands::run_find(args, ctx).await?;
+        }
         Commands::Config(args) => {
             cli::commands::run_config(args, ctx).await?;
         }
