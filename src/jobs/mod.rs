@@ -103,6 +103,8 @@ pub fn jobs_base_dir() -> PathBuf {
 
 /// Generate a unique job ID (8 character hex string)
 pub fn generate_job_id() -> JobId {
+    use std::collections::hash_map::RandomState;
+    use std::hash::{BuildHasher, Hasher};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     let timestamp = SystemTime::now()
@@ -110,10 +112,22 @@ pub fn generate_job_id() -> JobId {
         .unwrap_or_default()
         .as_nanos();
 
-    // Use lower 32 bits of timestamp XORed with process ID for uniqueness
-    let pid = std::process::id();
-    let hash = (timestamp as u32) ^ pid;
-    format!("{:08x}", hash)
+    // Use RandomState for better entropy combined with timestamp and PID
+    let mut hasher = RandomState::new().build_hasher();
+    hasher.write_u128(timestamp);
+    hasher.write_u32(std::process::id());
+    format!("{:08x}", hasher.finish() as u32)
+}
+
+/// Validate job ID format (8 hex characters)
+pub fn validate_job_id(job_id: &str) -> crate::error::Result<()> {
+    if job_id.len() != 8 || !job_id.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(crate::error::PdbCliError::Job(format!(
+            "Invalid job ID format: {}. Expected 8 hex characters.",
+            job_id
+        )));
+    }
+    Ok(())
 }
 
 /// Filter for listing jobs
@@ -237,5 +251,27 @@ mod tests {
         assert!(duration.is_some());
         // Duration should be very small (just created)
         assert!(duration.unwrap().num_seconds() < 1);
+    }
+
+    #[test]
+    fn test_validate_job_id_valid() {
+        assert!(validate_job_id("abc12345").is_ok());
+        assert!(validate_job_id("00000000").is_ok());
+        assert!(validate_job_id("ffffffff").is_ok());
+        assert!(validate_job_id("ABCDEF12").is_ok());
+    }
+
+    #[test]
+    fn test_validate_job_id_invalid() {
+        // Too short
+        assert!(validate_job_id("abc123").is_err());
+        // Too long
+        assert!(validate_job_id("abc123456").is_err());
+        // Path traversal attempt
+        assert!(validate_job_id("../../../").is_err());
+        // Non-hex characters
+        assert!(validate_job_id("abc1234g").is_err());
+        // Empty
+        assert!(validate_job_id("").is_err());
     }
 }

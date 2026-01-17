@@ -531,7 +531,7 @@ fn validate_organism(s: &str) -> Result<String, String> {
     }
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct WatchArgs {
     /// Check interval (e.g., "1h", "30m", "1d")
     #[arg(short, long, default_value = "1h")]
@@ -590,7 +590,7 @@ pub struct WatchArgs {
     pub since: Option<String>,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct ConvertArgs {
     /// Files to convert (paths or glob patterns)
     pub files: Vec<String>,
@@ -628,7 +628,7 @@ pub struct ConvertArgs {
     pub parallel: u8,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct StatsArgs {
     /// Show detailed statistics (size distribution, oldest/newest files)
     #[arg(long)]
@@ -669,7 +669,7 @@ pub struct StatsArgs {
 /// ```bash
 /// pdb-cli tree --top 10 --sort-by size
 /// ```
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[command(after_help = "Examples:
   pdb-cli tree                           Show full tree
   pdb-cli tree --depth 2                 Limit depth to 2
@@ -715,7 +715,7 @@ pub struct TreeArgs {
     pub output: OutputFormat,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 pub struct UpdateArgs {
     /// PDB IDs to check/update (empty = all local files)
     pub pdb_ids: Vec<String>,

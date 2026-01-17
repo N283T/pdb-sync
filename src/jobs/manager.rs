@@ -1,5 +1,7 @@
 use crate::error::{PdbCliError, Result};
-use crate::jobs::{generate_job_id, jobs_base_dir, JobFilter, JobId, JobMeta, JobStatus};
+use crate::jobs::{
+    generate_job_id, jobs_base_dir, validate_job_id, JobFilter, JobId, JobMeta, JobStatus,
+};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -77,7 +79,10 @@ impl JobManager {
     }
 
     /// Load job metadata
+    ///
+    /// Validates job_id format to prevent path traversal attacks
     pub fn load_meta(&self, job_id: &str) -> Result<JobMeta> {
+        validate_job_id(job_id)?;
         let path = self.meta_path(job_id);
         if !path.exists() {
             return Err(PdbCliError::Job(format!("Job not found: {}", job_id)));
@@ -219,8 +224,16 @@ impl JobManager {
         if let Some(pid) = pid {
             #[cfg(unix)]
             {
-                unsafe {
-                    libc::kill(pid as i32, libc::SIGTERM);
+                let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+                if result == -1 {
+                    let err = std::io::Error::last_os_error();
+                    // ESRCH means process doesn't exist (which is OK - it may have already exited)
+                    if err.raw_os_error() != Some(libc::ESRCH) {
+                        return Err(PdbCliError::Job(format!(
+                            "Failed to send SIGTERM to process {}: {}",
+                            pid, err
+                        )));
+                    }
                 }
             }
             #[cfg(not(unix))]

@@ -46,7 +46,10 @@ fn list_jobs(manager: &JobManager, all: bool, running_only: bool) -> Result<()> 
     }
 
     // Print header
-    println!("{:<10} {:<12} {:<20} COMMAND", "JOB ID", "STATUS", "STARTED");
+    println!(
+        "{:<10} {:<12} {:<20} COMMAND",
+        "JOB ID", "STATUS", "STARTED"
+    );
     println!("{}", "-".repeat(70));
 
     for job in jobs {

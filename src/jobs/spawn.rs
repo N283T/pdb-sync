@@ -82,7 +82,9 @@ fn spawn_detached(
             .stderr(stderr)
             // Create new process group so it survives terminal close
             .pre_exec(|| {
-                libc::setsid();
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
                 Ok(())
             })
             .spawn()
