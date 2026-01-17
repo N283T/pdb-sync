@@ -187,7 +187,11 @@ impl RsyncRunner {
         let mut cmd = self.build_rsync_command(mirror, source, dest);
         let mut progress = SyncProgress::new(description);
 
-        let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        // Let stderr pass through to terminal so rsync errors are visible
+        let mut child = cmd
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
@@ -229,7 +233,11 @@ impl RsyncRunner {
     ) -> Result<(u64, u64, bool)> {
         let mut cmd = self.build_rsync_command(mirror, source, dest);
 
-        let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        // Let stderr pass through to terminal so rsync errors are visible
+        let mut child = cmd
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
@@ -253,16 +261,14 @@ impl RsyncRunner {
     }
 
     /// Build the rsync command with all options.
-    fn build_rsync_command(&self, mirror: &Mirror, source: &str, dest: &Path) -> Command {
+    fn build_rsync_command(&self, _mirror: &Mirror, source: &str, dest: &Path) -> Command {
         let mut cmd = Command::new("rsync");
 
         // Base options
         cmd.arg("-avz").arg("--progress");
 
-        // Port specification for RCSB
-        if let Some(port) = mirror.rsync_port {
-            cmd.arg(format!("--port={}", port));
-        }
+        // Note: Port is already embedded in the rsync URL (rsync://host:port/...)
+        // No need for separate --port= argument
 
         // Delete option
         if self.options.delete {
@@ -281,14 +287,14 @@ impl RsyncRunner {
             cmd.arg("--dry-run");
         }
 
-        // Include filters
+        // Include filters (validated to be safe PDB ID patterns)
         for filter in &self.options.filters {
             cmd.arg(format!("--include=**/{}*", filter));
         }
 
-        // Source and destination
+        // Source and destination (use OsStr directly for proper path handling)
         cmd.arg(source);
-        cmd.arg(dest.to_string_lossy().as_ref());
+        cmd.arg(dest);
 
         tracing::debug!("Command: {:?}", cmd);
 
@@ -304,9 +310,7 @@ impl RsyncRunner {
             "--progress".to_string(),
         ];
 
-        if let Some(port) = mirror.rsync_port {
-            args.push(format!("--port={}", port));
-        }
+        // Note: Port is already in the rsync URL, no --port= needed
 
         if self.options.delete {
             args.push("--delete".to_string());
