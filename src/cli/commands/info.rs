@@ -68,7 +68,7 @@ fn show_local_info(pdb_id: &PdbId, ctx: &AppContext, output: OutputFormat) -> Re
                     })
                 }).collect::<Vec<_>>(),
             });
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
+            println!("{}", serde_json::to_string_pretty(&output)?);
         }
         OutputFormat::Csv => {
             println!("pdb_id,format,path,size");
@@ -77,7 +77,7 @@ fn show_local_info(pdb_id: &PdbId, ctx: &AppContext, output: OutputFormat) -> Re
                     "{},{},{},{}",
                     pdb_id.as_str().to_uppercase(),
                     file.format,
-                    file.path,
+                    csv_escape(&file.path),
                     file.size
                 );
             }
@@ -103,6 +103,15 @@ fn format_size(size: u64) -> String {
         format!("{:.1} KB", size as f64 / KB as f64)
     } else {
         format!("{} B", size)
+    }
+}
+
+/// Escape a string for CSV output (RFC 4180)
+fn csv_escape(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
     }
 }
 
@@ -176,18 +185,19 @@ fn print_metadata_json(metadata: &crate::api::rcsb::EntryMetadata, show_all: boo
     });
 
     if show_all {
-        let obj = output.as_object_mut().unwrap();
-        obj.insert(
-            "revised".to_string(),
-            serde_json::json!(metadata.revision_date().map(|d| d.to_string())),
-        );
-        obj.insert(
-            "molecular_weight".to_string(),
-            serde_json::json!(metadata.molecular_weight()),
-        );
+        if let Some(obj) = output.as_object_mut() {
+            obj.insert(
+                "revised".to_string(),
+                serde_json::json!(metadata.revision_date().map(|d| d.to_string())),
+            );
+            obj.insert(
+                "molecular_weight".to_string(),
+                serde_json::json!(metadata.molecular_weight()),
+            );
+        }
     }
 
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
@@ -201,11 +211,8 @@ fn print_metadata_csv(metadata: &crate::api::rcsb::EntryMetadata, show_all: bool
         println!("pdb_id,title,deposited,released,method,resolution,polymer_entities,assemblies");
     }
 
-    // Data row
-    let title = metadata
-        .title()
-        .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
-        .unwrap_or_default();
+    // Data row - use csv_escape for fields that may contain special characters
+    let title = metadata.title().map(csv_escape).unwrap_or_default();
     let deposited = metadata
         .deposit_date()
         .map(|d| d.to_string())
@@ -214,7 +221,7 @@ fn print_metadata_csv(metadata: &crate::api::rcsb::EntryMetadata, show_all: bool
         .release_date()
         .map(|d| d.to_string())
         .unwrap_or_default();
-    let method = metadata.method().unwrap_or_default();
+    let method = metadata.method().map(csv_escape).unwrap_or_default();
     let resolution = metadata
         .resolution()
         .map(|r| format!("{:.2}", r))

@@ -2,8 +2,10 @@ use crate::error::{PdbCliError, Result};
 use crate::files::PdbId;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 const RCSB_API_BASE: &str = "https://data.rcsb.org/rest/v1/core/entry";
+const USER_AGENT: &str = concat!("pdb-cli/", env!("CARGO_PKG_VERSION"));
 
 /// Client for interacting with RCSB Data API
 pub struct RcsbClient {
@@ -12,22 +14,28 @@ pub struct RcsbClient {
 
 impl RcsbClient {
     pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client");
+
+        Self { client }
     }
 
     /// Fetch entry metadata from RCSB
     pub async fn fetch_entry(&self, pdb_id: &PdbId) -> Result<EntryMetadata> {
         let url = format!("{}/{}", RCSB_API_BASE, pdb_id.as_str().to_uppercase());
 
-        let response = self.client.get(&url).send().await?;
+        let response = self
+            .client
+            .get(&url)
+            .header("User-Agent", USER_AGENT)
+            .send()
+            .await?;
 
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PdbCliError::Download(format!(
-                "PDB entry {} not found",
-                pdb_id
-            )));
+            return Err(PdbCliError::NotFound(format!("PDB entry {}", pdb_id)));
         }
 
         if !response.status().is_success() {
@@ -193,25 +201,27 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore = "requires network access"]
     async fn test_fetch_entry_4hhb() {
         let client = RcsbClient::new();
         let pdb_id = PdbId::new("4hhb").unwrap();
-        let result = client.fetch_entry(&pdb_id).await;
+        let entry = client
+            .fetch_entry(&pdb_id)
+            .await
+            .expect("API request failed");
 
-        // This test requires network access
-        if let Ok(entry) = result {
-            assert_eq!(entry.rcsb_id.to_lowercase(), "4hhb");
-            assert!(entry.title().is_some());
-        }
+        assert_eq!(entry.rcsb_id.to_lowercase(), "4hhb");
+        assert!(entry.title().is_some());
     }
 
     #[tokio::test]
+    #[ignore = "requires network access"]
     async fn test_fetch_entry_not_found() {
         let client = RcsbClient::new();
         let pdb_id = PdbId::new("9zzz").unwrap();
         let result = client.fetch_entry(&pdb_id).await;
 
-        // Should return an error for non-existent entry
-        assert!(result.is_err());
+        // Should return a NotFound error for non-existent entry
+        assert!(matches!(result, Err(PdbCliError::NotFound(_))));
     }
 }
