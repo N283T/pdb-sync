@@ -69,6 +69,14 @@ pub enum PdbCliError {
 
     #[error("Invalid interval: {0}")]
     InvalidInterval(String),
+
+    #[allow(dead_code)]
+    #[error("aria2c not found in PATH")]
+    Aria2cNotFound,
+
+    #[allow(dead_code)]
+    #[error("aria2c execution failed: {0}")]
+    Aria2cFailed(String),
 }
 
 pub type Result<T> = std::result::Result<T, PdbCliError>;

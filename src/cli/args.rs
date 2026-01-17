@@ -1,4 +1,5 @@
 use crate::data_types::{DataType, Layout};
+use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -241,6 +242,22 @@ pub struct DownloadArgs {
     /// Read PDB IDs from stdin (one per line)
     #[arg(long)]
     pub stdin: bool,
+
+    /// Download engine to use
+    #[arg(long, value_enum, default_value = "builtin")]
+    pub engine: EngineType,
+
+    /// Number of connections per server (aria2c only)
+    #[arg(long, default_value = "4")]
+    pub connections: u32,
+
+    /// Number of splits per download (aria2c only)
+    #[arg(long, default_value = "1")]
+    pub split: u32,
+
+    /// Export aria2c input file to stdout instead of downloading
+    #[arg(long)]
+    pub export_aria2c: bool,
 }
 
 #[derive(Parser)]
