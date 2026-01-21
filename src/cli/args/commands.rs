@@ -229,6 +229,8 @@ pub enum ConfigAction {
     },
     /// Test mirror latencies
     TestMirrors,
+    /// Show where each configuration value is coming from
+    Sources,
 }
 
 #[derive(Parser, Clone)]

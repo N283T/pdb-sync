@@ -1,12 +1,15 @@
 use crate::cli::args::{ConfigAction, ConfigArgs};
-use crate::config::ConfigLoader;
+use crate::config::{ConfigLoader, MergedConfig};
+use crate::context::AppContext;
 use crate::data_types::{DataType, Layout};
 use crate::error::{PdbSyncError, Result};
-use crate::mirrors::print_mirror_latencies;
+use crate::mirrors::{print_mirror_latencies, MirrorId};
 use crate::utils::{header, info, success};
 use colored::Colorize;
+use std::env;
+use std::path::PathBuf;
 
-pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> Result<()> {
+pub async fn run_config(args: ConfigArgs, ctx: crate::context::AppContext) -> Result<()> {
     match args.action {
         ConfigAction::Init => {
             let path = ConfigLoader::init()?;
@@ -38,7 +41,56 @@ pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> R
             println!();
             print_mirror_latencies().await;
         }
+        ConfigAction::Sources => {
+            run_sources(ctx)?;
+        }
     }
+
+    Ok(())
+}
+
+/// Show where each configuration value is coming from.
+fn run_sources(_ctx: AppContext) -> Result<()> {
+    header("Configuration Sources");
+
+    // Get CLI values (these would normally come from args, but for now we use None)
+    let cli_pdb_dir = None;
+    let cli_mirror = None;
+
+    // Get environment values
+    let env_pdb_dir = env::var("PDB_DIR").ok().map(PathBuf::from);
+    let env_mirror = env::var("PDB_SYNC_MIRROR")
+        .ok()
+        .and_then(|s| s.parse().ok());
+
+    // Get config file values
+    let config = ConfigLoader::load().ok();
+    let _config_pdb_dir = config.as_ref().and_then(|c| c.paths.pdb_dir.clone());
+    let _config_mirror = config.as_ref().map(|c| c.sync.mirror);
+
+    // Default values
+    let default_pdb_dir = env::var("HOME")
+        .ok()
+        .map(|p| PathBuf::from(p).join(".pdb"));
+    let default_mirror = MirrorId::Rcsb;
+
+    // Merge with source tracking
+    let merged = MergedConfig::merge(
+        cli_pdb_dir,
+        cli_mirror,
+        env_pdb_dir,
+        env_mirror,
+        config,
+        default_pdb_dir,
+        default_mirror,
+    );
+
+    // Display sources
+    println!("{}", merged.display_sources());
+
+    // Show legend
+    println!();
+    info("Priority order: command-line > environment variable > config file > default");
 
     Ok(())
 }
