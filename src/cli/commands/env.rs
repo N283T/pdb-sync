@@ -1,6 +1,8 @@
 use crate::cli::args::{EnvAction, EnvArgs};
 use crate::config::ConfigLoader;
 use crate::error::Result;
+use crate::utils::{header, warning};
+use colored::Colorize;
 
 const ENV_VARS: &[(&str, &str)] = &[
     ("PDB_DIR", "Base directory for PDB files"),
@@ -14,19 +16,21 @@ const ENV_VARS: &[(&str, &str)] = &[
 pub async fn run_env(args: EnvArgs, ctx: crate::context::AppContext) -> Result<()> {
     match args.action {
         EnvAction::Show => {
-            println!("Environment Variables:\n");
+            header("Environment Variables");
+            println!();
 
             for (name, description) in ENV_VARS {
-                let value = std::env::var(name).unwrap_or_else(|_| "(not set)".to_string());
-                println!("  {} = {}", name, value);
-                println!("    {}\n", description);
+                let value = std::env::var(name)
+                    .unwrap_or_else(|_| "(not set)".to_string().dimmed().to_string());
+                println!("  {} = {}", name.cyan(), value);
+                println!("    {}\n", description.dimmed());
             }
 
             println!("Effective values (after config resolution):");
-            println!("  PDB_DIR: {}", ctx.pdb_dir.display());
-            println!("  Mirror: {}", ctx.mirror);
+            println!("  PDB_DIR: {}", ctx.pdb_dir.display().to_string().cyan());
+            println!("  Mirror: {}", ctx.mirror.to_string().yellow());
             if let Some(path) = ConfigLoader::config_path() {
-                println!("  Config: {}", path.display());
+                println!("  Config: {}", path.display().to_string().cyan());
             }
         }
         EnvAction::Export => {
@@ -42,14 +46,14 @@ pub async fn run_env(args: EnvArgs, ctx: crate::context::AppContext) -> Result<(
         EnvAction::Set { name, value } => {
             // Validate the variable name
             if !ENV_VARS.iter().any(|(n, _)| *n == name) {
-                eprintln!(
-                    "Warning: '{}' is not a recognized PDB-SYNC environment variable",
+                warning(&format!(
+                    "'{}' is not a recognized PDB-SYNC environment variable",
                     name
-                );
+                ));
             }
 
             println!("# Run this command to set the environment variable:");
-            println!("export {}=\"{}\"", name, value);
+            println!("export {}=\"{}\"", name.cyan(), value.yellow());
             println!("\n# Or add it to your shell profile for persistence");
         }
     }

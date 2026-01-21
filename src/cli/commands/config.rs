@@ -3,12 +3,14 @@ use crate::config::ConfigLoader;
 use crate::data_types::{DataType, Layout};
 use crate::error::{PdbSyncError, Result};
 use crate::mirrors::print_mirror_latencies;
+use crate::utils::{header, info, success};
+use colored::Colorize;
 
 pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> Result<()> {
     match args.action {
         ConfigAction::Init => {
             let path = ConfigLoader::init()?;
-            println!("Configuration initialized at: {}", path.display());
+            success(&format!("Configuration initialized at: {}", path.display()));
         }
         ConfigAction::Show => {
             let config = ConfigLoader::load()?;
@@ -16,7 +18,8 @@ pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> R
             println!("{}", toml_str);
 
             if let Some(path) = ConfigLoader::config_path() {
-                println!("\nConfig file: {}", path.display());
+                println!();
+                info(&format!("Config file: {}", path.display()));
             }
         }
         ConfigAction::Get { key } => {
@@ -28,9 +31,11 @@ pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> R
             let mut config = ConfigLoader::load()?;
             set_config_value(&mut config, &key, &value)?;
             ConfigLoader::save(&config)?;
-            println!("Set {} = {}", key, value);
+            success(&format!("Set {} = {}", key.cyan(), value.yellow()));
         }
         ConfigAction::TestMirrors => {
+            header("Testing Mirror Latencies");
+            println!();
             print_mirror_latencies().await;
         }
     }

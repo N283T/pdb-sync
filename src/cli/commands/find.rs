@@ -8,6 +8,7 @@ use crate::cli::args::FindArgs;
 use crate::context::AppContext;
 use crate::error::{PdbSyncError, Result};
 use crate::files::{build_full_path, FileFormat, PdbId};
+use crate::utils::warning;
 use glob::Pattern;
 use std::collections::HashSet;
 use std::io::{self, BufRead, IsTerminal};
@@ -105,7 +106,7 @@ fn collect_patterns(args: &FindArgs) -> Result<Vec<String>> {
     // Read from stdin
     let stdin = io::stdin();
     if stdin.is_terminal() {
-        eprintln!("Warning: Reading from terminal. Press Ctrl+D when done, or Ctrl+C to cancel.");
+        warning("Reading from terminal. Press Ctrl+D when done, or Ctrl+C to cancel.");
     }
 
     for line in stdin.lock().lines() {
