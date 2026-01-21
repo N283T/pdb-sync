@@ -1,0 +1,87 @@
+//! Terminal colors and styling for CLI output.
+
+use colored::Colorize;
+
+/// Message type for different levels of output
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub enum MessageType {
+    Success,
+    Error,
+    Warning,
+    Info,
+    Hint,
+}
+
+impl MessageType {
+    /// Apply color to a message based on its type
+    pub fn colorize(&self, message: &str) -> String {
+        match self {
+            MessageType::Success => message.green().to_string(),
+            MessageType::Error => message.red().to_string(),
+            MessageType::Warning => message.yellow().to_string(),
+            MessageType::Info => message.blue().to_string(),
+            MessageType::Hint => message.dimmed().to_string(),
+        }
+    }
+
+    /// Get the prefix/emoji for this message type
+    pub fn prefix(&self) -> &str {
+        match self {
+            MessageType::Success => "✓",
+            MessageType::Error => "✗",
+            MessageType::Warning => "⚠",
+            MessageType::Info => "ℹ",
+            MessageType::Hint => "💡",
+        }
+    }
+
+    /// Format a message with prefix and color
+    pub fn format(&self, message: &str) -> String {
+        format!("{} {}", self.prefix(), self.colorize(message))
+    }
+}
+
+/// Print a success message (green)
+pub fn success(message: &str) {
+    println!("{}", MessageType::Success.format(message));
+}
+
+/// Print an error message (red)
+#[allow(dead_code)]
+pub fn error(message: &str) {
+    eprintln!("{}", MessageType::Error.format(message));
+}
+
+/// Print a warning message (yellow)
+#[allow(dead_code)]
+pub fn warning(message: &str) {
+    eprintln!("{}", MessageType::Warning.format(message));
+}
+
+/// Print an info message (blue)
+pub fn info(message: &str) {
+    println!("{}", MessageType::Info.format(message));
+}
+
+/// Print a hint message (dimmed)
+pub fn hint(message: &str) {
+    println!("{}", MessageType::Hint.format(message));
+}
+
+/// Print a header/title (bold, cyan)
+pub fn header(message: &str) {
+    println!("\n{}", message.bold().cyan());
+}
+
+/// Print a section title (bold)
+#[allow(dead_code)]
+pub fn title(message: &str) {
+    println!("\n{}", message.bold());
+}
+
+/// Print a key-value pair
+#[allow(dead_code)]
+pub fn kv(key: &str, value: &str) {
+    println!("  {}: {}", key.bold(), value);
+}

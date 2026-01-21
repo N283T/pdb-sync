@@ -30,6 +30,7 @@ humantime = "2"
 which = "7.0"
 tempfile = "3.10"
 thousands = "0.2"
+colored = "2.1"
 
 [dependencies.notify-rust]
 version = "4"

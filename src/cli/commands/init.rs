@@ -39,6 +39,8 @@ use crate::cli::args::InitArgs;
 use crate::context::AppContext;
 use crate::error::{PdbSyncError, Result};
 use crate::tree::{build_tree, render_tree, TreeOptions};
+use crate::utils::{header, hint, info, success};
+use colored::Colorize;
 use std::collections::HashMap;
 
 /// Parse depth string to usize (supports numeric and named values)
@@ -325,17 +327,17 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
     let tree = build_directory_tree(&defined_subdirs, depth);
 
     if args.dry_run {
-        println!("Would create the following directory structure:");
-        println!(
-            "  Base: {} [from {}]",
+        header("Preview (dry-run)");
+        info(&format!(
+            "Base: {} [from {}]",
             base_dir.display(),
             dir_source.as_str()
-        );
+        ));
         for subdir in &all_subdirs {
-            println!("    {}/", subdir);
+            println!("  {}/", subdir.cyan());
             if let Some(paths) = tree.get(subdir) {
                 for path in paths {
-                    println!("      {}", path);
+                    println!("    {}", path.dimmed());
                 }
             }
         }
@@ -343,14 +345,15 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
     }
 
     // Create base directory if it doesn't exist
-    println!(
-        "\nBase directory: {} [from {}]",
+    info(&format!(
+        "Base directory: {} [from {}]",
         base_dir.display(),
         dir_source.as_str()
-    );
+    ));
     if !base_dir.exists() {
         println!("Creating base directory...");
         std::fs::create_dir_all(&base_dir)?;
+        success("Base directory created");
     } else {
         println!("Base directory already exists.");
     }
@@ -359,10 +362,10 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
     for subdir in &all_subdirs {
         let subdir_path = base_dir.join(subdir);
         if !subdir_path.exists() {
-            println!("Creating: {}/", subdir);
+            println!("  Creating: {}/", subdir.cyan());
             std::fs::create_dir(&subdir_path)?;
         } else {
-            println!("Exists: {}/", subdir);
+            println!("  Exists: {}/", subdir.dimmed());
         }
 
         // Only create subdirectories for defined dirs (custom dirs stay empty)
@@ -370,43 +373,51 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
             for path in paths {
                 let full_path = base_dir.join(path);
                 if !full_path.exists() {
-                    println!("Creating: {}", path);
+                    println!("    Creating: {}", path.dimmed());
                     std::fs::create_dir_all(&full_path)?;
                 } else {
-                    println!("Exists: {}", path);
+                    println!("    Exists: {}", path.dimmed());
                 }
             }
         }
     }
 
-    println!(
-        "\nDirectory structure initialized at: {}",
+    success(&format!(
+        "Directory structure initialized at: {}",
         base_dir.display()
-    );
+    ));
 
     // Show environment setup hint if not using CLI arg or ENV
     match dir_source {
         DirSource::CliArg => {}
         DirSource::EnvVar => {}
         DirSource::Config | DirSource::Default => {
-            println!("\n💡 Tip: Set the PDB_DIR environment variable to avoid specifying --dir:");
-            println!("   export PDB_DIR=\"{}\"", base_dir.display());
-            println!("\n   Or run: pdb-sync env --export");
+            println!();
+            hint("Set the PDB_DIR environment variable to avoid specifying --dir:");
+            println!("  export PDB_DIR=\"{}\"", base_dir.display());
+            println!();
+            hint("Or run:");
+            println!("  pdb-sync env --export");
         }
     }
 
     if depth == 0 {
-        println!("\nUse --depth 1 to create data type subdirectories:");
+        println!();
+        hint("Use --depth 1 to create data type subdirectories:");
         println!("  pdb-sync init --depth 1");
-        println!("\nUse --depth 2 to create layout subdirectories (divided/all):");
+        println!();
+        hint("Use --depth 2 to create layout subdirectories (divided/all):");
         println!("  pdb-sync init --depth 2");
-        println!("\nUse --depth 3 (or --depth format) to create format subdirectories:");
+        println!();
+        hint("Use --depth 3 (or --depth format) to create format subdirectories:");
         println!("  pdb-sync init --depth 3");
         println!("  pdb-sync init --depth format");
-        println!("\nYou can also specify custom directories:");
+        println!();
+        hint("You can also specify custom directories:");
         println!("  pdb-sync init --only data --only myproject");
     } else {
-        println!("\nYou can now use sync commands with --dest to target specific directories:");
+        println!();
+        info("You can now use sync commands with --dest to target specific directories:");
         if all_subdirs.contains(&"data".to_string()) {
             println!(
                 "  pdb-sync sync structures --dest {}/data/structures/divided",
@@ -429,7 +440,7 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
 
     // Show directory tree after creation (not in dry_run mode)
     if !args.dry_run {
-        println!("\nDirectory structure:");
+        header("Directory structure");
         let tree_options = TreeOptions {
             max_depth: Some(depth + 1), // +1 to show base dir too
             format_filter: None,
