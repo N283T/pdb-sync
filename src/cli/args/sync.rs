@@ -37,7 +37,7 @@ pub struct SyncArgs {
     pub command: Option<SyncCommand>,
 
     // === Legacy/backward-compatible options ===
-    // These are used when no subcommand is specified (e.g., `pdb-cli sync --type structures`)
+    // These are used when no subcommand is specified (e.g., `pdb-sync sync --type structures`)
     /// Mirror to sync from
     #[arg(short, long, value_enum, global = true)]
     pub mirror: Option<crate::mirrors::MirrorId>,
