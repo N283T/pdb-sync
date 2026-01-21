@@ -20,14 +20,13 @@ mod watch;
 // Re-export from library crate
 pub use pdb_sync::data_types;
 
-use clap::Parser;
-use cli::{Cli, Commands};
+use cli::{parse_cli, Cli, Commands};
 use context::AppContext;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
+    let cli = parse_cli();
 
     // Initialize logging
     let filter = if cli.verbose {
