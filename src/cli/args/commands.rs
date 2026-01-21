@@ -9,6 +9,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use super::enums::{ExperimentalMethod, NotifyMethod, SortField};
+use super::global::{PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs};
 
 /// Arguments for the init command.
 #[derive(Parser, Clone)]
@@ -32,6 +33,14 @@ pub struct InitArgs {
 
 #[derive(Parser, Clone)]
 pub struct DownloadArgs {
+    /// PDB directory and destination
+    #[command(flatten)]
+    pub pdb_dir: PdbDirArgs,
+
+    /// Mirror selection
+    #[command(flatten)]
+    pub mirror: MirrorArgs,
+
     /// PDB IDs to download
     #[arg(required_unless_present_any = ["list", "stdin"])]
     pub pdb_ids: Vec<String>,
@@ -48,17 +57,9 @@ pub struct DownloadArgs {
     #[arg(short, long)]
     pub assembly: Option<u8>,
 
-    /// Destination directory
-    #[arg(short, long)]
-    pub dest: Option<PathBuf>,
-
     /// Decompress downloaded files
     #[arg(long)]
     pub decompress: bool,
-
-    /// Mirror to download from
-    #[arg(short, long, value_enum)]
-    pub mirror: Option<MirrorId>,
 
     /// Overwrite existing files
     #[arg(long)]
@@ -270,6 +271,14 @@ pub struct InfoArgs {
 
 #[derive(Parser, Clone)]
 pub struct ValidateArgs {
+    /// Mirror selection
+    #[command(flatten)]
+    pub mirror: MirrorArgs,
+
+    /// Progress and output arguments
+    #[command(flatten)]
+    pub progress: ProgressArgs,
+
     /// PDB IDs to validate (empty = all local files)
     pub pdb_ids: Vec<String>,
 
@@ -285,17 +294,9 @@ pub struct ValidateArgs {
     #[arg(long)]
     pub fix: bool,
 
-    /// Show progress bar
-    #[arg(short = 'P', long)]
-    pub progress: bool,
-
     /// Show only errors (skip valid files)
     #[arg(long)]
     pub errors_only: bool,
-
-    /// Mirror to use for checksums (and --fix downloads)
-    #[arg(short, long, value_enum)]
-    pub mirror: Option<MirrorId>,
 
     /// Read PDB IDs from a file (one per line)
     #[arg(short, long)]
@@ -532,16 +533,24 @@ pub struct TreeArgs {
 
 #[derive(Parser, Clone)]
 pub struct UpdateArgs {
+    /// Mirror selection
+    #[command(flatten)]
+    pub mirror: MirrorArgs,
+
+    /// Progress and dry run arguments
+    #[command(flatten)]
+    pub progress: ProgressArgs,
+
+    /// Dry run arguments
+    #[command(flatten)]
+    pub dry_run: DryRunArgs,
+
     /// PDB IDs to check/update (empty = all local files)
     pub pdb_ids: Vec<String>,
 
     /// Check only, don't download updates
     #[arg(short, long)]
     pub check: bool,
-
-    /// Dry run (show what would be updated without downloading)
-    #[arg(short = 'n', long)]
-    pub dry_run: bool,
 
     /// Use checksums for verification (slower but accurate)
     #[arg(long)]
@@ -554,14 +563,6 @@ pub struct UpdateArgs {
     /// File format to check
     #[arg(short, long, value_enum)]
     pub format: Option<FileFormat>,
-
-    /// Mirror to check against
-    #[arg(short, long, value_enum)]
-    pub mirror: Option<MirrorId>,
-
-    /// Show progress bar
-    #[arg(short = 'P', long)]
-    pub progress: bool,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]

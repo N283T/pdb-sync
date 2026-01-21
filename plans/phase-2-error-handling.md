@@ -156,11 +156,11 @@ cargo run -- download 1ABC --mirror invalid
 
 ## Success Criteria
 
-- [ ] All errors have structured context where applicable
-- [ ] `is_retriable()` works correctly
-- [ ] Error messages include relevant details (URL, pdb_id)
-- [ ] All tests pass
-- [ ] No clippy warnings
+- [x] All errors have structured context where applicable
+- [x] `is_retriable()` works correctly
+- [x] Error messages include relevant details (URL, pdb_id)
+- [x] All tests pass
+- [x] No clippy warnings
 
 ---
-- [ ] **DONE** - Phase 2 complete
+- [x] **DONE** - Phase 2 complete (2025-01-21)

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use super::commands::*;
 use super::sync::SyncArgs;
+use crate::mirrors::MirrorId;
 
 // Configures colored help menu colors (similar to uv)
 pub const STYLES: Styles = Styles::styled()
@@ -33,6 +34,34 @@ pub struct PdbDirArgs {
     /// Destination directory
     #[arg(short, long)]
     pub dest: Option<PathBuf>,
+}
+
+/// Mirror selection arguments
+#[derive(Parser, Clone, Debug)]
+pub struct MirrorArgs {
+    /// Mirror to use
+    #[arg(short, long, value_enum)]
+    pub mirror: Option<MirrorId>,
+}
+
+/// Progress/output arguments
+#[derive(Parser, Clone, Debug)]
+pub struct ProgressArgs {
+    /// Show progress bar
+    #[arg(short = 'P', long)]
+    pub progress: bool,
+
+    /// Quiet mode (suppress output)
+    #[arg(short, long)]
+    pub quiet: bool,
+}
+
+/// Dry run arguments
+#[derive(Parser, Clone, Debug)]
+pub struct DryRunArgs {
+    /// Perform a dry run without making changes
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
 }
 
 /// Main CLI structure

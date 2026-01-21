@@ -42,7 +42,7 @@ impl UpdateStats {
 }
 
 pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
-    let mirror = args.mirror.unwrap_or(ctx.mirror);
+    let mirror = args.mirror.mirror.unwrap_or(ctx.mirror);
     let format = args.format.unwrap_or(FileFormat::CifGz);
 
     // 1. Collect files to check
@@ -91,7 +91,7 @@ pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
         total_files, mirror
     );
 
-    let pb = if args.progress {
+    let pb = if args.progress.progress {
         let pb = ProgressBar::new(total_files as u64);
         pb.set_style(
             ProgressStyle::default_bar()
@@ -155,7 +155,7 @@ pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
     let stats = UpdateStats::from_results(&results);
 
     // 5. Handle update mode
-    if !args.check && !args.dry_run && !outdated.is_empty() {
+    if !args.check && !args.dry_run.dry_run && !outdated.is_empty() {
         println!("\nDownloading {} update(s)...\n", outdated.len());
 
         let download_results =
@@ -178,7 +178,7 @@ pub async fn run_update(args: UpdateArgs, ctx: AppContext) -> Result<()> {
 
         // Print summary with download stats
         print_summary_with_downloads(&stats, &download_stats);
-    } else if args.dry_run && !outdated.is_empty() {
+    } else if args.dry_run.dry_run && !outdated.is_empty() {
         println!("\n--- Dry Run Summary ---");
         println!("Would update {} file(s):", outdated.len());
         for item in &outdated {
@@ -212,7 +212,7 @@ async fn run_update_json(
         .filter(|r| r.status.is_outdated() || (args.force && r.status.is_up_to_date()))
         .collect();
 
-    let final_results = if !args.check && !args.dry_run && !outdated.is_empty() {
+    let final_results = if !args.check && !args.dry_run.dry_run && !outdated.is_empty() {
         // Download updates and merge results
         let download_results =
             download_updates(&outdated, mirror, format, pdb_dir, args.parallel).await?;

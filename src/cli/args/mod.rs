@@ -18,7 +18,7 @@ pub use enums::{
 
 // TODO: These exports will be used in Phase 3 (shared arg groups)
 #[allow(unused_imports)]
-pub use global::{Cli, Commands, GlobalArgs, PdbDirArgs, parse_cli, STYLES};
+pub use global::{Cli, Commands, GlobalArgs, PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs, parse_cli, STYLES};
 
 // Individual command arguments
 pub use commands::{
