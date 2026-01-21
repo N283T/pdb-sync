@@ -5,7 +5,7 @@ use crate::download::{
     aria2c, Aria2cDownloader, DownloadOptions, DownloadResult, DownloadTask, EngineType,
     HttpsDownloader,
 };
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::PdbId;
 use crate::utils::IdSource;
 use std::time::Duration;
@@ -20,7 +20,7 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
         IdSource::collect(args.pdb_ids.clone(), args.list.as_deref(), args.stdin).await?;
 
     if id_source.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No PDB IDs provided. Use positional arguments, --list, or --stdin".into(),
         ));
     }
@@ -42,7 +42,7 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
     }
 
     if pdb_ids.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No valid PDB IDs provided".into(),
         ));
     }

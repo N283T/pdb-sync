@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PdbCliError {
+pub enum PdbSyncError {
     #[error("Invalid PDB ID: {0}")]
     InvalidPdbId(String),
 
@@ -88,4 +88,4 @@ pub enum PdbCliError {
     Job(String),
 }
 
-pub type Result<T> = std::result::Result<T, PdbCliError>;
+pub type Result<T> = std::result::Result<T, PdbSyncError>;

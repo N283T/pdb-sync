@@ -1,6 +1,6 @@
 //! Checksum verification for PDB files.
 
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::mirrors::{Mirror, MirrorId};
 use md5::{Digest, Md5};
 use std::collections::HashMap;
@@ -44,7 +44,7 @@ pub struct ChecksumVerifier {
 impl ChecksumVerifier {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("pdb-cli")
+            .user_agent("pdb-sync")
             .timeout(std::time::Duration::from_secs(30))
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()
@@ -132,10 +132,10 @@ impl ChecksumVerifier {
             .get(&url)
             .send()
             .await
-            .map_err(|e| PdbCliError::ChecksumFetch(e.to_string()))?;
+            .map_err(|e| PdbSyncError::ChecksumFetch(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(PdbCliError::ChecksumFetch(format!(
+            return Err(PdbSyncError::ChecksumFetch(format!(
                 "HTTP {} from {}",
                 response.status(),
                 url
@@ -145,7 +145,7 @@ impl ChecksumVerifier {
         let content = response
             .text()
             .await
-            .map_err(|e| PdbCliError::ChecksumFetch(e.to_string()))?;
+            .map_err(|e| PdbSyncError::ChecksumFetch(e.to_string()))?;
 
         Ok(parse_checksums(&content))
     }

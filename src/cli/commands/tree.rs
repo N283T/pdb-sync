@@ -2,7 +2,7 @@
 
 use crate::cli::args::{OutputFormat, TreeArgs};
 use crate::context::AppContext;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::tree::render::{render_top_directories, RenderOptions};
 use crate::tree::{build_tree, render_tree, DirNode, TreeOptions};
 use crate::utils::escape_csv_field;
@@ -12,7 +12,7 @@ pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
     let pdb_dir = &ctx.pdb_dir;
 
     if !pdb_dir.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "PDB directory does not exist: {}",
             pdb_dir.display()
         )));
@@ -72,7 +72,7 @@ pub async fn run_tree(args: TreeArgs, ctx: AppContext) -> Result<()> {
 /// Print the tree as JSON
 fn print_json(tree: &DirNode) -> Result<()> {
     let json = serde_json::to_string_pretty(tree)
-        .map_err(|e| PdbCliError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
+        .map_err(|e| PdbSyncError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
     println!("{}", json);
     Ok(())
 }

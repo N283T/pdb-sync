@@ -1,4 +1,4 @@
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::PdbId;
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use std::time::Duration;
 
 const RCSB_API_BASE: &str = "https://data.rcsb.org/rest/v1/core/entry";
 const RCSB_SEARCH_API: &str = "https://search.rcsb.org/rcsbsearch/v2/query";
-const USER_AGENT: &str = concat!("pdb-cli/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("pdb-sync/", env!("CARGO_PKG_VERSION"));
 
 /// Client for interacting with RCSB Data API
 pub struct RcsbClient {
@@ -36,11 +36,11 @@ impl RcsbClient {
             .await?;
 
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PdbCliError::NotFound(format!("PDB entry {}", pdb_id)));
+            return Err(PdbSyncError::NotFound(format!("PDB entry {}", pdb_id)));
         }
 
         if !response.status().is_success() {
-            return Err(PdbCliError::Download(format!(
+            return Err(PdbSyncError::Download(format!(
                 "API request failed with status {}",
                 response.status()
             )));
@@ -86,7 +86,7 @@ impl RcsbClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(PdbCliError::Download(format!(
+            return Err(PdbSyncError::Download(format!(
                 "Search API request failed with status {}",
                 response.status()
             )));
@@ -274,7 +274,7 @@ mod tests {
         let result = client.fetch_entry(&pdb_id).await;
 
         // Should return a NotFound error for non-existent entry
-        assert!(matches!(result, Err(PdbCliError::NotFound(_))));
+        assert!(matches!(result, Err(PdbSyncError::NotFound(_))));
     }
 
     #[tokio::test]

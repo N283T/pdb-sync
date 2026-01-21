@@ -46,7 +46,7 @@ impl DataType {
     ///
     /// # Example
     /// ```
-    /// use pdb_cli::data_types::{DataType, Layout};
+    /// use pdb_sync::data_types::{DataType, Layout};
     ///
     /// assert_eq!(
     ///     DataType::Structures.rsync_subpath(Layout::Divided),

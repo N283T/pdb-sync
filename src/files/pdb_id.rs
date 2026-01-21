@@ -1,4 +1,4 @@
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use regex::Regex;
 use std::fmt;
 use std::str::FromStr;
@@ -50,7 +50,7 @@ impl PdbId {
     ///
     /// # Errors
     ///
-    /// Returns `PdbCliError::InvalidPdbId` if the input doesn't match either format.
+    /// Returns `PdbSyncError::InvalidPdbId` if the input doesn't match either format.
     pub fn new(id: &str) -> Result<Self> {
         let id = id.trim().to_lowercase();
 
@@ -59,7 +59,7 @@ impl PdbId {
         } else if EXTENDED_REGEX.is_match(&id) {
             Ok(Self::Extended(id))
         } else {
-            Err(PdbCliError::InvalidPdbId(id))
+            Err(PdbSyncError::InvalidPdbId(id))
         }
     }
 
@@ -112,7 +112,7 @@ impl fmt::Display for PdbId {
 }
 
 impl FromStr for PdbId {
-    type Err = PdbCliError;
+    type Err = PdbSyncError;
 
     fn from_str(s: &str) -> Result<Self> {
         Self::new(s)

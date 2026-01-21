@@ -18,7 +18,7 @@ mod validation;
 mod watch;
 
 // Re-export from library crate
-pub use pdb_cli::data_types;
+pub use pdb_sync::data_types;
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -75,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Find(args) => {
             if let Err(e) = cli::commands::run_find(args, ctx).await {
-                if matches!(e, error::PdbCliError::EntriesNotFound(_, _)) {
+                if matches!(e, error::PdbSyncError::EntriesNotFound(_, _)) {
                     // Exit with code 1 for scripting (no error message)
                     std::process::exit(1);
                 }
@@ -135,9 +135,9 @@ fn spawn_background_job() -> anyhow::Result<()> {
     println!("Job started: {}", job_id);
     println!("Log: {}", job_dir.join("stdout.log").display());
     println!();
-    println!("Use 'pdb-cli jobs' to check status");
+    println!("Use 'pdb-sync jobs' to check status");
     println!(
-        "Use 'pdb-cli jobs log {} --follow' to tail the output",
+        "Use 'pdb-sync jobs log {} --follow' to tail the output",
         job_id
     );
 
@@ -184,7 +184,7 @@ async fn run_command(cli: &Cli) -> anyhow::Result<()> {
         }
         Commands::Find(args) => {
             if let Err(e) = cli::commands::run_find(args.clone(), ctx).await {
-                if matches!(e, error::PdbCliError::EntriesNotFound(_, _)) {
+                if matches!(e, error::PdbSyncError::EntriesNotFound(_, _)) {
                     std::process::exit(1);
                 }
                 return Err(e.into());

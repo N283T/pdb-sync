@@ -1,7 +1,7 @@
 //! rsync-based synchronization for PDB data.
 
 use crate::data_types::{DataType, Layout};
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
 use crate::mirrors::{Mirror, MirrorId};
 use crate::sync::SyncProgress;
@@ -216,7 +216,7 @@ impl RsyncRunner {
         }
 
         if !status.success() {
-            return Err(PdbCliError::Rsync(format!(
+            return Err(PdbSyncError::Rsync(format!(
                 "rsync exited with status {}",
                 status
             )));
@@ -251,7 +251,7 @@ impl RsyncRunner {
         let status = child.wait().await?;
 
         if !status.success() {
-            return Err(PdbCliError::Rsync(format!(
+            return Err(PdbSyncError::Rsync(format!(
                 "rsync exited with status {}",
                 status
             )));

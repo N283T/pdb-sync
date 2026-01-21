@@ -1,4 +1,4 @@
-# pdb-cli
+# pdb-sync
 
 CLI tool for managing Protein Data Bank (PDB) files. Supports rsync synchronization from PDB mirrors, HTTPS downloads, local file management, validation, and automatic updates.
 
@@ -30,25 +30,25 @@ cargo install --path .
 
 ```bash
 # First-time setup (interactive)
-pdb-cli config init
+pdb-sync config init
 
 # Download structure files
-pdb-cli download 4hhb 1abc 2xyz
+pdb-sync download 4hhb 1abc 2xyz
 
 # List local files
-pdb-cli list
+pdb-sync list
 
 # Get entry information
-pdb-cli info 4hhb
+pdb-sync info 4hhb
 
 # Validate local files
-pdb-cli validate --progress
+pdb-sync validate --progress
 
 # Check for updates
-pdb-cli update --check
+pdb-sync update --check
 
 # Watch for new entries
-pdb-cli watch --once --dry-run
+pdb-sync watch --once --dry-run
 ```
 
 ## Commands
@@ -58,7 +58,7 @@ pdb-cli watch --once --dry-run
 Synchronize files from a PDB mirror using rsync. Supports subcommands for different data sources.
 
 ```bash
-pdb-cli sync [OPTIONS] [COMMAND]
+pdb-sync sync [OPTIONS] [COMMAND]
 
 Subcommands:
   wwpdb       Sync wwPDB standard data (structures, assemblies, etc.)
@@ -83,22 +83,22 @@ Options:
 Examples:
 ```bash
 # Sync mmCIF structures from PDBj (dry-run)
-pdb-cli sync --mirror pdbj --dry-run
+pdb-sync sync --mirror pdbj --dry-run
 
 # Sync structures using shortcut
-pdb-cli sync structures --mirror rcsb
+pdb-sync sync structures --mirror rcsb
 
 # Sync multiple data types
-pdb-cli sync wwpdb -t structures -t assemblies --mirror rcsb
+pdb-sync sync wwpdb -t structures -t assemblies --mirror rcsb
 
 # Sync PDBj-specific data (EMDB)
-pdb-cli sync pdbj --type emdb
+pdb-sync sync pdbj --type emdb
 
 # Sync PDBe Foldseek database
-pdb-cli sync pdbe --type foldseek
+pdb-sync sync pdbe --type foldseek
 
 # Run sync in background
-pdb-cli sync --mirror wwpdb --bg
+pdb-sync sync --mirror wwpdb --bg
 ```
 
 ### download
@@ -106,7 +106,7 @@ pdb-cli sync --mirror wwpdb --bg
 Download individual files via HTTPS with parallel downloads.
 
 ```bash
-pdb-cli download [OPTIONS] <PDB_IDS>...
+pdb-sync download [OPTIONS] <PDB_IDS>...
 
 Options:
   -t, --type <DATA_TYPE>    Data type [default: structures]
@@ -125,22 +125,22 @@ Options:
 Examples:
 ```bash
 # Download multiple structures
-pdb-cli download 4hhb 1abc 2xyz --dest ./structures
+pdb-sync download 4hhb 1abc 2xyz --dest ./structures
 
 # Download in PDB format with decompression
-pdb-cli download 4hhb --format pdb --decompress
+pdb-sync download 4hhb --format pdb --decompress
 
 # Download biological assemblies
-pdb-cli download 4hhb -t assemblies -a 1
+pdb-sync download 4hhb -t assemblies -a 1
 
 # Download structure factors
-pdb-cli download 1abc -t structure-factors
+pdb-sync download 1abc -t structure-factors
 
 # Download from file list with 8 parallel connections
-pdb-cli download -l pdb_ids.txt -p 8
+pdb-sync download -l pdb_ids.txt -p 8
 
 # Run download in background
-pdb-cli download -l large_list.txt --bg
+pdb-sync download -l large_list.txt --bg
 ```
 
 ### list
@@ -148,7 +148,7 @@ pdb-cli download -l large_list.txt --bg
 List local PDB files with filtering and statistics.
 
 ```bash
-pdb-cli list [OPTIONS] [PATTERN]
+pdb-sync list [OPTIONS] [PATTERN]
 
 Options:
   -f, --format <FORMAT>     File format to list
@@ -163,22 +163,22 @@ Options:
 Examples:
 ```bash
 # List all local files
-pdb-cli list
+pdb-sync list
 
 # List files matching pattern
-pdb-cli list "1ab*"
+pdb-sync list "1ab*"
 
 # Show statistics only
-pdb-cli list --stats
+pdb-sync list --stats
 
 # List with sizes, sorted by size
-pdb-cli list -s --sort size -r
+pdb-sync list -s --sort size -r
 
 # Export as JSON
-pdb-cli list -o json > files.json
+pdb-sync list -o json > files.json
 
 # Get just IDs for piping
-pdb-cli list -o ids | head -10
+pdb-sync list -o ids | head -10
 ```
 
 ### find
@@ -186,7 +186,7 @@ pdb-cli list -o ids | head -10
 Find PDB files with path output optimized for scripting.
 
 ```bash
-pdb-cli find [OPTIONS] [PATTERNS]...
+pdb-sync find [OPTIONS] [PATTERNS]...
 
 Options:
   -f, --format <FORMAT>     File format to search
@@ -201,19 +201,19 @@ Options:
 Examples:
 ```bash
 # Find specific entries
-pdb-cli find 4hhb 1abc
+pdb-sync find 4hhb 1abc
 
 # Find all formats for an entry
-pdb-cli find 4hhb --all-formats
+pdb-sync find 4hhb --all-formats
 
 # Check if files exist (for scripting)
-pdb-cli find 4hhb --exists && echo "Found"
+pdb-sync find 4hhb --exists && echo "Found"
 
 # Find missing entries from a list
-cat ids.txt | pdb-cli find --stdin --missing
+cat ids.txt | pdb-sync find --stdin --missing
 
 # Use with xargs
-pdb-cli find "1ab*" | xargs -I{} cp {} ./output/
+pdb-sync find "1ab*" | xargs -I{} cp {} ./output/
 ```
 
 ### info
@@ -221,7 +221,7 @@ pdb-cli find "1ab*" | xargs -I{} cp {} ./output/
 Show information about a PDB entry from RCSB API.
 
 ```bash
-pdb-cli info [OPTIONS] <PDB_ID>
+pdb-sync info [OPTIONS] <PDB_ID>
 
 Options:
   --local                   Show local file info only
@@ -232,16 +232,16 @@ Options:
 Examples:
 ```bash
 # Get entry info
-pdb-cli info 4hhb
+pdb-sync info 4hhb
 
 # Get full details
-pdb-cli info 4hhb --all
+pdb-sync info 4hhb --all
 
 # Get as JSON
-pdb-cli info 4hhb -o json
+pdb-sync info 4hhb -o json
 
 # Check local file only
-pdb-cli info 4hhb --local
+pdb-sync info 4hhb --local
 ```
 
 ### validate
@@ -249,7 +249,7 @@ pdb-cli info 4hhb --local
 Validate local PDB files against checksums.
 
 ```bash
-pdb-cli validate [OPTIONS] [PDB_IDS]...
+pdb-sync validate [OPTIONS] [PDB_IDS]...
 
 Options:
   -f, --format <FORMAT>     File format to validate
@@ -263,16 +263,16 @@ Options:
 Examples:
 ```bash
 # Validate all local files
-pdb-cli validate -P
+pdb-sync validate -P
 
 # Validate specific IDs
-pdb-cli validate 1abc 2xyz 3def
+pdb-sync validate 1abc 2xyz 3def
 
 # Validate and fix corrupted files
-pdb-cli validate --fix -P
+pdb-sync validate --fix -P
 
 # Get list of invalid IDs for piping
-pdb-cli validate -o ids | pdb-cli download -l -
+pdb-sync validate -o ids | pdb-sync download -l -
 ```
 
 ### update
@@ -280,7 +280,7 @@ pdb-cli validate -o ids | pdb-cli download -l -
 Check for and download updates to local files.
 
 ```bash
-pdb-cli update [OPTIONS] [PDB_IDS]...
+pdb-sync update [OPTIONS] [PDB_IDS]...
 
 Options:
   -c, --check               Check only, don't download updates
@@ -297,19 +297,19 @@ Options:
 Examples:
 ```bash
 # Check all files for updates
-pdb-cli update --check -P
+pdb-sync update --check -P
 
 # Update specific files
-pdb-cli update 4hhb 1abc
+pdb-sync update 4hhb 1abc
 
 # Dry run to see what would be updated
-pdb-cli update --dry-run
+pdb-sync update --dry-run
 
 # Force update with checksum verification
-pdb-cli update --force --verify
+pdb-sync update --force --verify
 
 # Get list of outdated IDs
-pdb-cli update --check -o ids
+pdb-sync update --check -o ids
 ```
 
 ### watch
@@ -317,7 +317,7 @@ pdb-cli update --check -o ids
 Watch for new PDB entries and download automatically.
 
 ```bash
-pdb-cli watch [OPTIONS]
+pdb-sync watch [OPTIONS]
 
 Options:
   -i, --interval <INTERVAL> Check interval (e.g., "1h", "30m") [default: 1h]
@@ -338,19 +338,19 @@ Options:
 Examples:
 ```bash
 # Watch for new entries (runs continuously)
-pdb-cli watch
+pdb-sync watch
 
 # Check once for new high-resolution X-ray structures
-pdb-cli watch --once --method xray --resolution 2.0
+pdb-sync watch --once --method xray --resolution 2.0
 
 # Watch with desktop notifications
-pdb-cli watch --notify desktop
+pdb-sync watch --notify desktop
 
 # Run custom script on new entries
-pdb-cli watch --on-new ./process_new.sh
+pdb-sync watch --on-new ./process_new.sh
 
 # Dry run to see recent entries
-pdb-cli watch --once --dry-run --since 2024-01-01
+pdb-sync watch --once --dry-run --since 2024-01-01
 ```
 
 ### stats
@@ -358,7 +358,7 @@ pdb-cli watch --once --dry-run --since 2024-01-01
 Show statistics about the local PDB collection.
 
 ```bash
-pdb-cli stats [OPTIONS]
+pdb-sync stats [OPTIONS]
 
 Options:
   --detailed                Show size distribution, oldest/newest files
@@ -371,19 +371,19 @@ Options:
 Examples:
 ```bash
 # Show basic statistics
-pdb-cli stats
+pdb-sync stats
 
 # Show detailed statistics
-pdb-cli stats --detailed
+pdb-sync stats --detailed
 
 # Compare with remote archive
-pdb-cli stats --compare-remote
+pdb-sync stats --compare-remote
 
 # Stats for specific format
-pdb-cli stats -f cif-gz
+pdb-sync stats -f cif-gz
 
 # Export as JSON
-pdb-cli stats -o json
+pdb-sync stats -o json
 ```
 
 ### tree
@@ -391,7 +391,7 @@ pdb-cli stats -o json
 Display directory tree of local PDB mirror.
 
 ```bash
-pdb-cli tree [OPTIONS]
+pdb-sync tree [OPTIONS]
 
 Options:
   -d, --depth <NUM>         Maximum depth to display
@@ -408,19 +408,19 @@ Options:
 Examples:
 ```bash
 # Show full tree
-pdb-cli tree
+pdb-sync tree
 
 # Limit depth
-pdb-cli tree --depth 2
+pdb-sync tree --depth 2
 
 # Show top 10 directories by size
-pdb-cli tree --top 10 --sort-by size
+pdb-sync tree --top 10 --sort-by size
 
 # Show with counts and sizes
-pdb-cli tree -c -s
+pdb-sync tree -c -s
 
 # Export as JSON
-pdb-cli tree -o json
+pdb-sync tree -o json
 ```
 
 ### convert
@@ -428,7 +428,7 @@ pdb-cli tree -o json
 Convert file formats (compression, decompression, format conversion).
 
 ```bash
-pdb-cli convert [OPTIONS] [FILES]...
+pdb-sync convert [OPTIONS] [FILES]...
 
 Options:
   --decompress              Decompress .gz files
@@ -444,19 +444,19 @@ Options:
 Examples:
 ```bash
 # Decompress files
-pdb-cli convert --decompress *.cif.gz
+pdb-sync convert --decompress *.cif.gz
 
 # Compress files
-pdb-cli convert --compress *.cif
+pdb-sync convert --compress *.cif
 
 # Convert mmCIF to PDB format (requires gemmi)
-pdb-cli convert --to pdb --from cif-gz -d ./pdb_files/
+pdb-sync convert --to pdb --from cif-gz -d ./pdb_files/
 
 # In-place decompression
-pdb-cli convert --decompress --in-place ./data/*.gz
+pdb-sync convert --decompress --in-place ./data/*.gz
 
 # Batch convert from stdin
-find ./data -name "*.cif.gz" | pdb-cli convert --stdin --decompress
+find ./data -name "*.cif.gz" | pdb-sync convert --stdin --decompress
 ```
 
 ### copy
@@ -464,7 +464,7 @@ find ./data -name "*.cif.gz" | pdb-cli convert --stdin --decompress
 Copy local PDB files.
 
 ```bash
-pdb-cli copy [OPTIONS] <PDB_IDS>... --dest <DIR>
+pdb-sync copy [OPTIONS] <PDB_IDS>... --dest <DIR>
 
 Options:
   -f, --format <FORMAT>     File format [default: cif-gz]
@@ -479,11 +479,11 @@ Options:
 Manage configuration settings.
 
 ```bash
-pdb-cli config init              # Initialize config file
-pdb-cli config show              # Show current config
-pdb-cli config get <KEY>         # Get a config value
-pdb-cli config set <KEY> <VALUE> # Set a config value
-pdb-cli config test-mirrors      # Test mirror latencies
+pdb-sync config init              # Initialize config file
+pdb-sync config show              # Show current config
+pdb-sync config get <KEY>         # Get a config value
+pdb-sync config set <KEY> <VALUE> # Set a config value
+pdb-sync config test-mirrors      # Test mirror latencies
 ```
 
 ### jobs
@@ -491,7 +491,7 @@ pdb-cli config test-mirrors      # Test mirror latencies
 Manage background jobs.
 
 ```bash
-pdb-cli jobs [OPTIONS] [COMMAND]
+pdb-sync jobs [OPTIONS] [COMMAND]
 
 Commands:
   status <ID>     Show status of a specific job
@@ -507,22 +507,22 @@ Options:
 Examples:
 ```bash
 # List all jobs
-pdb-cli jobs
+pdb-sync jobs
 
 # Show running jobs only
-pdb-cli jobs --running
+pdb-sync jobs --running
 
 # Check job status
-pdb-cli jobs status abc123
+pdb-sync jobs status abc123
 
 # View job logs
-pdb-cli jobs log abc123
+pdb-sync jobs log abc123
 
 # Cancel a running job
-pdb-cli jobs cancel abc123
+pdb-sync jobs cancel abc123
 
 # Clean up old jobs
-pdb-cli jobs clean
+pdb-sync jobs clean
 ```
 
 ### env
@@ -530,14 +530,14 @@ pdb-cli jobs clean
 Manage environment variables.
 
 ```bash
-pdb-cli env show                 # Show environment variables
-pdb-cli env export               # Export as shell commands
-pdb-cli env set <NAME> <VALUE>   # Print set command
+pdb-sync env show                 # Show environment variables
+pdb-sync env export               # Export as shell commands
+pdb-sync env set <NAME> <VALUE>   # Print set command
 ```
 
 ## Configuration
 
-Configuration file: `~/.config/pdb-cli/config.toml`
+Configuration file: `~/.config/pdb-sync/config.toml`
 
 ```toml
 [paths]
@@ -567,8 +567,8 @@ latency_cache_ttl = 3600
 | Variable | Description |
 |----------|-------------|
 | `PDB_DIR` | Base directory for PDB files |
-| `PDB_CLI_CONFIG` | Path to configuration file |
-| `PDB_CLI_MIRROR` | Default mirror |
+| `PDB_SYNC_CONFIG` | Path to configuration file |
+| `PDB_SYNC_MIRROR` | Default mirror |
 
 ## Supported Mirrors
 
@@ -641,16 +641,16 @@ Short aliases are available for commonly used commands and options.
 
 ```bash
 # Before (full names)
-pdb-cli download 4hhb --type structures --format mmcif
+pdb-sync download 4hhb --type structures --format mmcif
 
 # After (with aliases)
-pdb-cli dl 4hhb -t st -f cif
+pdb-sync dl 4hhb -t st -f cif
 
 # Validate shorthand
-pdb-cli val --fix -P
+pdb-sync val --fix -P
 
 # Config shorthand
-pdb-cli cfg show
+pdb-sync cfg show
 ```
 
 ## Piping and Scripting
@@ -659,13 +659,13 @@ Commands support `-o ids` output for piping:
 
 ```bash
 # Find outdated files and update them
-pdb-cli update --check -o ids | pdb-cli download -l -
+pdb-sync update --check -o ids | pdb-sync download -l -
 
 # Validate and re-download corrupted files
-pdb-cli validate -o ids | pdb-cli download -l - --overwrite
+pdb-sync validate -o ids | pdb-sync download -l - --overwrite
 
 # Find missing entries and download
-cat wanted.txt | pdb-cli find --stdin --missing | pdb-cli download -l -
+cat wanted.txt | pdb-sync find --stdin --missing | pdb-sync download -l -
 ```
 
 ## License

@@ -1,6 +1,6 @@
 //! Sync command handler with subcommands for different data sources.
 //!
-//! This module handles the `pdb-cli sync` command and its subcommands:
+//! This module handles the `pdb-sync sync` command and its subcommands:
 //! - `sync` (no subcommand): Legacy mode, backward compatible
 //! - `sync wwpdb`: Standard wwPDB data from any mirror
 //! - `sync structures`: Shortcut for `wwpdb --type structures`

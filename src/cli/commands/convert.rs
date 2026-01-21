@@ -6,7 +6,7 @@ use crate::convert::{
     build_dest_path, check_gemmi_available, detect_format_from_path, ConvertOperation,
     ConvertResult, ConvertTask, Converter,
 };
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use std::io::{self, BufRead};
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
     let mut files = collect_input_files(&args).await?;
 
     if files.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No files to convert. Provide file paths, glob patterns, or use --stdin".into(),
         ));
     }
@@ -30,7 +30,7 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
         });
 
         if files.is_empty() {
-            return Err(PdbCliError::InvalidInput(format!(
+            return Err(PdbSyncError::InvalidInput(format!(
                 "No files match the source format filter: {}",
                 from_format
             )));
@@ -43,7 +43,7 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
     // Check gemmi availability for format conversion
     if let ConvertOperation::ConvertFormat(_) = operation {
         if !check_gemmi_available().await {
-            return Err(PdbCliError::ToolNotFound(
+            return Err(PdbSyncError::ToolNotFound(
                 "gemmi not found. Install with: pip install gemmi".into(),
             ));
         }
@@ -71,7 +71,7 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
         .collect();
 
     if tasks.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No valid conversion tasks to perform".into(),
         ));
     }
@@ -121,7 +121,7 @@ pub async fn run_convert(args: ConvertArgs, _ctx: AppContext) -> Result<()> {
     );
 
     if failed_count > 0 {
-        return Err(PdbCliError::Conversion(format!(
+        return Err(PdbSyncError::Conversion(format!(
             "{} conversion(s) failed",
             failed_count
         )));
@@ -191,7 +191,7 @@ fn determine_operation(args: &ConvertArgs) -> Result<ConvertOperation> {
     } else if let Some(to_format) = args.to {
         Ok(ConvertOperation::ConvertFormat(to_format))
     } else {
-        Err(PdbCliError::InvalidInput(
+        Err(PdbSyncError::InvalidInput(
             "Must specify --decompress, --compress, or --to <format>".into(),
         ))
     }

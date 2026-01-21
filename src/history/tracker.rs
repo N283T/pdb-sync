@@ -1,4 +1,4 @@
-//! History tracking for pdb-cli operations.
+//! History tracking for pdb-sync operations.
 
 use crate::error::Result;
 use chrono::{DateTime, Utc};
@@ -22,7 +22,7 @@ pub struct OperationHistory {
 }
 
 impl HistoryTracker {
-    /// Load history from the default location (~/.cache/pdb-cli/history.json).
+    /// Load history from the default location (~/.cache/pdb-sync/history.json).
     pub fn load() -> Result<Self> {
         let path = Self::default_path()?;
         Self::load_from(&path)
@@ -52,12 +52,12 @@ impl HistoryTracker {
 
     /// Get the default history file path.
     fn default_path() -> Result<PathBuf> {
-        let cache_dir = directories::ProjectDirs::from("", "", "pdb-cli")
+        let cache_dir = directories::ProjectDirs::from("", "", "pdb-sync")
             .map(|dirs| dirs.cache_dir().to_path_buf())
             .unwrap_or_else(|| {
                 directories::BaseDirs::new()
-                    .map(|dirs| dirs.home_dir().join(".cache").join("pdb-cli"))
-                    .unwrap_or_else(|| PathBuf::from(".cache/pdb-cli"))
+                    .map(|dirs| dirs.home_dir().join(".cache").join("pdb-sync"))
+                    .unwrap_or_else(|| PathBuf::from(".cache/pdb-sync"))
             });
 
         Ok(cache_dir.join("history.json"))

@@ -3,7 +3,7 @@
 use crate::cli::args::{OutputFormat, ValidateArgs};
 use crate::context::AppContext;
 use crate::download::{DownloadOptions, HttpsDownloader};
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{paths::build_relative_path, FileFormat, PdbId};
 use crate::utils::IdSource;
 use crate::validation::{ChecksumVerifier, VerifyResult};
@@ -245,7 +245,7 @@ async fn scan_local_files(mirror_dir: &Path, format: FileFormat) -> Result<Vec<(
     let format_dir = mirror_dir.join(subdir);
 
     if !format_dir.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "Format directory not found: {}",
             format_dir.display()
         )));

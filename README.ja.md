@@ -1,4 +1,4 @@
-# pdb-cli
+# pdb-sync
 
 Protein Data Bank (PDB) ファイル管理用CLIツール。PDBミラーからのrsync同期、HTTPSダウンロード、ローカルファイル管理、検証、自動更新に対応。
 
@@ -30,25 +30,25 @@ cargo install --path .
 
 ```bash
 # 初期設定（対話式）
-pdb-cli config init
+pdb-sync config init
 
 # 構造ファイルをダウンロード
-pdb-cli download 4hhb 1abc 2xyz
+pdb-sync download 4hhb 1abc 2xyz
 
 # ローカルファイル一覧
-pdb-cli list
+pdb-sync list
 
 # エントリ情報を取得
-pdb-cli info 4hhb
+pdb-sync info 4hhb
 
 # ローカルファイルを検証
-pdb-cli validate --progress
+pdb-sync validate --progress
 
 # 更新を確認
-pdb-cli update --check
+pdb-sync update --check
 
 # 新規エントリを確認
-pdb-cli watch --once --dry-run
+pdb-sync watch --once --dry-run
 ```
 
 ## コマンド
@@ -58,7 +58,7 @@ pdb-cli watch --once --dry-run
 rsyncを使ってPDBミラーからファイルを同期。サブコマンドで異なるデータソースに対応。
 
 ```bash
-pdb-cli sync [OPTIONS] [COMMAND]
+pdb-sync sync [OPTIONS] [COMMAND]
 
 サブコマンド:
   wwpdb       wwPDB標準データ（構造、アセンブリなど）を同期
@@ -83,22 +83,22 @@ pdb-cli sync [OPTIONS] [COMMAND]
 例:
 ```bash
 # PDBjからmmCIF構造を同期（ドライラン）
-pdb-cli sync --mirror pdbj --dry-run
+pdb-sync sync --mirror pdbj --dry-run
 
 # ショートカットで構造を同期
-pdb-cli sync structures --mirror rcsb
+pdb-sync sync structures --mirror rcsb
 
 # 複数のデータタイプを同期
-pdb-cli sync wwpdb -t structures -t assemblies --mirror rcsb
+pdb-sync sync wwpdb -t structures -t assemblies --mirror rcsb
 
 # PDBj固有データ（EMDB）を同期
-pdb-cli sync pdbj --type emdb
+pdb-sync sync pdbj --type emdb
 
 # PDBe Foldseekデータベースを同期
-pdb-cli sync pdbe --type foldseek
+pdb-sync sync pdbe --type foldseek
 
 # バックグラウンドで同期
-pdb-cli sync --mirror wwpdb --bg
+pdb-sync sync --mirror wwpdb --bg
 ```
 
 ### download
@@ -106,7 +106,7 @@ pdb-cli sync --mirror wwpdb --bg
 HTTPSで個別ファイルを並列ダウンロード。
 
 ```bash
-pdb-cli download [OPTIONS] <PDB_IDS>...
+pdb-sync download [OPTIONS] <PDB_IDS>...
 
 オプション:
   -t, --type <DATA_TYPE>    データタイプ [デフォルト: structures]
@@ -125,22 +125,22 @@ pdb-cli download [OPTIONS] <PDB_IDS>...
 例:
 ```bash
 # 複数の構造をダウンロード
-pdb-cli download 4hhb 1abc 2xyz --dest ./structures
+pdb-sync download 4hhb 1abc 2xyz --dest ./structures
 
 # PDBフォーマットで解凍してダウンロード
-pdb-cli download 4hhb --format pdb --decompress
+pdb-sync download 4hhb --format pdb --decompress
 
 # 生物学的アセンブリをダウンロード
-pdb-cli download 4hhb -t assemblies -a 1
+pdb-sync download 4hhb -t assemblies -a 1
 
 # 構造因子をダウンロード
-pdb-cli download 1abc -t structure-factors
+pdb-sync download 1abc -t structure-factors
 
 # ファイルリストから8並列でダウンロード
-pdb-cli download -l pdb_ids.txt -p 8
+pdb-sync download -l pdb_ids.txt -p 8
 
 # バックグラウンドでダウンロード
-pdb-cli download -l large_list.txt --bg
+pdb-sync download -l large_list.txt --bg
 ```
 
 ### list
@@ -148,7 +148,7 @@ pdb-cli download -l large_list.txt --bg
 ローカルPDBファイルの一覧表示・フィルタリング・統計。
 
 ```bash
-pdb-cli list [OPTIONS] [PATTERN]
+pdb-sync list [OPTIONS] [PATTERN]
 
 オプション:
   -f, --format <FORMAT>     表示するフォーマット
@@ -163,22 +163,22 @@ pdb-cli list [OPTIONS] [PATTERN]
 例:
 ```bash
 # 全ファイル一覧
-pdb-cli list
+pdb-sync list
 
 # パターンにマッチするファイル
-pdb-cli list "1ab*"
+pdb-sync list "1ab*"
 
 # 統計のみ表示
-pdb-cli list --stats
+pdb-sync list --stats
 
 # サイズ付きでサイズ降順ソート
-pdb-cli list -s --sort size -r
+pdb-sync list -s --sort size -r
 
 # JSONでエクスポート
-pdb-cli list -o json > files.json
+pdb-sync list -o json > files.json
 
 # IDのみ取得（パイプ用）
-pdb-cli list -o ids | head -10
+pdb-sync list -o ids | head -10
 ```
 
 ### find
@@ -186,7 +186,7 @@ pdb-cli list -o ids | head -10
 スクリプト用に最適化されたパス出力でファイル検索。
 
 ```bash
-pdb-cli find [OPTIONS] [PATTERNS]...
+pdb-sync find [OPTIONS] [PATTERNS]...
 
 オプション:
   -f, --format <FORMAT>     検索フォーマット
@@ -201,19 +201,19 @@ pdb-cli find [OPTIONS] [PATTERNS]...
 例:
 ```bash
 # 特定エントリを検索
-pdb-cli find 4hhb 1abc
+pdb-sync find 4hhb 1abc
 
 # エントリの全フォーマットを表示
-pdb-cli find 4hhb --all-formats
+pdb-sync find 4hhb --all-formats
 
 # ファイル存在確認（スクリプト用）
-pdb-cli find 4hhb --exists && echo "Found"
+pdb-sync find 4hhb --exists && echo "Found"
 
 # リストから存在しないエントリを検索
-cat ids.txt | pdb-cli find --stdin --missing
+cat ids.txt | pdb-sync find --stdin --missing
 
 # xargsと組み合わせ
-pdb-cli find "1ab*" | xargs -I{} cp {} ./output/
+pdb-sync find "1ab*" | xargs -I{} cp {} ./output/
 ```
 
 ### validate
@@ -221,7 +221,7 @@ pdb-cli find "1ab*" | xargs -I{} cp {} ./output/
 チェックサムでローカルPDBファイルを検証。
 
 ```bash
-pdb-cli validate [OPTIONS] [PDB_IDS]...
+pdb-sync validate [OPTIONS] [PDB_IDS]...
 
 オプション:
   -f, --format <FORMAT>     検証するフォーマット
@@ -235,16 +235,16 @@ pdb-cli validate [OPTIONS] [PDB_IDS]...
 例:
 ```bash
 # 全ローカルファイルを検証
-pdb-cli validate -P
+pdb-sync validate -P
 
 # 特定IDを検証
-pdb-cli validate 1abc 2xyz 3def
+pdb-sync validate 1abc 2xyz 3def
 
 # 破損ファイルを検証・修復
-pdb-cli validate --fix -P
+pdb-sync validate --fix -P
 
 # 無効なIDリストを取得（パイプ用）
-pdb-cli validate -o ids | pdb-cli download -l -
+pdb-sync validate -o ids | pdb-sync download -l -
 ```
 
 ### update
@@ -252,7 +252,7 @@ pdb-cli validate -o ids | pdb-cli download -l -
 ローカルファイルの更新確認・ダウンロード。
 
 ```bash
-pdb-cli update [OPTIONS] [PDB_IDS]...
+pdb-sync update [OPTIONS] [PDB_IDS]...
 
 オプション:
   -c, --check               確認のみ、ダウンロードしない
@@ -269,19 +269,19 @@ pdb-cli update [OPTIONS] [PDB_IDS]...
 例:
 ```bash
 # 全ファイルの更新確認
-pdb-cli update --check -P
+pdb-sync update --check -P
 
 # 特定ファイルを更新
-pdb-cli update 4hhb 1abc
+pdb-sync update 4hhb 1abc
 
 # 更新対象をドライラン確認
-pdb-cli update --dry-run
+pdb-sync update --dry-run
 
 # チェックサム検証で強制更新
-pdb-cli update --force --verify
+pdb-sync update --force --verify
 
 # 古いIDリストを取得
-pdb-cli update --check -o ids
+pdb-sync update --check -o ids
 ```
 
 ### watch
@@ -289,7 +289,7 @@ pdb-cli update --check -o ids
 新規PDBエントリを監視して自動ダウンロード。
 
 ```bash
-pdb-cli watch [OPTIONS]
+pdb-sync watch [OPTIONS]
 
 オプション:
   -i, --interval <INTERVAL> チェック間隔 (例: "1h", "30m") [デフォルト: 1h]
@@ -310,19 +310,19 @@ pdb-cli watch [OPTIONS]
 例:
 ```bash
 # 新規エントリを監視（継続実行）
-pdb-cli watch
+pdb-sync watch
 
 # 高分解能X線構造を1回確認
-pdb-cli watch --once --method xray --resolution 2.0
+pdb-sync watch --once --method xray --resolution 2.0
 
 # デスクトップ通知付きで監視
-pdb-cli watch --notify desktop
+pdb-sync watch --notify desktop
 
 # 新規エントリでカスタムスクリプト実行
-pdb-cli watch --on-new ./process_new.sh
+pdb-sync watch --on-new ./process_new.sh
 
 # 最近のエントリをドライラン確認
-pdb-cli watch --once --dry-run --since 2024-01-01
+pdb-sync watch --once --dry-run --since 2024-01-01
 ```
 
 ### stats
@@ -330,7 +330,7 @@ pdb-cli watch --once --dry-run --since 2024-01-01
 ローカルPDBコレクションの統計情報表示。
 
 ```bash
-pdb-cli stats [OPTIONS]
+pdb-sync stats [OPTIONS]
 
 オプション:
   --detailed                サイズ分布、最古/最新ファイルを表示
@@ -343,19 +343,19 @@ pdb-cli stats [OPTIONS]
 例:
 ```bash
 # 基本統計を表示
-pdb-cli stats
+pdb-sync stats
 
 # 詳細統計を表示
-pdb-cli stats --detailed
+pdb-sync stats --detailed
 
 # リモートアーカイブと比較
-pdb-cli stats --compare-remote
+pdb-sync stats --compare-remote
 
 # 特定フォーマットの統計
-pdb-cli stats -f cif-gz
+pdb-sync stats -f cif-gz
 
 # JSONでエクスポート
-pdb-cli stats -o json
+pdb-sync stats -o json
 ```
 
 ### tree
@@ -363,7 +363,7 @@ pdb-cli stats -o json
 ローカルPDBミラーのディレクトリツリー表示。
 
 ```bash
-pdb-cli tree [OPTIONS]
+pdb-sync tree [OPTIONS]
 
 オプション:
   -d, --depth <NUM>         表示最大深度
@@ -380,19 +380,19 @@ pdb-cli tree [OPTIONS]
 例:
 ```bash
 # フルツリーを表示
-pdb-cli tree
+pdb-sync tree
 
 # 深度制限
-pdb-cli tree --depth 2
+pdb-sync tree --depth 2
 
 # サイズ上位10ディレクトリ
-pdb-cli tree --top 10 --sort-by size
+pdb-sync tree --top 10 --sort-by size
 
 # カウントとサイズ付き
-pdb-cli tree -c -s
+pdb-sync tree -c -s
 
 # JSONでエクスポート
-pdb-cli tree -o json
+pdb-sync tree -o json
 ```
 
 ### convert
@@ -400,7 +400,7 @@ pdb-cli tree -o json
 ファイルフォーマット変換（圧縮、解凍、形式変換）。
 
 ```bash
-pdb-cli convert [OPTIONS] [FILES]...
+pdb-sync convert [OPTIONS] [FILES]...
 
 オプション:
   --decompress              .gzファイルを解凍
@@ -416,19 +416,19 @@ pdb-cli convert [OPTIONS] [FILES]...
 例:
 ```bash
 # ファイルを解凍
-pdb-cli convert --decompress *.cif.gz
+pdb-sync convert --decompress *.cif.gz
 
 # ファイルを圧縮
-pdb-cli convert --compress *.cif
+pdb-sync convert --compress *.cif
 
 # mmCIFをPDBフォーマットに変換（gemmi必要）
-pdb-cli convert --to pdb --from cif-gz -d ./pdb_files/
+pdb-sync convert --to pdb --from cif-gz -d ./pdb_files/
 
 # インプレース解凍
-pdb-cli convert --decompress --in-place ./data/*.gz
+pdb-sync convert --decompress --in-place ./data/*.gz
 
 # 標準入力からバッチ変換
-find ./data -name "*.cif.gz" | pdb-cli convert --stdin --decompress
+find ./data -name "*.cif.gz" | pdb-sync convert --stdin --decompress
 ```
 
 ### jobs
@@ -436,7 +436,7 @@ find ./data -name "*.cif.gz" | pdb-cli convert --stdin --decompress
 バックグラウンドジョブ管理。
 
 ```bash
-pdb-cli jobs [OPTIONS] [COMMAND]
+pdb-sync jobs [OPTIONS] [COMMAND]
 
 サブコマンド:
   status <ID>     ジョブステータス表示
@@ -452,22 +452,22 @@ pdb-cli jobs [OPTIONS] [COMMAND]
 例:
 ```bash
 # 全ジョブ一覧
-pdb-cli jobs
+pdb-sync jobs
 
 # 実行中のジョブのみ
-pdb-cli jobs --running
+pdb-sync jobs --running
 
 # ジョブステータス確認
-pdb-cli jobs status abc123
+pdb-sync jobs status abc123
 
 # ジョブログ表示
-pdb-cli jobs log abc123
+pdb-sync jobs log abc123
 
 # 実行中ジョブをキャンセル
-pdb-cli jobs cancel abc123
+pdb-sync jobs cancel abc123
 
 # 古いジョブを削除
-pdb-cli jobs clean
+pdb-sync jobs clean
 ```
 
 ### config
@@ -475,11 +475,11 @@ pdb-cli jobs clean
 設定管理。
 
 ```bash
-pdb-cli config init              # 設定ファイル初期化
-pdb-cli config show              # 現在の設定を表示
-pdb-cli config get <KEY>         # 設定値を取得
-pdb-cli config set <KEY> <VALUE> # 設定値を設定
-pdb-cli config test-mirrors      # ミラー遅延をテスト
+pdb-sync config init              # 設定ファイル初期化
+pdb-sync config show              # 現在の設定を表示
+pdb-sync config get <KEY>         # 設定値を取得
+pdb-sync config set <KEY> <VALUE> # 設定値を設定
+pdb-sync config test-mirrors      # ミラー遅延をテスト
 ```
 
 ### env
@@ -487,14 +487,14 @@ pdb-cli config test-mirrors      # ミラー遅延をテスト
 環境変数管理。
 
 ```bash
-pdb-cli env show                 # 環境変数を表示
-pdb-cli env export               # シェルコマンドとしてエクスポート
-pdb-cli env set <NAME> <VALUE>   # setコマンドを出力
+pdb-sync env show                 # 環境変数を表示
+pdb-sync env export               # シェルコマンドとしてエクスポート
+pdb-sync env set <NAME> <VALUE>   # setコマンドを出力
 ```
 
 ## 設定
 
-設定ファイル: `~/.config/pdb-cli/config.toml`
+設定ファイル: `~/.config/pdb-sync/config.toml`
 
 ```toml
 [paths]
@@ -524,8 +524,8 @@ latency_cache_ttl = 3600
 | 変数 | 説明 |
 |------|------|
 | `PDB_DIR` | PDBファイルのベースディレクトリ |
-| `PDB_CLI_CONFIG` | 設定ファイルのパス |
-| `PDB_CLI_MIRROR` | デフォルトミラー |
+| `PDB_SYNC_CONFIG` | 設定ファイルのパス |
+| `PDB_SYNC_MIRROR` | デフォルトミラー |
 
 ## 対応ミラー
 
@@ -598,16 +598,16 @@ latency_cache_ttl = 3600
 
 ```bash
 # フル名
-pdb-cli download 4hhb --type structures --format mmcif
+pdb-sync download 4hhb --type structures --format mmcif
 
 # エイリアス使用
-pdb-cli dl 4hhb -t st -f cif
+pdb-sync dl 4hhb -t st -f cif
 
 # validateショートハンド
-pdb-cli val --fix -P
+pdb-sync val --fix -P
 
 # configショートハンド
-pdb-cli cfg show
+pdb-sync cfg show
 ```
 
 ## パイプとスクリプト
@@ -616,13 +616,13 @@ pdb-cli cfg show
 
 ```bash
 # 古いファイルを見つけて更新
-pdb-cli update --check -o ids | pdb-cli download -l -
+pdb-sync update --check -o ids | pdb-sync download -l -
 
 # 破損ファイルを検証して再ダウンロード
-pdb-cli validate -o ids | pdb-cli download -l - --overwrite
+pdb-sync validate -o ids | pdb-sync download -l - --overwrite
 
 # 存在しないエントリを見つけてダウンロード
-cat wanted.txt | pdb-cli find --stdin --missing | pdb-cli download -l -
+cat wanted.txt | pdb-sync find --stdin --missing | pdb-sync download -l -
 ```
 
 ## ライセンス

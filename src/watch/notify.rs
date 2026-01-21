@@ -3,7 +3,7 @@
 //! Supports desktop notifications and email notifications, both feature-gated.
 
 use crate::cli::args::NotifyMethod;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 
 /// Configuration for notifications
 #[derive(Debug, Clone)]
@@ -20,7 +20,7 @@ impl NotifyConfig {
     pub fn new(method: NotifyMethod, email: Option<String>) -> Result<Self> {
         // Validate email is provided for email notifications
         if method == NotifyMethod::Email && email.is_none() {
-            return Err(PdbCliError::Notification(
+            return Err(PdbSyncError::Notification(
                 "Email address required for email notifications".into(),
             ));
         }
@@ -67,11 +67,11 @@ impl NotificationSender {
         notify_rust::Notification::new()
             .summary(&title)
             .body(&body)
-            .appname("pdb-cli")
+            .appname("pdb-sync")
             .timeout(notify_rust::Timeout::Milliseconds(10000))
             .show()
             .map_err(|e| {
-                PdbCliError::Notification(format!("Failed to send notification: {}", e))
+                PdbSyncError::Notification(format!("Failed to send notification: {}", e))
             })?;
 
         tracing::debug!("Sent desktop notification for {} entries", count);
@@ -80,7 +80,7 @@ impl NotificationSender {
 
     #[cfg(not(feature = "desktop-notify"))]
     async fn send_desktop_notification(&self, _pdb_ids: &[String]) -> Result<()> {
-        Err(PdbCliError::Notification(
+        Err(PdbSyncError::Notification(
             "Desktop notifications not enabled. Rebuild with --features desktop-notify".into(),
         ))
     }
@@ -97,24 +97,24 @@ impl NotificationSender {
             .config
             .email
             .as_ref()
-            .ok_or_else(|| PdbCliError::Notification("Email address not configured".into()))?;
+            .ok_or_else(|| PdbSyncError::Notification("Email address not configured".into()))?;
 
         // Get SMTP configuration from environment
         let smtp_host = std::env::var("SMTP_HOST").map_err(|_| {
-            PdbCliError::Notification("SMTP_HOST environment variable not set".into())
+            PdbSyncError::Notification("SMTP_HOST environment variable not set".into())
         })?;
         let smtp_user = std::env::var("SMTP_USER").map_err(|_| {
-            PdbCliError::Notification("SMTP_USER environment variable not set".into())
+            PdbSyncError::Notification("SMTP_USER environment variable not set".into())
         })?;
         let smtp_pass = std::env::var("SMTP_PASS").map_err(|_| {
-            PdbCliError::Notification("SMTP_PASS environment variable not set".into())
+            PdbSyncError::Notification("SMTP_PASS environment variable not set".into())
         })?;
 
         let count = pdb_ids.len();
         let subject = format!("PDB Watch: {} new entries downloaded", count);
 
         let body = format!(
-            "The following {} PDB entries were downloaded:\n\n{}\n\n--\npdb-cli watch",
+            "The following {} PDB entries were downloaded:\n\n{}\n\n--\npdb-sync watch",
             count,
             pdb_ids.join("\n")
         );
@@ -122,22 +122,22 @@ impl NotificationSender {
         let email =
             Message::builder()
                 .from(smtp_user.parse().map_err(|e| {
-                    PdbCliError::Notification(format!("Invalid from address: {}", e))
+                    PdbSyncError::Notification(format!("Invalid from address: {}", e))
                 })?)
-                .to(email_addr
-                    .parse()
-                    .map_err(|e| PdbCliError::Notification(format!("Invalid to address: {}", e)))?)
+                .to(email_addr.parse().map_err(|e| {
+                    PdbSyncError::Notification(format!("Invalid to address: {}", e))
+                })?)
                 .subject(subject)
                 .header(ContentType::TEXT_PLAIN)
                 .body(body)
-                .map_err(|e| PdbCliError::Notification(format!("Failed to build email: {}", e)))?;
+                .map_err(|e| PdbSyncError::Notification(format!("Failed to build email: {}", e)))?;
 
         let creds = Credentials::new(smtp_user.clone(), smtp_pass);
 
         let mailer: AsyncSmtpTransport<Tokio1Executor> =
             AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_host)
                 .map_err(|e| {
-                    PdbCliError::Notification(format!("Failed to connect to SMTP: {}", e))
+                    PdbSyncError::Notification(format!("Failed to connect to SMTP: {}", e))
                 })?
                 .credentials(creds)
                 .build();
@@ -145,7 +145,7 @@ impl NotificationSender {
         mailer
             .send(email)
             .await
-            .map_err(|e| PdbCliError::Notification(format!("Failed to send email: {}", e)))?;
+            .map_err(|e| PdbSyncError::Notification(format!("Failed to send email: {}", e)))?;
 
         tracing::debug!(
             "Sent email notification to {} for {} entries",
@@ -157,7 +157,7 @@ impl NotificationSender {
 
     #[cfg(not(feature = "email-notify"))]
     async fn send_email_notification(&self, _pdb_ids: &[String]) -> Result<()> {
-        Err(PdbCliError::Notification(
+        Err(PdbSyncError::Notification(
             "Email notifications not enabled. Rebuild with --features email-notify".into(),
         ))
     }

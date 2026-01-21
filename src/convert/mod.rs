@@ -12,7 +12,7 @@ pub use format::{
     build_output_filename, check_gemmi_available, convert_with_gemmi, detect_format_from_path,
 };
 
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -393,9 +393,9 @@ pub fn build_dest_path(
 ) -> Result<PathBuf> {
     let source_name = source
         .file_name()
-        .ok_or_else(|| PdbCliError::Path("Invalid source path".into()))?
+        .ok_or_else(|| PdbSyncError::Path("Invalid source path".into()))?
         .to_str()
-        .ok_or_else(|| PdbCliError::Path("Invalid source filename".into()))?;
+        .ok_or_else(|| PdbSyncError::Path("Invalid source filename".into()))?;
 
     let new_name = match operation {
         ConvertOperation::Decompress => {
@@ -403,7 +403,7 @@ pub fn build_dest_path(
             if let Some(stripped) = source_name.strip_suffix(".gz") {
                 stripped.to_string()
             } else {
-                return Err(PdbCliError::Path(format!(
+                return Err(PdbSyncError::Path(format!(
                     "Cannot decompress: {} doesn't have .gz extension",
                     source_name
                 )));
@@ -416,7 +416,7 @@ pub fn build_dest_path(
         ConvertOperation::ConvertFormat(to_format) => build_output_filename(source, to_format)
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| PdbCliError::Path("Failed to build output filename".into()))?
+            .ok_or_else(|| PdbSyncError::Path("Failed to build output filename".into()))?
             .to_string(),
     };
 

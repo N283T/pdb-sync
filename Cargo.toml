@@ -1,5 +1,5 @@
 [package]
-name = "pdb-cli"
+name = "pdb-sync"
 version = "0.1.0"
 edition = "2021"
 description = "CLI tool for managing Protein Data Bank files"

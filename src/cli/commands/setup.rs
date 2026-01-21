@@ -13,7 +13,7 @@ pub fn needs_setup() -> bool {
 
 /// Run the interactive setup wizard
 pub fn run_setup() -> Result<()> {
-    println!("Welcome to pdb-cli!");
+    println!("Welcome to pdb-sync!");
     println!("Let's set up your configuration.\n");
 
     let mut config = Config::default();
@@ -38,7 +38,7 @@ pub fn run_setup() -> Result<()> {
 
     let config_path = ConfigLoader::config_path().unwrap();
     println!("\nConfiguration saved to: {}", config_path.display());
-    println!("You can modify these settings anytime with 'pdb-cli config set <key> <value>'");
+    println!("You can modify these settings anytime with 'pdb-sync config set <key> <value>'");
     println!();
 
     Ok(())

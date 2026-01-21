@@ -2,7 +2,7 @@
 
 use crate::cli::args::{ListArgs, OutputFormat, SortField};
 use crate::context::AppContext;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
 use crate::utils::{escape_csv_field, human_bytes};
 use chrono::{DateTime, Local};
@@ -41,7 +41,7 @@ pub async fn run_list(args: ListArgs, ctx: AppContext) -> Result<()> {
     let mirror_dir = &ctx.pdb_dir;
 
     if !mirror_dir.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "Mirror directory does not exist: {}",
             mirror_dir.display()
         )));
@@ -61,7 +61,7 @@ pub async fn run_list(args: ListArgs, ctx: AppContext) -> Result<()> {
             Pattern::new(&pattern_str)
         })
         .transpose()
-        .map_err(|e| PdbCliError::InvalidInput(format!("Invalid pattern: {}", e)))?;
+        .map_err(|e| PdbSyncError::InvalidInput(format!("Invalid pattern: {}", e)))?;
 
     // Scan for files
     let mut files = scan_local_files(mirror_dir, pattern.as_ref(), args.format).await?;
@@ -283,7 +283,7 @@ fn print_text(files: &[LocalFile], show_size: bool, show_time: bool) {
 /// Print files in JSON format
 fn print_json(files: &[LocalFile]) -> Result<()> {
     let json = serde_json::to_string_pretty(files)
-        .map_err(|e| PdbCliError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
+        .map_err(|e| PdbSyncError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
     println!("{}", json);
     Ok(())
 }
@@ -346,7 +346,7 @@ fn print_statistics_text(stats: &Statistics) {
 /// Print statistics in JSON format
 fn print_statistics_json(stats: &Statistics) -> Result<()> {
     let json = serde_json::to_string_pretty(stats)
-        .map_err(|e| PdbCliError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
+        .map_err(|e| PdbSyncError::InvalidInput(format!("JSON serialization failed: {}", e)))?;
     println!("{}", json);
     Ok(())
 }
