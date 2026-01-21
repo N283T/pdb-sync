@@ -40,7 +40,10 @@ pub fn run_setup() -> Result<()> {
 
     let config_path = ConfigLoader::config_path().unwrap();
     println!();
-    success(&format!("Configuration saved to: {}", config_path.display()));
+    success(&format!(
+        "Configuration saved to: {}",
+        config_path.display()
+    ));
     hint("You can modify these settings anytime with 'pdb-sync config set <key> <value>'");
     println!();
 
@@ -80,7 +83,10 @@ fn prompt_pdb_dir() -> Result<Option<PathBuf>> {
         .map(|d| d.home_dir().join("pdb"))
         .unwrap_or_else(|| PathBuf::from("./pdb"));
 
-    print!("PDB files directory [default: {}]: ", default_dir.display().to_string().cyan());
+    print!(
+        "PDB files directory [default: {}]: ",
+        default_dir.display().to_string().cyan()
+    );
     io::stdout().flush()?;
 
     let mut input = String::new();
@@ -96,7 +102,10 @@ fn prompt_pdb_dir() -> Result<Option<PathBuf>> {
     if let Some(ref p) = path {
         println!("PDB directory: {}\n", p.display().to_string().cyan());
     } else {
-        println!("PDB directory: {} (default)\n", default_dir.display().to_string().cyan());
+        println!(
+            "PDB directory: {} (default)\n",
+            default_dir.display().to_string().cyan()
+        );
     }
 
     Ok(path)

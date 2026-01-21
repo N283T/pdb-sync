@@ -7,8 +7,8 @@ use crate::download::{
 };
 use crate::error::{PdbSyncError, Result};
 use crate::files::PdbId;
-use crate::utils::{hint, info, warning};
 use crate::utils::IdSource;
+use crate::utils::{hint, info, warning};
 use colored::Colorize;
 use std::time::Duration;
 use tokio::fs;
@@ -140,14 +140,23 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
             error,
         } = result
         {
-            eprintln!("✗ {}", format!("Failed: {} ({}): {}", pdb_id, data_type, error).red());
+            eprintln!(
+                "✗ {}",
+                format!("Failed: {} ({}): {}", pdb_id, data_type, error).red()
+            );
         }
     }
 
     // Print summary
     println!();
-    println!("✓ {}", format!("Download complete: {} success, {} failed, {} skipped",
-        success_count, failed_count, skipped_count).green());
+    println!(
+        "✓ {}",
+        format!(
+            "Download complete: {} success, {} failed, {} skipped",
+            success_count, failed_count, skipped_count
+        )
+        .green()
+    );
     println!("Destination: {}", dest.display().to_string().cyan());
 
     if !parse_errors.is_empty() {

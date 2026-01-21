@@ -271,7 +271,13 @@ fn print_text(files: &[LocalFile], show_size: bool, show_time: bool) {
 
         if show_time {
             if let Some(modified) = &file.modified {
-                parts.push(modified.format("%Y-%m-%d %H:%M").to_string().dimmed().to_string());
+                parts.push(
+                    modified
+                        .format("%Y-%m-%d %H:%M")
+                        .to_string()
+                        .dimmed()
+                        .to_string(),
+                );
             } else {
                 parts.push("-".dimmed().to_string());
             }

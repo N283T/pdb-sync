@@ -20,7 +20,8 @@ pub async fn run_env(args: EnvArgs, ctx: crate::context::AppContext) -> Result<(
             println!();
 
             for (name, description) in ENV_VARS {
-                let value = std::env::var(name).unwrap_or_else(|_| "(not set)".to_string().dimmed().to_string());
+                let value = std::env::var(name)
+                    .unwrap_or_else(|_| "(not set)".to_string().dimmed().to_string());
                 println!("  {} = {}", name.cyan(), value);
                 println!("    {}\n", description.dimmed());
             }

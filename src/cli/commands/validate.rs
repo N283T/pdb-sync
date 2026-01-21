@@ -5,8 +5,8 @@ use crate::context::AppContext;
 use crate::download::{DownloadOptions, HttpsDownloader};
 use crate::error::{PdbSyncError, Result};
 use crate::files::{paths::build_relative_path, FileFormat, PdbId};
-use crate::utils::{hint, header, info, warning};
 use crate::utils::IdSource;
+use crate::utils::{header, hint, info, warning};
 use crate::validation::{ChecksumVerifier, VerifyResult};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -146,8 +146,10 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
                             actual.dimmed()
                         ));
                     } else {
-                        eprintln!("✗ {}", format!("{} (expected: {}, got: {})",
-                            pdb_id, expected, actual).red());
+                        eprintln!(
+                            "✗ {}",
+                            format!("{} (expected: {}, got: {})", pdb_id, expected, actual).red()
+                        );
                     }
                 }
 
@@ -160,7 +162,10 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
                             failed_ids.pop();
                             if !is_ids_output {
                                 if let Some(ref pb) = pb {
-                                    pb.println(format!("  → Fixed: {}", pdb_id.to_string().green()));
+                                    pb.println(format!(
+                                        "  → Fixed: {}",
+                                        pdb_id.to_string().green()
+                                    ));
                                 } else {
                                     println!("  → Fixed: {}", pdb_id.to_string().green());
                                 }
@@ -176,7 +181,10 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
                                         e
                                     ));
                                 } else {
-                                    eprintln!("✗ {}", format!("Fix failed: {} ({})", pdb_id, e).red());
+                                    eprintln!(
+                                        "✗ {}",
+                                        format!("Fix failed: {} ({})", pdb_id, e).red()
+                                    );
                                 }
                             }
                         }
@@ -198,9 +206,15 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
                 stats.no_checksum += 1;
                 if !is_ids_output && !args.errors_only {
                     if let Some(ref pb) = pb {
-                        pb.println(format!("- {} (no checksum available)", pdb_id.to_string().dimmed()));
+                        pb.println(format!(
+                            "- {} (no checksum available)",
+                            pdb_id.to_string().dimmed()
+                        ));
                     } else {
-                        println!("- {}", format!("{} (no checksum available)", pdb_id).dimmed());
+                        println!(
+                            "- {}",
+                            format!("{} (no checksum available)", pdb_id).dimmed()
+                        );
                     }
                 }
             }
@@ -226,15 +240,39 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
         println!();
         header("Validation Summary");
         println!("  Total files:    {}", stats.total().to_string().cyan());
-        println!("  {} Valid:          {}", "✓".green(), stats.valid.to_string().green());
-        println!("  {} Invalid:        {}", "✗".red(), stats.invalid.to_string().red());
-        println!("  {} Missing:        {}", "?".yellow(), stats.missing.to_string().yellow());
-        println!("  {} No checksum:    {}", "-".dimmed(), stats.no_checksum.to_string().dimmed());
+        println!(
+            "  {} Valid:          {}",
+            "✓".green(),
+            stats.valid.to_string().green()
+        );
+        println!(
+            "  {} Invalid:        {}",
+            "✗".red(),
+            stats.invalid.to_string().red()
+        );
+        println!(
+            "  {} Missing:        {}",
+            "?".yellow(),
+            stats.missing.to_string().yellow()
+        );
+        println!(
+            "  {} No checksum:    {}",
+            "-".dimmed(),
+            stats.no_checksum.to_string().dimmed()
+        );
 
         if args.fix {
-            println!("  {} Fixed:          {}", "→".green(), stats.fixed.to_string().green());
+            println!(
+                "  {} Fixed:          {}",
+                "→".green(),
+                stats.fixed.to_string().green()
+            );
             if stats.fix_failed > 0 {
-                println!("  {} Fix failed:     {}", "✗".red(), stats.fix_failed.to_string().red());
+                println!(
+                    "  {} Fix failed:     {}",
+                    "✗".red(),
+                    stats.fix_failed.to_string().red()
+                );
             }
         }
 
