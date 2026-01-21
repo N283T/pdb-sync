@@ -67,9 +67,7 @@ fn run_sources(_ctx: AppContext) -> Result<()> {
     let config = ConfigLoader::load().ok();
 
     // Default values
-    let default_pdb_dir = env::var("HOME")
-        .ok()
-        .map(|p| PathBuf::from(p).join(".pdb"));
+    let default_pdb_dir = env::var("HOME").ok().map(|p| PathBuf::from(p).join(".pdb"));
     let default_mirror = MirrorId::Rcsb;
 
     // Merge with source tracking
@@ -151,22 +149,18 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
             config.sync.mirror = value.parse()?;
         }
         "sync.bwlimit" => {
-            config.sync.bwlimit = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
-                    message: "Invalid bwlimit value".to_string(),
-                    key: Some(key.to_string()),
-                    source: None,
-                })?;
+            config.sync.bwlimit = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid bwlimit value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "sync.delete" => {
-            config.sync.delete = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
-                    message: "Invalid boolean value".to_string(),
-                    key: Some(key.to_string()),
-                    source: None,
-                })?;
+            config.sync.delete = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid boolean value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "sync.layout" => {
             config.sync.layout = match value.to_lowercase().as_str() {
@@ -207,41 +201,34 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
 
         // download.*
         "download.auto_decompress" => {
-            config.download.auto_decompress = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
-                    message: "Invalid boolean value".to_string(),
-                    key: Some(key.to_string()),
-                    source: None,
-                })?;
+            config.download.auto_decompress = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid boolean value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "download.parallel" => {
-            config.download.parallel = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
-                    message: "Invalid parallel value".to_string(),
-                    key: Some(key.to_string()),
-                    source: None,
-                })?;
+            config.download.parallel = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid parallel value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "download.default_format" => {
             config.download.default_format = value.to_string();
         }
         "download.retry_count" => {
-            config.download.retry_count = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
-                    message: "Invalid retry_count value".to_string(),
-                    key: Some(key.to_string()),
-                    source: None,
-                })?;
+            config.download.retry_count = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid retry_count value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
 
         // mirror_selection.*
         "mirror_selection.auto_select" => {
-            config.mirror_selection.auto_select = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
+            config.mirror_selection.auto_select =
+                value.parse().map_err(|_| PdbSyncError::Config {
                     message: "Invalid boolean value".to_string(),
                     key: Some(key.to_string()),
                     source: None,
@@ -255,20 +242,21 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
             };
         }
         "mirror_selection.latency_cache_ttl" => {
-            config.mirror_selection.latency_cache_ttl = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config {
+            config.mirror_selection.latency_cache_ttl =
+                value.parse().map_err(|_| PdbSyncError::Config {
                     message: "Invalid latency_cache_ttl value".to_string(),
                     key: Some(key.to_string()),
                     source: None,
                 })?;
         }
 
-        _ => return Err(PdbSyncError::Config {
-            message: format!("Unknown config key: {}", key),
-            key: Some(key.to_string()),
-            source: None,
-        }),
+        _ => {
+            return Err(PdbSyncError::Config {
+                message: format!("Unknown config key: {}", key),
+                key: Some(key.to_string()),
+                source: None,
+            })
+        }
     }
     Ok(())
 }

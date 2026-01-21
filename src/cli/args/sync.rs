@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use super::enums::SyncFormat;
 
 // Re-export data types for public API
-pub use crate::data_types::{PdbjDataType, PdbeDataType};
+pub use crate::data_types::{PdbeDataType, PdbjDataType};
 
 /// Validate subpath to prevent path traversal attacks.
 fn validate_subpath(s: &str) -> Result<String, String> {

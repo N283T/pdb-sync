@@ -83,15 +83,13 @@ impl MergedConfig {
         // PDB directory
         output.push_str(&format!(
             "  pdb_dir: {:?} (source: {})\n",
-            self.pdb_dir.value,
-            self.pdb_dir.source
+            self.pdb_dir.value, self.pdb_dir.source
         ));
 
         // Mirror
         output.push_str(&format!(
             "  mirror: {:?} (source: {})\n",
-            self.mirror.value,
-            self.mirror.source
+            self.mirror.value, self.mirror.source
         ));
 
         output
@@ -208,5 +206,4 @@ mod tests {
         assert!(output.contains("mirror"));
         assert!(output.contains("command-line argument"));
     }
-
 }

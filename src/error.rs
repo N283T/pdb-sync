@@ -107,7 +107,9 @@ pub enum PdbSyncError {
 
     /// Checksum mismatch with file information.
     #[allow(dead_code)]
-    #[error("Checksum mismatch for {pdb_id}: expected {expected}, got {actual} (file: {file_path})")]
+    #[error(
+        "Checksum mismatch for {pdb_id}: expected {expected}, got {actual} (file: {file_path})"
+    )]
     ChecksumMismatch {
         /// PDB ID
         pdb_id: String,
@@ -228,7 +230,10 @@ impl From<reqwest::Error> for PdbSyncError {
         let is_retriable = err.is_timeout() || err.is_connect();
 
         PdbSyncError::Network {
-            url: err.url().map(|u| u.to_string()).unwrap_or_else(|| "unknown".to_string()),
+            url: err
+                .url()
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| "unknown".to_string()),
             message: err.to_string(),
             source: Some(err),
             is_retriable,

@@ -158,9 +158,7 @@ pub enum Commands {
 
 /// Parse CLI with colored styles
 pub fn parse_cli() -> Cli {
-    let cmd = Cli::command()
-        .styles(STYLES)
-        .color(clap::ColorChoice::Auto);
+    let cmd = Cli::command().styles(STYLES).color(clap::ColorChoice::Auto);
     let matches = cmd.get_matches();
     Cli::from_arg_matches(&matches).expect("Failed to parse arguments")
 }

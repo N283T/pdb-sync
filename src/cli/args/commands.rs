@@ -9,8 +9,8 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use super::enums::{ExperimentalMethod, NotifyMethod, SortField};
-use super::{PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs};
 use super::parsers::{validate_interval, validate_organism, validate_resolution};
+use super::{DryRunArgs, MirrorArgs, PdbDirArgs, ProgressArgs};
 
 /// Arguments for the init command.
 #[derive(Parser, Clone)]
@@ -167,7 +167,6 @@ pub struct ListArgs {
     #[arg(short, long)]
     pub reverse: bool,
 }
-
 
 #[derive(Parser, Clone)]
 pub struct FindArgs {
@@ -372,7 +371,6 @@ pub struct WatchArgs {
     #[arg(long)]
     pub since: Option<String>,
 }
-
 
 #[derive(Parser, Clone)]
 pub struct ConvertArgs {

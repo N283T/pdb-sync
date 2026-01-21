@@ -94,7 +94,10 @@ impl SyncFormat {
             SyncFormat::Pdb => vec![crate::files::FileFormat::Pdb],
             SyncFormat::Mmcif => vec![crate::files::FileFormat::Mmcif],
             SyncFormat::Both => {
-                vec![crate::files::FileFormat::Pdb, crate::files::FileFormat::Mmcif]
+                vec![
+                    crate::files::FileFormat::Pdb,
+                    crate::files::FileFormat::Mmcif,
+                ]
             }
         }
     }
