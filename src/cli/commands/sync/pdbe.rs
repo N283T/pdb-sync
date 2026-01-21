@@ -7,7 +7,7 @@ use tokio::process::Command;
 use crate::cli::args::{PdbeSyncArgs, SyncArgs};
 use crate::context::AppContext;
 use crate::data_types::PdbeDataType;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::mirrors::{Mirror, MirrorId};
 
 use super::common::{human_bytes, parse_rsync_output, print_mirror_summary, validate_subpath};
@@ -21,7 +21,7 @@ pub async fn run(args: PdbeSyncArgs, parent_args: &SyncArgs, ctx: AppContext) ->
 
     // Validate subpath if provided
     if let Some(ref subpath) = args.subpath {
-        validate_subpath(subpath).map_err(|e| PdbCliError::Config(e.into()))?;
+        validate_subpath(subpath).map_err(|e| PdbSyncError::Config(e.into()))?;
     }
 
     // PDBe-specific data can only be synced from PDBe mirror
@@ -95,7 +95,7 @@ async fn sync_pdbe_data_type(
     // Get the rsync URL for this PDBe data type
     let base_url = mirror
         .pdbe_rsync_url(data_type)
-        .ok_or_else(|| PdbCliError::Config(format!("PDBe URL not available for {}", data_type)))?;
+        .ok_or_else(|| PdbSyncError::Config(format!("PDBe URL not available for {}", data_type)))?;
 
     // Append subpath if provided
     let source_url = if let Some(subpath) = subpath {

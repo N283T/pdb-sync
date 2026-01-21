@@ -1,5 +1,5 @@
 use crate::data_types::{PdbeDataType, PdbjDataType};
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{FileFormat, PdbId};
 use std::str::FromStr;
 
@@ -43,7 +43,7 @@ impl std::fmt::Display for MirrorId {
 }
 
 impl FromStr for MirrorId {
-    type Err = PdbCliError;
+    type Err = PdbSyncError;
 
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
@@ -51,7 +51,7 @@ impl FromStr for MirrorId {
             "pdbj" | "jp" => Ok(MirrorId::Pdbj),
             "pdbe" | "uk" | "eu" => Ok(MirrorId::Pdbe),
             "wwpdb" | "global" => Ok(MirrorId::Wwpdb),
-            _ => Err(PdbCliError::UnknownMirror(s.to_string())),
+            _ => Err(PdbSyncError::UnknownMirror(s.to_string())),
         }
     }
 }

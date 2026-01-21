@@ -1,6 +1,6 @@
 //! Format conversion utilities using external tools (gemmi).
 
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
 use std::path::Path;
 use tokio::process::Command;
@@ -28,7 +28,10 @@ pub async fn convert_with_gemmi(src: &Path, dest: &Path, _to_format: FileFormat)
     let output = cmd.output().await?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(PdbCliError::Conversion(format!("gemmi failed: {}", stderr)));
+        return Err(PdbSyncError::Conversion(format!(
+            "gemmi failed: {}",
+            stderr
+        )));
     }
     Ok(())
 }

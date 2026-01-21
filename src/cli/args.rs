@@ -82,7 +82,7 @@ impl ExperimentalMethod {
 }
 
 #[derive(Parser)]
-#[command(name = "pdb-cli")]
+#[command(name = "pdb-sync")]
 #[command(about = "CLI tool for managing Protein Data Bank files")]
 #[command(version)]
 pub struct Cli {
@@ -754,26 +754,26 @@ pub struct StatsArgs {
 ///
 /// Show full tree with default options:
 /// ```bash
-/// pdb-cli tree
+/// pdb-sync tree
 /// ```
 ///
 /// Limit depth and filter by format:
 /// ```bash
-/// pdb-cli tree --depth 2 --format cif-gz
+/// pdb-sync tree --depth 2 --format cif-gz
 /// ```
 ///
 /// Show top 10 directories by size:
 /// ```bash
-/// pdb-cli tree --top 10 --sort-by size
+/// pdb-sync tree --top 10 --sort-by size
 /// ```
 #[derive(Parser, Clone)]
 #[command(after_help = "Examples:
-  pdb-cli tree                           Show full tree
-  pdb-cli tree --depth 2                 Limit depth to 2
-  pdb-cli tree --format cif-gz           Filter by mmCIF format
-  pdb-cli tree --top 10                  Top 10 directories by count
-  pdb-cli tree --top 10 --sort-by size   Top 10 directories by size
-  pdb-cli tree -o json                   Output as JSON")]
+  pdb-sync tree                           Show full tree
+  pdb-sync tree --depth 2                 Limit depth to 2
+  pdb-sync tree --format cif-gz           Filter by mmCIF format
+  pdb-sync tree --top 10                  Top 10 directories by count
+  pdb-sync tree --top 10 --sort-by size   Top 10 directories by size
+  pdb-sync tree -o json                   Output as JSON")]
 pub struct TreeArgs {
     /// Maximum depth to display (0 = root only)
     #[arg(short, long)]
@@ -910,7 +910,7 @@ mod tests {
     #[test]
     fn test_sync_backward_compat_no_subcommand() {
         // Old-style: pdb-cli sync --type structures
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "--type", "structures"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "--type", "structures"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => {
                 assert!(sync_args.command.is_none());
@@ -924,7 +924,7 @@ mod tests {
     fn test_sync_backward_compat_with_mirror() {
         // Old-style with mirror: pdb-cli sync --type structures --mirror pdbj
         let args = Cli::try_parse_from([
-            "pdb-cli",
+            "pdb-sync",
             "sync",
             "--type",
             "structures",
@@ -946,7 +946,7 @@ mod tests {
     fn test_sync_wwpdb_subcommand() {
         // New style: pdb-cli sync wwpdb --type structures
         let args =
-            Cli::try_parse_from(["pdb-cli", "sync", "wwpdb", "--type", "structures"]).unwrap();
+            Cli::try_parse_from(["pdb-sync", "sync", "wwpdb", "--type", "structures"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Wwpdb(wwpdb_args)) => {
@@ -961,7 +961,7 @@ mod tests {
     #[test]
     fn test_sync_structures_shortcut() {
         // Shortcut: pdb-cli sync structures
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "structures"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "structures"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Structures(shortcut_args)) => {
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn test_sync_assemblies_shortcut() {
         // Shortcut: pdb-cli sync assemblies
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "assemblies"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "assemblies"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Assemblies(_)) => {}
@@ -990,7 +990,7 @@ mod tests {
     #[test]
     fn test_sync_pdbj_subcommand() {
         // PDBj: pdb-cli sync pdbj --type emdb
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbj", "--type", "emdb"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "pdbj", "--type", "emdb"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Pdbj(pdbj_args)) => {
@@ -1006,7 +1006,7 @@ mod tests {
     fn test_sync_pdbj_multiple_types() {
         // PDBj with multiple types: pdb-cli sync pdbj --type emdb --type pdb-ihm
         let args = Cli::try_parse_from([
-            "pdb-cli", "sync", "pdbj", "--type", "emdb", "--type", "pdb-ihm",
+            "pdb-sync", "sync", "pdbj", "--type", "emdb", "--type", "pdb-ihm",
         ])
         .unwrap();
         match args.command {
@@ -1026,7 +1026,7 @@ mod tests {
     #[test]
     fn test_sync_pdbe_subcommand() {
         // PDBe: pdb-cli sync pdbe --type sifts
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbe", "--type", "sifts"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "pdbe", "--type", "sifts"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Pdbe(pdbe_args)) => {
@@ -1041,7 +1041,7 @@ mod tests {
     #[test]
     fn test_sync_pdbe_foldseek() {
         // PDBe foldseek: pdb-cli sync pdbe --type foldseek
-        let args = Cli::try_parse_from(["pdb-cli", "sync", "pdbe", "--type", "foldseek"]).unwrap();
+        let args = Cli::try_parse_from(["pdb-sync", "sync", "pdbe", "--type", "foldseek"]).unwrap();
         match args.command {
             Commands::Sync(sync_args) => match sync_args.command {
                 Some(SyncCommand::Pdbe(pdbe_args)) => {
@@ -1057,7 +1057,7 @@ mod tests {
     fn test_sync_global_options_with_subcommand() {
         // Global options work with subcommands: pdb-cli sync --mirror pdbj wwpdb --type structures
         let args = Cli::try_parse_from([
-            "pdb-cli",
+            "pdb-sync",
             "sync",
             "--mirror",
             "pdbj",
@@ -1085,14 +1085,14 @@ mod tests {
     #[test]
     fn test_sync_pdbj_requires_type() {
         // PDBj requires --type: pdb-cli sync pdbj (should fail)
-        let result = Cli::try_parse_from(["pdb-cli", "sync", "pdbj"]);
+        let result = Cli::try_parse_from(["pdb-sync", "sync", "pdbj"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_sync_pdbe_requires_type() {
         // PDBe requires --type: pdb-cli sync pdbe (should fail)
-        let result = Cli::try_parse_from(["pdb-cli", "sync", "pdbe"]);
+        let result = Cli::try_parse_from(["pdb-sync", "sync", "pdbe"]);
         assert!(result.is_err());
     }
 }

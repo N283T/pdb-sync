@@ -1,4 +1,4 @@
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::jobs::{manager::JobManager, JobId, JobMeta};
 use std::fs::File;
 use std::path::PathBuf;
@@ -22,7 +22,7 @@ pub fn spawn_background(args: &[String]) -> Result<(JobId, PathBuf)> {
 
     // Get current executable path
     let exe = std::env::current_exe()
-        .map_err(|e| PdbCliError::Job(format!("Failed to get current executable: {}", e)))?;
+        .map_err(|e| PdbSyncError::Job(format!("Failed to get current executable: {}", e)))?;
 
     // Build new args: remove --bg, add --_job-id
     let new_args = build_background_args(args, &job_id);
@@ -88,7 +88,7 @@ fn spawn_detached(
                 Ok(())
             })
             .spawn()
-            .map_err(|e| PdbCliError::Job(format!("Failed to spawn background process: {}", e)))?
+            .map_err(|e| PdbSyncError::Job(format!("Failed to spawn background process: {}", e)))?
     };
 
     Ok(child)
@@ -110,7 +110,7 @@ fn spawn_detached(
         .stdout(stdout)
         .stderr(stderr)
         .spawn()
-        .map_err(|e| PdbCliError::Job(format!("Failed to spawn background process: {}", e)))?;
+        .map_err(|e| PdbSyncError::Job(format!("Failed to spawn background process: {}", e)))?;
 
     Ok(child)
 }

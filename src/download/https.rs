@@ -1,6 +1,6 @@
 use crate::data_types::DataType;
 use crate::download::task::{DownloadResult, DownloadTask};
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{FileFormat, PdbId};
 use crate::mirrors::{Mirror, MirrorId};
 use async_compression::tokio::bufread::GzipDecoder;
@@ -51,7 +51,7 @@ impl HttpsDownloader {
     pub fn new(options: DownloadOptions) -> Self {
         let semaphore = Arc::new(Semaphore::new(options.parallel));
         let client = reqwest::Client::builder()
-            .user_agent("pdb-cli")
+            .user_agent("pdb-sync")
             .connect_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(300)) // 5 minutes for large files
             .build()
@@ -133,7 +133,7 @@ impl HttpsDownloader {
         let dest_file = self.build_dest_path_for_task(dest, task);
 
         if dest_file.exists() && !self.options.overwrite {
-            return Err(PdbCliError::Download(format!(
+            return Err(PdbSyncError::Download(format!(
                 "File already exists: {}",
                 dest_file.display()
             )));
@@ -148,11 +148,11 @@ impl HttpsDownloader {
         let response = self.client.get(&url).send().await?;
 
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PdbCliError::Download(format!("HTTP 404 for {}", url)));
+            return Err(PdbSyncError::Download(format!("HTTP 404 for {}", url)));
         }
 
         if !response.status().is_success() {
-            return Err(PdbCliError::Download(format!(
+            return Err(PdbSyncError::Download(format!(
                 "HTTP {} for {}",
                 response.status(),
                 url
@@ -234,7 +234,7 @@ impl HttpsDownloader {
 
         match result {
             DownloadResult::Success { .. } => Ok(()),
-            DownloadResult::Failed { error, .. } => Err(PdbCliError::Download(error)),
+            DownloadResult::Failed { error, .. } => Err(PdbSyncError::Download(error)),
             DownloadResult::Skipped { reason, .. } => {
                 println!("Skipped: {}", reason);
                 Ok(())
@@ -466,9 +466,9 @@ impl HttpsDownloader {
 }
 
 /// Check if an error indicates a 404 Not Found.
-fn is_not_found_error(err: &PdbCliError) -> bool {
+fn is_not_found_error(err: &PdbSyncError) -> bool {
     match err {
-        PdbCliError::Download(msg) => msg.contains("404"),
+        PdbSyncError::Download(msg) => msg.contains("404"),
         _ => false,
     }
 }

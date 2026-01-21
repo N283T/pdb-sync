@@ -4,13 +4,13 @@
 //! with optional filters for experimental method, resolution, and organism.
 
 use crate::cli::args::ExperimentalMethod;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 const SEARCH_API_URL: &str = "https://search.rcsb.org/rcsbsearch/v2/query";
-const USER_AGENT: &str = concat!("pdb-cli/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("pdb-sync/", env!("CARGO_PKG_VERSION"));
 
 /// Filters for the RCSB search query
 #[derive(Debug, Clone, Default)]
@@ -89,7 +89,7 @@ impl RcsbSearchClient {
             .connect_timeout(Duration::from_secs(10))
             .user_agent(USER_AGENT)
             .build()
-            .map_err(|e| PdbCliError::SearchApi(format!("Failed to build HTTP client: {}", e)))?;
+            .map_err(|e| PdbSyncError::SearchApi(format!("Failed to build HTTP client: {}", e)))?;
 
         Ok(Self { client })
     }
@@ -102,7 +102,7 @@ impl RcsbSearchClient {
     ) -> Result<Vec<String>> {
         let query = self.build_query(since, filters);
         let query_json = serde_json::to_string(&query)
-            .map_err(|e| PdbCliError::SearchApi(format!("Failed to serialize query: {}", e)))?;
+            .map_err(|e| PdbSyncError::SearchApi(format!("Failed to serialize query: {}", e)))?;
 
         tracing::debug!("RCSB Search query: {}", query_json);
 
@@ -113,7 +113,7 @@ impl RcsbSearchClient {
             .body(query_json)
             .send()
             .await
-            .map_err(|e| PdbCliError::SearchApi(format!("Request failed: {}", e)))?;
+            .map_err(|e| PdbSyncError::SearchApi(format!("Request failed: {}", e)))?;
 
         let status = response.status();
 
@@ -124,7 +124,7 @@ impl RcsbSearchClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(PdbCliError::SearchApi(format!(
+            return Err(PdbSyncError::SearchApi(format!(
                 "API returned {}: {}",
                 status, body
             )));
@@ -133,7 +133,7 @@ impl RcsbSearchClient {
         let body = response
             .text()
             .await
-            .map_err(|e| PdbCliError::SearchApi(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| PdbSyncError::SearchApi(format!("Failed to read response: {}", e)))?;
 
         // Handle empty response body
         if body.is_empty() {
@@ -141,7 +141,7 @@ impl RcsbSearchClient {
         }
 
         let result: SearchResult = serde_json::from_str(&body).map_err(|e| {
-            PdbCliError::SearchApi(format!("Failed to parse response: {} - body: {}", e, body))
+            PdbSyncError::SearchApi(format!("Failed to parse response: {} - body: {}", e, body))
         })?;
 
         let pdb_ids: Vec<String> = result

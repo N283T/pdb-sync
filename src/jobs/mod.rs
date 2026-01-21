@@ -97,8 +97,8 @@ impl JobMeta {
 /// Get the base directory for job storage
 pub fn jobs_base_dir() -> PathBuf {
     directories::BaseDirs::new()
-        .map(|dirs| dirs.cache_dir().join("pdb-cli").join("jobs"))
-        .unwrap_or_else(|| PathBuf::from(".pdb-cli-jobs"))
+        .map(|dirs| dirs.cache_dir().join("pdb-sync").join("jobs"))
+        .unwrap_or_else(|| PathBuf::from(".pdb-sync-jobs"))
 }
 
 /// Generate a unique job ID (8 character hex string)
@@ -122,7 +122,7 @@ pub fn generate_job_id() -> JobId {
 /// Validate job ID format (8 hex characters)
 pub fn validate_job_id(job_id: &str) -> crate::error::Result<()> {
     if job_id.len() != 8 || !job_id.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(crate::error::PdbCliError::Job(format!(
+        return Err(crate::error::PdbSyncError::Job(format!(
             "Invalid job ID format: {}. Expected 8 hex characters.",
             job_id
         )));
@@ -237,10 +237,10 @@ mod tests {
     #[test]
     fn test_jobs_base_dir() {
         let dir = jobs_base_dir();
-        // Should end with "pdb-cli/jobs" or be a fallback
+        // Should end with "pdb-sync/jobs" or be a fallback
         assert!(
-            dir.to_string_lossy().ends_with("pdb-cli/jobs")
-                || dir.to_string_lossy().contains(".pdb-cli-jobs")
+            dir.to_string_lossy().ends_with("pdb-sync/jobs")
+                || dir.to_string_lossy().contains(".pdb-sync-jobs")
         );
     }
 

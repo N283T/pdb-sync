@@ -1,6 +1,6 @@
 use crate::cli::args::CopyArgs;
 use crate::context::AppContext;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{paths::build_relative_path, FileFormat, PdbId};
 use crate::utils::IdSource;
 use std::path::{Path, PathBuf};
@@ -12,7 +12,7 @@ pub async fn run_copy(args: CopyArgs, ctx: AppContext) -> Result<()> {
         IdSource::collect(args.pdb_ids.clone(), args.list.as_deref(), args.stdin).await?;
 
     if id_source.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No PDB IDs provided. Use positional arguments, --list, or --stdin".into(),
         ));
     }
@@ -22,7 +22,7 @@ pub async fn run_copy(args: CopyArgs, ctx: AppContext) -> Result<()> {
     // Mirror directory is the source
     let mirror_dir = &ctx.pdb_dir;
     if !mirror_dir.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "Mirror directory does not exist: {}",
             mirror_dir.display()
         )));
@@ -95,7 +95,7 @@ async fn copy_pdb_file(
     let source_path = mirror_dir.join(&relative_path);
 
     if !source_path.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "File not found in mirror: {}",
             source_path.display()
         )));
@@ -112,13 +112,13 @@ async fn copy_pdb_file(
         // Flat: just the filename
         let filename = source_path
             .file_name()
-            .ok_or_else(|| PdbCliError::Path("Invalid filename".into()))?;
+            .ok_or_else(|| PdbSyncError::Path("Invalid filename".into()))?;
         dest_dir.join(filename)
     };
 
     // Check if destination already exists
     if dest_path.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "Destination already exists: {}",
             dest_path.display()
         )));

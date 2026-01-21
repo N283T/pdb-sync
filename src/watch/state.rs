@@ -3,7 +3,7 @@
 //! Tracks the last check timestamp and set of downloaded PDB IDs
 //! to avoid re-downloading entries across sessions.
 
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -32,9 +32,9 @@ impl WatchState {
     /// Get the state file path
     pub fn state_path() -> Result<PathBuf> {
         let cache_dir = directories::BaseDirs::new()
-            .ok_or_else(|| PdbCliError::StatePersistence("Cannot find home directory".into()))?
+            .ok_or_else(|| PdbSyncError::StatePersistence("Cannot find home directory".into()))?
             .cache_dir()
-            .join("pdb-cli");
+            .join("pdb-sync");
 
         Ok(cache_dir.join(STATE_FILE))
     }
@@ -48,11 +48,11 @@ impl WatchState {
         }
 
         let content = fs::read_to_string(&path).await.map_err(|e| {
-            PdbCliError::StatePersistence(format!("Failed to read state file: {}", e))
+            PdbSyncError::StatePersistence(format!("Failed to read state file: {}", e))
         })?;
 
         serde_json::from_str(&content).map_err(|e| {
-            PdbCliError::StatePersistence(format!("Failed to parse state file: {}", e))
+            PdbSyncError::StatePersistence(format!("Failed to parse state file: {}", e))
         })
     }
 
@@ -66,16 +66,16 @@ impl WatchState {
         // Create parent directory if needed
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
-                PdbCliError::StatePersistence(format!("Failed to create cache directory: {}", e))
+                PdbSyncError::StatePersistence(format!("Failed to create cache directory: {}", e))
             })?;
         }
 
         let content = serde_json::to_string_pretty(self).map_err(|e| {
-            PdbCliError::StatePersistence(format!("Failed to serialize state: {}", e))
+            PdbSyncError::StatePersistence(format!("Failed to serialize state: {}", e))
         })?;
 
         fs::write(&path, content).await.map_err(|e| {
-            PdbCliError::StatePersistence(format!("Failed to write state file: {}", e))
+            PdbSyncError::StatePersistence(format!("Failed to write state file: {}", e))
         })?;
 
         Ok(())

@@ -27,7 +27,7 @@ impl AppContext {
             });
 
         // Mirror selection priority: ENV > auto-select > config
-        let mirror = if let Ok(env_mirror) = std::env::var("PDB_CLI_MIRROR") {
+        let mirror = if let Ok(env_mirror) = std::env::var("PDB_SYNC_MIRROR") {
             env_mirror.parse().unwrap_or(config.sync.mirror)
         } else if config.mirror_selection.auto_select {
             let ttl = Duration::from_secs(config.mirror_selection.latency_cache_ttl);

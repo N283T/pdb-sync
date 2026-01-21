@@ -1,4 +1,4 @@
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::jobs::{
     generate_job_id, jobs_base_dir, validate_job_id, JobFilter, JobId, JobMeta, JobStatus,
 };
@@ -85,7 +85,7 @@ impl JobManager {
         validate_job_id(job_id)?;
         let path = self.meta_path(job_id);
         if !path.exists() {
-            return Err(PdbCliError::Job(format!("Job not found: {}", job_id)));
+            return Err(PdbSyncError::Job(format!("Job not found: {}", job_id)));
         }
         let content = fs::read_to_string(path)?;
         let meta: JobMeta = serde_json::from_str(&content)?;
@@ -109,7 +109,7 @@ impl JobManager {
         let pid: u32 = content
             .trim()
             .parse()
-            .map_err(|_| PdbCliError::Job("Invalid PID file".to_string()))?;
+            .map_err(|_| PdbSyncError::Job("Invalid PID file".to_string()))?;
         Ok(Some(pid))
     }
 
@@ -213,7 +213,7 @@ impl JobManager {
         let mut meta = self.load_meta(job_id)?;
 
         if meta.status != JobStatus::Running {
-            return Err(PdbCliError::Job(format!(
+            return Err(PdbSyncError::Job(format!(
                 "Job {} is not running (status: {})",
                 job_id, meta.status
             )));
@@ -229,7 +229,7 @@ impl JobManager {
                     let err = std::io::Error::last_os_error();
                     // ESRCH means process doesn't exist (which is OK - it may have already exited)
                     if err.raw_os_error() != Some(libc::ESRCH) {
-                        return Err(PdbCliError::Job(format!(
+                        return Err(PdbSyncError::Job(format!(
                             "Failed to send SIGTERM to process {}: {}",
                             pid, err
                         )));
@@ -238,7 +238,7 @@ impl JobManager {
             }
             #[cfg(not(unix))]
             {
-                return Err(PdbCliError::Job(
+                return Err(PdbSyncError::Job(
                     "Job cancellation not supported on this platform".to_string(),
                 ));
             }

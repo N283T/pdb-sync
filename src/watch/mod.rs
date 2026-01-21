@@ -16,7 +16,7 @@ use crate::context::AppContext;
 use crate::data_types::DataType;
 use crate::download::DownloadResult;
 use crate::download::{DownloadOptions, DownloadTask, HttpsDownloader};
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{FileFormat, PdbId};
 use chrono::NaiveDate;
 use hooks::HookRunner;
@@ -78,7 +78,10 @@ impl WatchConfig {
         let since = if let Some(since_str) = &args.since {
             Some(
                 NaiveDate::parse_from_str(since_str, "%Y-%m-%d").map_err(|e| {
-                    PdbCliError::InvalidInput(format!("Invalid date format '{}': {}", since_str, e))
+                    PdbSyncError::InvalidInput(format!(
+                        "Invalid date format '{}': {}",
+                        since_str, e
+                    ))
                 })?,
             )
         } else {
@@ -117,7 +120,7 @@ impl WatchConfig {
 
 /// Parse interval string (e.g., "1h", "30m", "1d") to Duration
 pub fn parse_interval(s: &str) -> Result<Duration> {
-    humantime::parse_duration(s).map_err(|e| PdbCliError::InvalidInterval(format!("{}: {}", s, e)))
+    humantime::parse_duration(s).map_err(|e| PdbSyncError::InvalidInterval(format!("{}: {}", s, e)))
 }
 
 /// Main watcher struct

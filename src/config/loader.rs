@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
@@ -8,17 +8,17 @@ pub struct ConfigLoader;
 impl ConfigLoader {
     /// Get the default config directory path
     pub fn config_dir() -> Option<PathBuf> {
-        if let Ok(path) = std::env::var("PDB_CLI_CONFIG") {
+        if let Ok(path) = std::env::var("PDB_SYNC_CONFIG") {
             let path = PathBuf::from(path);
             return path.parent().map(|p| p.to_path_buf());
         }
 
-        ProjectDirs::from("", "", "pdb-cli").map(|dirs| dirs.config_dir().to_path_buf())
+        ProjectDirs::from("", "", "pdb-sync").map(|dirs| dirs.config_dir().to_path_buf())
     }
 
     /// Get the config file path
     pub fn config_path() -> Option<PathBuf> {
-        if let Ok(path) = std::env::var("PDB_CLI_CONFIG") {
+        if let Ok(path) = std::env::var("PDB_SYNC_CONFIG") {
             return Some(PathBuf::from(path));
         }
 
@@ -44,7 +44,7 @@ impl ConfigLoader {
     /// Save config to file
     pub fn save(config: &Config) -> Result<()> {
         let path = Self::config_path()
-            .ok_or_else(|| PdbCliError::Config("Cannot determine config path".into()))?;
+            .ok_or_else(|| PdbSyncError::Config("Cannot determine config path".into()))?;
 
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -58,10 +58,10 @@ impl ConfigLoader {
     /// Initialize config file with defaults
     pub fn init() -> Result<PathBuf> {
         let path = Self::config_path()
-            .ok_or_else(|| PdbCliError::Config("Cannot determine config path".into()))?;
+            .ok_or_else(|| PdbSyncError::Config("Cannot determine config path".into()))?;
 
         if path.exists() {
-            return Err(PdbCliError::Config(format!(
+            return Err(PdbSyncError::Config(format!(
                 "Config file already exists at {}",
                 path.display()
             )));

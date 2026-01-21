@@ -133,7 +133,7 @@ async fn show_job_log(manager: &JobManager, job_id: &str, follow: bool) -> Resul
     let stderr_path = manager.stderr_path(job_id);
 
     if !stdout_path.exists() {
-        return Err(crate::error::PdbCliError::Job(format!(
+        return Err(crate::error::PdbSyncError::Job(format!(
             "Job not found: {}",
             job_id
         )));
@@ -197,7 +197,7 @@ async fn follow_log(path: &std::path::Path) -> Result<()> {
                 print!("{}", line);
             }
             Err(e) => {
-                return Err(crate::error::PdbCliError::Io(e));
+                return Err(crate::error::PdbSyncError::Io(e));
             }
         }
     }
@@ -230,15 +230,15 @@ fn clean_jobs(manager: &JobManager, older_than: &str) -> Result<()> {
 fn parse_duration(s: &str) -> Result<Duration> {
     let s = s.trim();
     if s.is_empty() {
-        return Err(crate::error::PdbCliError::InvalidInput(
+        return Err(crate::error::PdbSyncError::InvalidInput(
             "Empty duration string".to_string(),
         ));
     }
 
     let (num_str, unit) = s.split_at(s.len() - 1);
-    let num: u64 = num_str
-        .parse()
-        .map_err(|_| crate::error::PdbCliError::InvalidInput(format!("Invalid duration: {}", s)))?;
+    let num: u64 = num_str.parse().map_err(|_| {
+        crate::error::PdbSyncError::InvalidInput(format!("Invalid duration: {}", s))
+    })?;
 
     let secs = match unit {
         "s" => num,
@@ -247,7 +247,7 @@ fn parse_duration(s: &str) -> Result<Duration> {
         "d" => num * 86400,
         "w" => num * 604800,
         _ => {
-            return Err(crate::error::PdbCliError::InvalidInput(format!(
+            return Err(crate::error::PdbSyncError::InvalidInput(format!(
                 "Invalid duration unit '{}'. Use s, m, h, d, or w.",
                 unit
             )))

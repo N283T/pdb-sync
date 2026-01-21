@@ -6,7 +6,7 @@
 
 use crate::cli::args::FindArgs;
 use crate::context::AppContext;
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use crate::files::{build_full_path, FileFormat, PdbId};
 use glob::Pattern;
 use std::collections::HashSet;
@@ -26,7 +26,7 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
     let pdb_dir = &ctx.pdb_dir;
 
     if !pdb_dir.exists() {
-        return Err(PdbCliError::Path(format!(
+        return Err(PdbSyncError::Path(format!(
             "PDB directory does not exist: {}",
             pdb_dir.display()
         )));
@@ -36,7 +36,7 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
     let patterns = collect_patterns(&args)?;
 
     if patterns.is_empty() {
-        return Err(PdbCliError::InvalidInput(
+        return Err(PdbSyncError::InvalidInput(
             "No PDB IDs or patterns provided. Use positional arguments or --stdin.".to_string(),
         ));
     }
@@ -81,12 +81,12 @@ pub async fn run_find(args: FindArgs, ctx: AppContext) -> Result<()> {
     // Return error for exit code handling (main.rs converts to exit code 1)
     let total = found_count + not_found_count;
     if args.exists && not_found_count > 0 {
-        return Err(PdbCliError::EntriesNotFound(not_found_count, total));
+        return Err(PdbSyncError::EntriesNotFound(not_found_count, total));
     }
 
     if !args.exists && !args.missing && found_count == 0 && not_found_count > 0 {
         // Normal mode: return error if nothing found
-        return Err(PdbCliError::EntriesNotFound(not_found_count, total));
+        return Err(PdbSyncError::EntriesNotFound(not_found_count, total));
     }
 
     Ok(())
@@ -109,7 +109,7 @@ fn collect_patterns(args: &FindArgs) -> Result<Vec<String>> {
     }
 
     for line in stdin.lock().lines() {
-        let line = line.map_err(PdbCliError::Io)?;
+        let line = line.map_err(PdbSyncError::Io)?;
         let trimmed = line.trim();
         if !trimmed.is_empty() {
             patterns.push(trimmed.to_string());
@@ -154,7 +154,7 @@ async fn find_by_pattern(
     args: &FindArgs,
 ) -> Result<Vec<FindResult>> {
     let glob_pattern = Pattern::new(&pattern.to_lowercase())
-        .map_err(|e| PdbCliError::InvalidInput(format!("Invalid pattern '{}': {}", pattern, e)))?;
+        .map_err(|e| PdbSyncError::InvalidInput(format!("Invalid pattern '{}': {}", pattern, e)))?;
 
     let mut results = Vec::new();
     let formats = get_formats_to_search(args);

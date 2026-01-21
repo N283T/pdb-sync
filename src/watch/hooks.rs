@@ -2,7 +2,7 @@
 //!
 //! Allows users to run custom scripts when new PDB entries are downloaded.
 
-use crate::error::{PdbCliError, Result};
+use crate::error::{PdbSyncError, Result};
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
@@ -17,7 +17,7 @@ impl HookRunner {
     pub fn new(script_path: PathBuf) -> Result<Self> {
         // Verify script exists
         if !script_path.exists() {
-            return Err(PdbCliError::HookExecution(format!(
+            return Err(PdbSyncError::HookExecution(format!(
                 "Hook script not found: {}",
                 script_path.display()
             )));
@@ -28,11 +28,11 @@ impl HookRunner {
         {
             use std::os::unix::fs::PermissionsExt;
             let metadata = std::fs::metadata(&script_path).map_err(|e| {
-                PdbCliError::HookExecution(format!("Cannot read script permissions: {}", e))
+                PdbSyncError::HookExecution(format!("Cannot read script permissions: {}", e))
             })?;
             let permissions = metadata.permissions();
             if permissions.mode() & 0o111 == 0 {
-                return Err(PdbCliError::HookExecution(format!(
+                return Err(PdbSyncError::HookExecution(format!(
                     "Hook script is not executable: {}",
                     script_path.display()
                 )));
@@ -65,7 +65,7 @@ impl HookRunner {
             .output()
             .await
             .map_err(|e| {
-                PdbCliError::HookExecution(format!("Failed to execute hook script: {}", e))
+                PdbSyncError::HookExecution(format!("Failed to execute hook script: {}", e))
             })?;
 
         if !output.status.success() {
@@ -76,7 +76,7 @@ impl HookRunner {
                 .code()
                 .map_or("unknown".to_string(), |c| c.to_string());
 
-            return Err(PdbCliError::HookExecution(format!(
+            return Err(PdbSyncError::HookExecution(format!(
                 "Hook script failed (exit code {})\nstdout: {}\nstderr: {}",
                 exit_code, stdout, stderr
             )));
