@@ -216,10 +216,16 @@ impl RsyncRunner {
         }
 
         if !status.success() {
-            return Err(PdbSyncError::Rsync(format!(
-                "rsync exited with status {}",
-                status
-            )));
+            return Err(PdbSyncError::Rsync {
+                command: format!(
+                    "rsync {}/{} {}",
+                    mirror.rsync_module,
+                    source,
+                    dest.display()
+                ),
+                exit_code: status.code(),
+                stderr: None,
+            });
         }
 
         Ok((files, bytes, true))
@@ -251,10 +257,16 @@ impl RsyncRunner {
         let status = child.wait().await?;
 
         if !status.success() {
-            return Err(PdbSyncError::Rsync(format!(
-                "rsync exited with status {}",
-                status
-            )));
+            return Err(PdbSyncError::Rsync {
+                command: format!(
+                    "rsync {}/{} {}",
+                    mirror.rsync_module,
+                    source,
+                    dest.display()
+                ),
+                exit_code: status.code(),
+                stderr: None,
+            });
         }
 
         // Simple mode doesn't track precise stats

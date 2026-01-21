@@ -1,12 +1,15 @@
 use crate::cli::args::{ConfigAction, ConfigArgs};
-use crate::config::ConfigLoader;
+use crate::config::{ConfigLoader, MergedConfig};
+use crate::context::AppContext;
 use crate::data_types::{DataType, Layout};
 use crate::error::{PdbSyncError, Result};
-use crate::mirrors::print_mirror_latencies;
+use crate::mirrors::{print_mirror_latencies, MirrorId};
 use crate::utils::{header, info, success};
 use colored::Colorize;
+use std::env;
+use std::path::PathBuf;
 
-pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> Result<()> {
+pub async fn run_config(args: ConfigArgs, ctx: crate::context::AppContext) -> Result<()> {
     match args.action {
         ConfigAction::Init => {
             let path = ConfigLoader::init()?;
@@ -38,7 +41,52 @@ pub async fn run_config(args: ConfigArgs, _ctx: crate::context::AppContext) -> R
             println!();
             print_mirror_latencies().await;
         }
+        ConfigAction::Sources => {
+            run_sources(ctx)?;
+        }
     }
+
+    Ok(())
+}
+
+/// Show where each configuration value is coming from.
+fn run_sources(_ctx: AppContext) -> Result<()> {
+    header("Configuration Sources");
+
+    // Get CLI values (these would normally come from args, but for now we use None)
+    let cli_pdb_dir = None;
+    let cli_mirror = None;
+
+    // Get environment values
+    let env_pdb_dir = env::var("PDB_DIR").ok().map(PathBuf::from);
+    let env_mirror = env::var("PDB_SYNC_MIRROR")
+        .ok()
+        .and_then(|s| s.parse().ok());
+
+    // Get config file values
+    let config = ConfigLoader::load().ok();
+
+    // Default values
+    let default_pdb_dir = env::var("HOME").ok().map(|p| PathBuf::from(p).join(".pdb"));
+    let default_mirror = MirrorId::Rcsb;
+
+    // Merge with source tracking
+    let merged = MergedConfig::merge(
+        cli_pdb_dir,
+        cli_mirror,
+        env_pdb_dir,
+        env_mirror,
+        config,
+        default_pdb_dir,
+        default_mirror,
+    );
+
+    // Display sources
+    println!("{}", merged.display_sources());
+
+    // Show legend
+    println!();
+    info("Priority order: command-line > environment variable > config file > default");
 
     Ok(())
 }
@@ -77,7 +125,11 @@ fn get_config_value(config: &crate::config::Config, key: &str) -> Result<String>
             Ok(config.mirror_selection.latency_cache_ttl.to_string())
         }
 
-        _ => Err(PdbSyncError::Config(format!("Unknown config key: {}", key))),
+        _ => Err(PdbSyncError::Config {
+            message: format!("Unknown config key: {}", key),
+            key: Some(key.to_string()),
+            source: None,
+        }),
     }
 }
 
@@ -97,24 +149,29 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
             config.sync.mirror = value.parse()?;
         }
         "sync.bwlimit" => {
-            config.sync.bwlimit = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid bwlimit value".into()))?;
+            config.sync.bwlimit = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid bwlimit value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "sync.delete" => {
-            config.sync.delete = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+            config.sync.delete = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid boolean value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "sync.layout" => {
             config.sync.layout = match value.to_lowercase().as_str() {
                 "divided" => Layout::Divided,
                 "all" => Layout::All,
                 _ => {
-                    return Err(PdbSyncError::Config(format!(
-                        "Invalid layout: {}. Use 'divided' or 'all'",
-                        value
-                    )))
+                    return Err(PdbSyncError::Config {
+                        message: format!("Invalid layout: {}. Use 'divided' or 'all'", value),
+                        key: Some(key.to_string()),
+                        source: None,
+                    })
                 }
             };
         }
@@ -128,11 +185,15 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
                 .collect();
             for dt in &parsed {
                 if !valid_types.contains(dt) {
-                    return Err(PdbSyncError::Config(format!(
-                        "Unknown data type: '{}'. Valid types: {}",
-                        dt,
-                        valid_types.join(", ")
-                    )));
+                    return Err(PdbSyncError::Config {
+                        message: format!(
+                            "Unknown data type: '{}'. Valid types: {}",
+                            dt,
+                            valid_types.join(", ")
+                        ),
+                        key: Some(key.to_string()),
+                        source: None,
+                    });
                 }
             }
             config.sync.data_types = parsed;
@@ -140,29 +201,38 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
 
         // download.*
         "download.auto_decompress" => {
-            config.download.auto_decompress = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+            config.download.auto_decompress = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid boolean value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "download.parallel" => {
-            config.download.parallel = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid parallel value".into()))?;
+            config.download.parallel = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid parallel value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
         "download.default_format" => {
             config.download.default_format = value.to_string();
         }
         "download.retry_count" => {
-            config.download.retry_count = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid retry_count value".into()))?;
+            config.download.retry_count = value.parse().map_err(|_| PdbSyncError::Config {
+                message: "Invalid retry_count value".to_string(),
+                key: Some(key.to_string()),
+                source: None,
+            })?;
         }
 
         // mirror_selection.*
         "mirror_selection.auto_select" => {
-            config.mirror_selection.auto_select = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+            config.mirror_selection.auto_select =
+                value.parse().map_err(|_| PdbSyncError::Config {
+                    message: "Invalid boolean value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "mirror_selection.preferred_region" => {
             config.mirror_selection.preferred_region = if value.is_empty() {
@@ -172,12 +242,21 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
             };
         }
         "mirror_selection.latency_cache_ttl" => {
-            config.mirror_selection.latency_cache_ttl = value
-                .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid latency_cache_ttl value".into()))?;
+            config.mirror_selection.latency_cache_ttl =
+                value.parse().map_err(|_| PdbSyncError::Config {
+                    message: "Invalid latency_cache_ttl value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
 
-        _ => return Err(PdbSyncError::Config(format!("Unknown config key: {}", key))),
+        _ => {
+            return Err(PdbSyncError::Config {
+                message: format!("Unknown config key: {}", key),
+                key: Some(key.to_string()),
+                source: None,
+            })
+        }
     }
     Ok(())
 }

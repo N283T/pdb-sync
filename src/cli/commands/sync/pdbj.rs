@@ -21,7 +21,11 @@ pub async fn run(args: PdbjSyncArgs, parent_args: &SyncArgs, ctx: AppContext) ->
 
     // Validate subpath if provided
     if let Some(ref subpath) = args.subpath {
-        validate_subpath(subpath).map_err(|e| PdbSyncError::Config(e.into()))?;
+        validate_subpath(subpath).map_err(|e| PdbSyncError::Config {
+            message: e.to_string(),
+            key: Some("subpath".to_string()),
+            source: None,
+        })?;
     }
 
     // PDBj-specific data can only be synced from PDBj mirror
@@ -95,7 +99,11 @@ async fn sync_pdbj_data_type(
     // Get the rsync URL for this PDBj data type
     let base_url = mirror
         .pdbj_rsync_url(data_type)
-        .ok_or_else(|| PdbSyncError::Config(format!("PDBj URL not available for {}", data_type)))?;
+        .ok_or_else(|| PdbSyncError::Config {
+            message: format!("PDBj URL not available for {}", data_type),
+            key: Some("pdbj_url".to_string()),
+            source: None,
+        })?;
 
     // Append subpath if provided
     let source_url = if let Some(subpath) = subpath {

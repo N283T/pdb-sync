@@ -31,7 +31,7 @@ impl ValidationStats {
 }
 
 pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
-    let mirror = args.mirror.unwrap_or(ctx.mirror);
+    let mirror = args.mirror.mirror.unwrap_or(ctx.mirror);
     let format = args.format.unwrap_or(FileFormat::CifGz);
     let is_ids_output = args.output == OutputFormat::Ids;
 
@@ -78,7 +78,7 @@ pub async fn run_validate(args: ValidateArgs, ctx: AppContext) -> Result<()> {
     }
 
     // Set up progress bar (only for non-ids output)
-    let pb = if args.progress && !is_ids_output {
+    let pb = if args.progress.progress && !is_ids_output {
         let pb = ProgressBar::new(files_to_validate.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()

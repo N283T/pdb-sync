@@ -59,7 +59,10 @@ impl PdbId {
         } else if EXTENDED_REGEX.is_match(&id) {
             Ok(Self::Extended(id))
         } else {
-            Err(PdbSyncError::InvalidPdbId(id))
+            Err(PdbSyncError::InvalidPdbId {
+                input: id,
+                source: None,
+            })
         }
     }
 

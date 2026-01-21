@@ -51,9 +51,10 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
 
     // Default to current directory for download
     let dest = args
+        .pdb_dir
         .dest
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| ctx.pdb_dir.clone()));
-    let mirror = args.mirror.unwrap_or(ctx.mirror);
+    let mirror = args.mirror.mirror.unwrap_or(ctx.mirror);
 
     // Create destination directory
     fs::create_dir_all(&dest).await?;
