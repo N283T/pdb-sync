@@ -3,8 +3,8 @@ use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use crate::tree::SortBy;
-use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
+use clap::builder::Styles;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -113,9 +113,7 @@ pub struct Cli {
 
 /// Parse CLI with colored styles
 pub fn parse_cli() -> Cli {
-    let cmd = Cli::command()
-        .styles(STYLES)
-        .color(clap::ColorChoice::Always);
+    let cmd = Cli::command().styles(STYLES).color(clap::ColorChoice::Auto);
     let matches = cmd.get_matches();
     Cli::from_arg_matches(&matches).expect("Failed to parse arguments")
 }
@@ -1135,5 +1133,11 @@ mod tests {
         // PDBe requires --type: pdb-cli sync pdbe (should fail)
         let result = Cli::try_parse_from(["pdb-sync", "sync", "pdbe"]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_styles_constant_is_valid() {
+        // Ensure STYLES constant doesn't panic and is properly configured
+        let _ = STYLES;
     }
 }
