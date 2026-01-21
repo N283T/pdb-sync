@@ -15,9 +15,17 @@
 /// assert!(validate_resolution("-0.1").is_err());
 /// assert!(validate_resolution("100.1").is_err());
 /// assert!(validate_resolution("abc").is_err());
+/// assert!(validate_resolution("inf").is_err());
+/// assert!(validate_resolution("NaN").is_err());
 /// ```
 pub fn validate_resolution(s: &str) -> Result<f64, String> {
     let value: f64 = s.parse().map_err(|_| format!("Invalid number: {}", s))?;
+
+    // Reject special float values (inf, -inf, NaN)
+    if !value.is_finite() {
+        return Err(format!("Resolution must be a finite number, got {}", s));
+    }
+
     if !(0.0..=100.0).contains(&value) {
         return Err(format!(
             "Resolution must be between 0.0 and 100.0, got {}",
@@ -40,9 +48,15 @@ pub fn validate_resolution(s: &str) -> Result<f64, String> {
 /// assert!(validate_organism("Escherichia coli").is_ok());
 /// assert!(validate_organism("Mus musculus (mouse)").is_ok());
 /// assert!(validate_organism("test@invalid").is_err());
+/// assert!(validate_organism("").is_err());
 /// ```
 pub fn validate_organism(s: &str) -> Result<String, String> {
     const MAX_LEN: usize = 200;
+
+    if s.is_empty() {
+        return Err("Organism name cannot be empty".into());
+    }
+
     if s.len() > MAX_LEN {
         return Err(format!(
             "Organism name too long ({} chars, max {})",
@@ -50,6 +64,7 @@ pub fn validate_organism(s: &str) -> Result<String, String> {
             MAX_LEN
         ));
     }
+
     // Allow alphanumeric, spaces, hyphens, periods, underscores, parentheses
     if s.chars()
         .all(|c| c.is_alphanumeric() || " -._()".contains(c))
@@ -83,6 +98,7 @@ pub fn validate_organism(s: &str) -> Result<String, String> {
 /// assert!(validate_interval("invalid").is_err());
 /// assert!(validate_interval("1").is_err());
 /// assert!(validate_interval("1x").is_err());
+/// assert!(validate_interval("0s").is_err());
 /// ```
 pub fn validate_interval(s: &str) -> Result<String, String> {
     if s.len() < 2 {
@@ -92,9 +108,14 @@ pub fn validate_interval(s: &str) -> Result<String, String> {
     let (num_part, unit) = s.split_at(s.len() - 1);
 
     // Validate numeric part
-    let _num: u64 = num_part
+    let num: u64 = num_part
         .parse()
         .map_err(|_| format!("Invalid interval number: {}", num_part))?;
+
+    // Reject zero intervals (would cause infinite loops in polling)
+    if num == 0 {
+        return Err("Interval must be greater than 0".into());
+    }
 
     // Validate unit
     match unit {
@@ -121,6 +142,12 @@ mod tests {
         assert!(validate_resolution("-0.1").is_err());
         assert!(validate_resolution("100.1").is_err());
         assert!(validate_resolution("abc").is_err());
+
+        // Special float values (should be rejected)
+        assert!(validate_resolution("inf").is_err());
+        assert!(validate_resolution("-inf").is_err());
+        assert!(validate_resolution("NaN").is_err());
+        assert!(validate_resolution("infinity").is_err());
     }
 
     #[test]
@@ -139,6 +166,9 @@ mod tests {
         // Invalid characters
         assert!(validate_organism("test@invalid").is_err());
         assert!(validate_organism("test;injection").is_err());
+
+        // Empty string
+        assert!(validate_organism("").is_err());
     }
 
     #[test]
@@ -157,5 +187,11 @@ mod tests {
         assert!(validate_interval("").is_err()); // Empty
         assert!(validate_interval("s").is_err()); // No number
         assert!(validate_interval("-1m").is_err()); // Negative
+
+        // Zero intervals (should be rejected)
+        assert!(validate_interval("0s").is_err());
+        assert!(validate_interval("0m").is_err());
+        assert!(validate_interval("0h").is_err());
+        assert!(validate_interval("0d").is_err());
     }
 }
