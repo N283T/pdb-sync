@@ -36,14 +36,20 @@ impl RcsbClient {
             .await?;
 
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PdbSyncError::NotFound(format!("PDB entry {}", pdb_id)));
+            return Err(PdbSyncError::NotFound {
+                pdb_id: pdb_id.to_string(),
+                mirror: Some("rcsb".to_string()),
+                searched_urls: vec![url.clone()],
+            });
         }
 
         if !response.status().is_success() {
-            return Err(PdbSyncError::Download(format!(
-                "API request failed with status {}",
-                response.status()
-            )));
+            return Err(PdbSyncError::Download {
+                pdb_id: pdb_id.to_string(),
+                url: url.clone(),
+                message: format!("API request failed with status {}", response.status()),
+                is_retriable: response.status().is_server_error(),
+            });
         }
 
         let entry: EntryMetadata = response.json().await?;
@@ -86,7 +92,7 @@ impl RcsbClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(PdbSyncError::Download(format!(
+            return Err(PdbSyncError::SearchApi(format!(
                 "Search API request failed with status {}",
                 response.status()
             )));
@@ -274,7 +280,7 @@ mod tests {
         let result = client.fetch_entry(&pdb_id).await;
 
         // Should return a NotFound error for non-existent entry
-        assert!(matches!(result, Err(PdbSyncError::NotFound(_))));
+        assert!(matches!(result, Err(PdbSyncError::NotFound { .. })));
     }
 
     #[tokio::test]

@@ -133,10 +133,12 @@ impl HttpsDownloader {
         let dest_file = self.build_dest_path_for_task(dest, task);
 
         if dest_file.exists() && !self.options.overwrite {
-            return Err(PdbSyncError::Download(format!(
-                "File already exists: {}",
-                dest_file.display()
-            )));
+            return Err(PdbSyncError::Download {
+                pdb_id: task.pdb_id.to_string(),
+                url: url.clone(),
+                message: format!("File already exists: {}", dest_file.display()),
+                is_retriable: false,
+            });
         }
 
         if let Some(parent) = dest_file.parent() {
@@ -148,15 +150,21 @@ impl HttpsDownloader {
         let response = self.client.get(&url).send().await?;
 
         if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(PdbSyncError::Download(format!("HTTP 404 for {}", url)));
+            return Err(PdbSyncError::Download {
+                pdb_id: task.pdb_id.to_string(),
+                url: url.clone(),
+                message: format!("HTTP 404 for {}", url),
+                is_retriable: false,
+            });
         }
 
         if !response.status().is_success() {
-            return Err(PdbSyncError::Download(format!(
-                "HTTP {} for {}",
-                response.status(),
-                url
-            )));
+            return Err(PdbSyncError::Download {
+                pdb_id: task.pdb_id.to_string(),
+                url: url.clone(),
+                message: format!("HTTP {} for {}", response.status(), url),
+                is_retriable: response.status().is_server_error(),
+            });
         }
 
         let total_size = response.content_length();
@@ -234,7 +242,12 @@ impl HttpsDownloader {
 
         match result {
             DownloadResult::Success { .. } => Ok(()),
-            DownloadResult::Failed { error, .. } => Err(PdbSyncError::Download(error)),
+            DownloadResult::Failed { error, .. } => Err(PdbSyncError::Download {
+                pdb_id: pdb_id.to_string(),
+                url: format!("{}", self.options.mirror),
+                message: error,
+                is_retriable: true,
+            }),
             DownloadResult::Skipped { reason, .. } => {
                 println!("Skipped: {}", reason);
                 Ok(())
@@ -468,7 +481,7 @@ impl HttpsDownloader {
 /// Check if an error indicates a 404 Not Found.
 fn is_not_found_error(err: &PdbSyncError) -> bool {
     match err {
-        PdbSyncError::Download(msg) => msg.contains("404"),
+        PdbSyncError::Download { message, .. } => message.contains("404"),
         _ => false,
     }
 }

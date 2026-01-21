@@ -44,7 +44,11 @@ impl ConfigLoader {
     /// Save config to file
     pub fn save(config: &Config) -> Result<()> {
         let path = Self::config_path()
-            .ok_or_else(|| PdbSyncError::Config("Cannot determine config path".into()))?;
+            .ok_or_else(|| PdbSyncError::Config {
+                message: "Cannot determine config path".to_string(),
+                key: None,
+                source: None,
+            })?;
 
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -58,13 +62,18 @@ impl ConfigLoader {
     /// Initialize config file with defaults
     pub fn init() -> Result<PathBuf> {
         let path = Self::config_path()
-            .ok_or_else(|| PdbSyncError::Config("Cannot determine config path".into()))?;
+            .ok_or_else(|| PdbSyncError::Config {
+                message: "Cannot determine config path".to_string(),
+                key: None,
+                source: None,
+            })?;
 
         if path.exists() {
-            return Err(PdbSyncError::Config(format!(
-                "Config file already exists at {}",
-                path.display()
-            )));
+            return Err(PdbSyncError::Config {
+                message: format!("Config file already exists at {}", path.display()),
+                key: None,
+                source: None,
+            });
         }
 
         let config = Config::default();

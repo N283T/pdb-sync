@@ -77,7 +77,11 @@ fn get_config_value(config: &crate::config::Config, key: &str) -> Result<String>
             Ok(config.mirror_selection.latency_cache_ttl.to_string())
         }
 
-        _ => Err(PdbSyncError::Config(format!("Unknown config key: {}", key))),
+        _ => Err(PdbSyncError::Config {
+            message: format!("Unknown config key: {}", key),
+            key: Some(key.to_string()),
+            source: None,
+        }),
     }
 }
 
@@ -99,22 +103,31 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
         "sync.bwlimit" => {
             config.sync.bwlimit = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid bwlimit value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid bwlimit value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "sync.delete" => {
             config.sync.delete = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid boolean value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "sync.layout" => {
             config.sync.layout = match value.to_lowercase().as_str() {
                 "divided" => Layout::Divided,
                 "all" => Layout::All,
                 _ => {
-                    return Err(PdbSyncError::Config(format!(
-                        "Invalid layout: {}. Use 'divided' or 'all'",
-                        value
-                    )))
+                    return Err(PdbSyncError::Config {
+                        message: format!("Invalid layout: {}. Use 'divided' or 'all'", value),
+                        key: Some(key.to_string()),
+                        source: None,
+                    })
                 }
             };
         }
@@ -128,11 +141,15 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
                 .collect();
             for dt in &parsed {
                 if !valid_types.contains(dt) {
-                    return Err(PdbSyncError::Config(format!(
-                        "Unknown data type: '{}'. Valid types: {}",
-                        dt,
-                        valid_types.join(", ")
-                    )));
+                    return Err(PdbSyncError::Config {
+                        message: format!(
+                            "Unknown data type: '{}'. Valid types: {}",
+                            dt,
+                            valid_types.join(", ")
+                        ),
+                        key: Some(key.to_string()),
+                        source: None,
+                    });
                 }
             }
             config.sync.data_types = parsed;
@@ -142,12 +159,20 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
         "download.auto_decompress" => {
             config.download.auto_decompress = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid boolean value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "download.parallel" => {
             config.download.parallel = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid parallel value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid parallel value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "download.default_format" => {
             config.download.default_format = value.to_string();
@@ -155,14 +180,22 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
         "download.retry_count" => {
             config.download.retry_count = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid retry_count value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid retry_count value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
 
         // mirror_selection.*
         "mirror_selection.auto_select" => {
             config.mirror_selection.auto_select = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid boolean value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid boolean value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
         "mirror_selection.preferred_region" => {
             config.mirror_selection.preferred_region = if value.is_empty() {
@@ -174,10 +207,18 @@ fn set_config_value(config: &mut crate::config::Config, key: &str, value: &str) 
         "mirror_selection.latency_cache_ttl" => {
             config.mirror_selection.latency_cache_ttl = value
                 .parse()
-                .map_err(|_| PdbSyncError::Config("Invalid latency_cache_ttl value".into()))?;
+                .map_err(|_| PdbSyncError::Config {
+                    message: "Invalid latency_cache_ttl value".to_string(),
+                    key: Some(key.to_string()),
+                    source: None,
+                })?;
         }
 
-        _ => return Err(PdbSyncError::Config(format!("Unknown config key: {}", key))),
+        _ => return Err(PdbSyncError::Config {
+            message: format!("Unknown config key: {}", key),
+            key: Some(key.to_string()),
+            source: None,
+        }),
     }
     Ok(())
 }
