@@ -5,6 +5,7 @@ pub mod download;
 pub mod env;
 pub mod find;
 pub mod info;
+pub mod init;
 pub mod jobs;
 pub mod list;
 pub mod setup;

@@ -625,6 +625,10 @@ pdb-sync validate -o ids | pdb-sync download -l - --overwrite
 cat wanted.txt | pdb-sync find --stdin --missing | pdb-sync download -l -
 ```
 
+## 内部アーキテクチャ
+
+開発者向けの内部実装ドキュメントは [docs/internal-architecture.ja.md](docs/internal-architecture.ja.md) を参照してください。
+
 ## ライセンス
 
 MIT

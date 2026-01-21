@@ -61,6 +61,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Dispatch to command handlers
     match cli.command {
+        Commands::Init(args) => {
+            cli::commands::init::run_init(args, ctx).await?;
+        }
         Commands::Sync(args) => {
             cli::commands::run_sync(args, ctx).await?;
         }
@@ -170,6 +173,9 @@ async fn run_command(cli: &Cli) -> anyhow::Result<()> {
 
     // Dispatch to command handlers
     match &cli.command {
+        Commands::Init(args) => {
+            cli::commands::init::run_init(args.clone(), ctx).await?;
+        }
         Commands::Sync(args) => {
             cli::commands::run_sync(args.clone(), ctx).await?;
         }
