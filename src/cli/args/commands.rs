@@ -613,3 +613,39 @@ pub enum JobsAction {
         older_than: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_resolution() {
+        // Valid resolutions
+        assert!(validate_resolution("0.0").is_ok());
+        assert!(validate_resolution("1.5").is_ok());
+        assert!(validate_resolution("100.0").is_ok());
+
+        // Invalid resolutions
+        assert!(validate_resolution("-0.1").is_err());
+        assert!(validate_resolution("100.1").is_err());
+        assert!(validate_resolution("abc").is_err());
+    }
+
+    #[test]
+    fn test_validate_organism() {
+        // Valid organisms
+        assert!(validate_organism("Homo sapiens").is_ok());
+        assert!(validate_organism("Escherichia coli").is_ok());
+        assert!(validate_organism("Mus musculus (mouse)").is_ok());
+
+        // Too long
+        let long_name = "a".repeat(201);
+        let result = validate_organism(&long_name);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("201 chars"));
+
+        // Invalid characters
+        assert!(validate_organism("test@invalid").is_err());
+        assert!(validate_organism("test;injection").is_err());
+    }
+}

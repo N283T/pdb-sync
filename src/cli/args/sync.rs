@@ -1,10 +1,26 @@
 //! Sync command arguments and subcommands.
 
 use crate::data_types::{DataType, Layout};
-use crate::data_types::{PdbjDataType, PdbeDataType};
 use clap::{Parser, Subcommand};
 
 use super::enums::SyncFormat;
+
+// Re-export data types for public API
+pub use crate::data_types::{PdbjDataType, PdbeDataType};
+
+/// Validate subpath to prevent path traversal attacks.
+fn validate_subpath(s: &str) -> Result<String, String> {
+    if s.contains("..") {
+        return Err("Invalid subpath: must not contain '..'".into());
+    }
+    if s.starts_with('/') || s.starts_with('\\') {
+        return Err("Invalid subpath: must be relative path".into());
+    }
+    if s.contains('\\') {
+        return Err("Invalid subpath: must use forward slashes".into());
+    }
+    Ok(s.to_string())
+}
 
 /// Sync command with subcommands for different data sources.
 ///
@@ -134,7 +150,7 @@ pub struct PdbjSyncArgs {
     pub data_types: Vec<PdbjDataType>,
 
     /// Subpath within the data type (optional, for partial sync)
-    #[arg(long)]
+    #[arg(long, value_parser = validate_subpath)]
     pub subpath: Option<String>,
 }
 
@@ -146,6 +162,30 @@ pub struct PdbeSyncArgs {
     pub data_types: Vec<PdbeDataType>,
 
     /// Subpath within the data type (optional, for partial sync)
-    #[arg(long)]
+    #[arg(long, value_parser = validate_subpath)]
     pub subpath: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_subpath() {
+        // Valid subpaths
+        assert!(validate_subpath("data/structures").is_ok());
+        assert!(validate_subpath("2024").is_ok());
+        assert!(validate_subpath("structures/divided").is_ok());
+
+        // Path traversal attempts
+        assert!(validate_subpath("../etc").is_err());
+        assert!(validate_subpath("data/../parent").is_err());
+
+        // Absolute paths
+        assert!(validate_subpath("/etc/passwd").is_err());
+        assert!(validate_subpath("\\windows\\system32").is_err());
+
+        // Backslashes
+        assert!(validate_subpath("data\\structures").is_err());
+    }
 }

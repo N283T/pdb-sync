@@ -5,7 +5,6 @@
 //! - [`global`]: Global CLI structures and STYLES constant
 //! - [`sync`]: Sync subcommand arguments
 //! - [`commands`]: Individual command argument structs
-//! - [`parsers`]: Custom value parsers and validators
 
 mod enums;
 mod global;
@@ -16,8 +15,20 @@ mod commands;
 pub use enums::{
     ExperimentalMethod, NotifyMethod, OutputFormat, SortField, SyncFormat,
 };
+
 // TODO: These exports will be used in Phase 3 (shared arg groups)
 #[allow(unused_imports)]
 pub use global::{Cli, Commands, GlobalArgs, PdbDirArgs, parse_cli, STYLES};
-pub use commands::*;
-pub use sync::*;
+
+// Individual command arguments
+pub use commands::{
+    ConfigAction, ConfigArgs, ConvertArgs, CopyArgs, DownloadArgs, EnvAction,
+    EnvArgs, FindArgs, InfoArgs, InitArgs, JobsAction, JobsArgs, ListArgs,
+    StatsArgs, TreeArgs, UpdateArgs, ValidateArgs, WatchArgs,
+};
+
+// Sync-related arguments (including re-exported data types)
+// TODO: PdbjDataType and PdbeDataType will be used in sync command implementation
+#[allow(unused_imports)]
+pub use sync::{PdbjDataType, PdbjSyncArgs, PdbeDataType, PdbeSyncArgs, ShortcutSyncArgs,
+               SyncArgs, SyncCommand, WwpdbSyncArgs};
