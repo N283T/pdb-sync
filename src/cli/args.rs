@@ -3,7 +3,7 @@ use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use crate::tree::SortBy;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -100,6 +100,14 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: Commands,
+}
+
+/// Parse CLI with colored help output enabled
+pub fn parse_cli() -> Cli {
+    // Build command from derived struct and enable colors
+    let cmd = Cli::command().color(clap::ColorChoice::Auto);
+    let matches = cmd.get_matches();
+    Cli::from_arg_matches(&matches).expect("Failed to parse arguments")
 }
 
 #[derive(Subcommand)]
