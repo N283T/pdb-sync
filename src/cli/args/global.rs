@@ -24,7 +24,12 @@ pub struct GlobalArgs {
     pub verbose: bool,
 }
 
-/// PDB directory arguments
+/// PDB directory arguments.
+///
+/// This arg group is flattened into commands that need PDB directory or
+/// destination path specification:
+/// - `download`: For choosing download destination
+/// - `copy`: For choosing copy destination
 #[derive(Parser, Clone, Debug)]
 pub struct PdbDirArgs {
     /// Override the PDB directory
@@ -36,7 +41,13 @@ pub struct PdbDirArgs {
     pub dest: Option<PathBuf>,
 }
 
-/// Mirror selection arguments
+/// Mirror selection arguments.
+///
+/// This arg group is flattened into commands that need mirror selection:
+/// - `download`: For choosing download source
+/// - `validate`: For fetching checksums
+/// - `update`: For checking remote versions
+/// - `watch`: For choosing download source
 #[derive(Parser, Clone, Debug)]
 pub struct MirrorArgs {
     /// Mirror to use
@@ -44,19 +55,23 @@ pub struct MirrorArgs {
     pub mirror: Option<MirrorId>,
 }
 
-/// Progress/output arguments
+/// Progress bar arguments.
+///
+/// This arg group is flattened into commands that support progress display:
+/// - `validate`: For showing validation progress
+/// - `update`: For showing update check progress
 #[derive(Parser, Clone, Debug)]
 pub struct ProgressArgs {
     /// Show progress bar
     #[arg(short = 'P', long)]
     pub progress: bool,
-
-    /// Quiet mode (suppress output)
-    #[arg(short, long)]
-    pub quiet: bool,
 }
 
-/// Dry run arguments
+/// Dry run arguments.
+///
+/// This arg group is flattened into commands that support dry-run mode:
+/// - `sync`: For previewing rsync operations
+/// - `update`: For previewing updates without downloading
 #[derive(Parser, Clone, Debug)]
 pub struct DryRunArgs {
     /// Perform a dry run without making changes

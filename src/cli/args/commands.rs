@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use super::enums::{ExperimentalMethod, NotifyMethod, SortField};
-use super::global::{PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs};
+use super::{PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs};
 
 /// Arguments for the init command.
 #[derive(Parser, Clone)]

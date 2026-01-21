@@ -16,9 +16,11 @@ pub use enums::{
     ExperimentalMethod, NotifyMethod, OutputFormat, SortField, SyncFormat,
 };
 
-// TODO: These exports will be used in Phase 3 (shared arg groups)
-#[allow(unused_imports)]
-pub use global::{Cli, Commands, GlobalArgs, PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs, parse_cli, STYLES};
+// Re-export global CLI types (for external use by main.rs)
+pub use global::{Cli, Commands, parse_cli};
+
+// Shared argument group types (for internal use by commands module)
+pub use global::{MirrorArgs, PdbDirArgs, ProgressArgs, DryRunArgs};
 
 // Individual command arguments
 pub use commands::{
