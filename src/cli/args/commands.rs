@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use super::enums::{ExperimentalMethod, NotifyMethod, SortField};
 use super::{PdbDirArgs, MirrorArgs, ProgressArgs, DryRunArgs};
+use super::parsers::{validate_interval, validate_organism, validate_resolution};
 
 /// Arguments for the init command.
 #[derive(Parser, Clone)]
@@ -311,45 +312,10 @@ pub struct ValidateArgs {
     pub output: super::enums::OutputFormat,
 }
 
-/// Validate resolution filter (must be in range 0.0-100.0)
-fn validate_resolution(s: &str) -> Result<f64, String> {
-    let value: f64 = s.parse().map_err(|_| format!("Invalid number: {}", s))?;
-    if !(0.0..=100.0).contains(&value) {
-        return Err(format!(
-            "Resolution must be between 0.0 and 100.0, got {}",
-            value
-        ));
-    }
-    Ok(value)
-}
-
-/// Validate organism filter string (max 200 chars, alphanumeric + basic punctuation)
-fn validate_organism(s: &str) -> Result<String, String> {
-    const MAX_LEN: usize = 200;
-    if s.len() > MAX_LEN {
-        return Err(format!(
-            "Organism name too long ({} chars, max {})",
-            s.len(),
-            MAX_LEN
-        ));
-    }
-    // Allow alphanumeric, spaces, hyphens, periods, parentheses
-    if s.chars()
-        .all(|c| c.is_alphanumeric() || " -._()".contains(c))
-    {
-        Ok(s.to_string())
-    } else {
-        Err(
-            "Organism name contains invalid characters (allowed: alphanumeric, space, -._())"
-                .into(),
-        )
-    }
-}
-
 #[derive(Parser, Clone)]
 pub struct WatchArgs {
     /// Check interval (e.g., "1h", "30m", "1d")
-    #[arg(short, long, default_value = "1h")]
+    #[arg(short, long, default_value = "1h", value_parser = validate_interval)]
     pub interval: String,
 
     /// Filter by experimental method
@@ -617,36 +583,6 @@ pub enum JobsAction {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validate_resolution() {
-        // Valid resolutions
-        assert!(validate_resolution("0.0").is_ok());
-        assert!(validate_resolution("1.5").is_ok());
-        assert!(validate_resolution("100.0").is_ok());
-
-        // Invalid resolutions
-        assert!(validate_resolution("-0.1").is_err());
-        assert!(validate_resolution("100.1").is_err());
-        assert!(validate_resolution("abc").is_err());
-    }
-
-    #[test]
-    fn test_validate_organism() {
-        // Valid organisms
-        assert!(validate_organism("Homo sapiens").is_ok());
-        assert!(validate_organism("Escherichia coli").is_ok());
-        assert!(validate_organism("Mus musculus (mouse)").is_ok());
-
-        // Too long
-        let long_name = "a".repeat(201);
-        let result = validate_organism(&long_name);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("201 chars"));
-
-        // Invalid characters
-        assert!(validate_organism("test@invalid").is_err());
-        assert!(validate_organism("test;injection").is_err());
-    }
+    // Tests for validate_resolution and validate_organism have been moved to
+    // the parsers module (src/cli/args/parsers.rs)
 }

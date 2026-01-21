@@ -10,11 +10,16 @@ mod enums;
 mod global;
 mod sync;
 mod commands;
+mod parsers;
 
 // Re-export public types for backward compatibility
 pub use enums::{
     ExperimentalMethod, NotifyMethod, OutputFormat, SortField, SyncFormat,
 };
+
+// Re-export validation functions for use in argument structs
+#[allow(unused_imports)]
+pub use parsers::{validate_interval, validate_organism, validate_resolution};
 
 // Re-export global CLI types (for external use by main.rs)
 pub use global::{Cli, Commands, parse_cli};
