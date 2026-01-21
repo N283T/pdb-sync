@@ -3,6 +3,8 @@ use crate::download::EngineType;
 use crate::files::FileFormat;
 use crate::mirrors::MirrorId;
 use crate::tree::SortBy;
+use clap::builder::Styles;
+use clap::builder::styling::{AnsiColor, Effects};
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -81,6 +83,13 @@ impl ExperimentalMethod {
     }
 }
 
+// Configures colored help menu colors (similar to uv)
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default());
+
 #[derive(Parser)]
 #[command(name = "pdb-sync")]
 #[command(about = "CLI tool for managing Protein Data Bank files")]
@@ -102,10 +111,11 @@ pub struct Cli {
     pub command: Commands,
 }
 
-/// Parse CLI with colored help output enabled
+/// Parse CLI with colored styles
 pub fn parse_cli() -> Cli {
-    // Build command from derived struct and enable colors
-    let cmd = Cli::command().color(clap::ColorChoice::Auto);
+    let cmd = Cli::command()
+        .styles(STYLES)
+        .color(clap::ColorChoice::Always);
     let matches = cmd.get_matches();
     Cli::from_arg_matches(&matches).expect("Failed to parse arguments")
 }
