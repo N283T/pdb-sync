@@ -65,8 +65,6 @@ fn run_sources(_ctx: AppContext) -> Result<()> {
 
     // Get config file values
     let config = ConfigLoader::load().ok();
-    let _config_pdb_dir = config.as_ref().and_then(|c| c.paths.pdb_dir.clone());
-    let _config_mirror = config.as_ref().map(|c| c.sync.mirror);
 
     // Default values
     let default_pdb_dir = env::var("HOME")

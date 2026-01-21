@@ -209,12 +209,4 @@ mod tests {
         assert!(output.contains("command-line argument"));
     }
 
-    #[test]
-    fn test_sourced_value_map_preserves_source() {
-        let val = SourcedValue::new(10, FlagSource::Env);
-        let mapped = val.map(|x| x * 2);
-
-        assert_eq!(mapped.value, 20);
-        assert_eq!(mapped.source, FlagSource::Env);
-    }
 }

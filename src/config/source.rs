@@ -158,11 +158,11 @@ mod tests {
         assert_eq!(config_val.source, FlagSource::Config);
 
         let env_val = SourcedValue::from_env(true);
-        assert_eq!(env_val.value, true);
+        assert!(env_val.value);
         assert_eq!(env_val.source, FlagSource::Env);
 
-        let cli_val = SourcedValue::from_cli(3.14);
-        assert_eq!(cli_val.value, 3.14);
+        let cli_val = SourcedValue::from_cli(2.5);
+        assert_eq!(cli_val.value, 2.5);
         assert_eq!(cli_val.source, FlagSource::CliArg);
     }
 
