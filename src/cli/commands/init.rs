@@ -38,7 +38,35 @@
 use crate::cli::args::InitArgs;
 use crate::context::AppContext;
 use crate::error::{PdbSyncError, Result};
+use crate::tree::{build_tree, render_tree, TreeOptions};
 use std::collections::HashMap;
+
+/// Parse depth string to usize (supports numeric and named values)
+fn parse_depth(depth_str: &str) -> Result<usize> {
+    match depth_str.to_lowercase().as_str() {
+        "base" => Ok(0),
+        "types" => Ok(1),
+        "layouts" => Ok(2),
+        "format" => Ok(3),
+        _ => {
+            // Try to parse as number
+            let depth = depth_str.parse::<usize>().map_err(|_| {
+                PdbSyncError::InvalidInput(format!(
+                    "Invalid depth '{}'. Use 0-3 or: base, types, layouts, format",
+                    depth_str
+                ))
+            })?;
+            // Validate range
+            if depth > 3 {
+                return Err(PdbSyncError::InvalidInput(format!(
+                    "Invalid depth '{}'. Use 0-3 or: base, types, layouts, format",
+                    depth_str
+                )));
+            }
+            Ok(depth)
+        }
+    }
+}
 
 /// Subdirectories to create in the base directory (depth=0)
 pub const SUBDIRS: &[&str] = &["data", "pdbj", "pdbe", "local"];
@@ -79,6 +107,11 @@ pub fn get_layout_subdirs() -> Vec<String> {
     vec!["divided".to_string(), "all".to_string()]
 }
 
+/// Format subdirectories for depth=3
+pub fn get_format_subdirs() -> Vec<String> {
+    vec!["mmCIF".to_string(), "PDB".to_string()]
+}
+
 /// Build the complete directory tree based on depth
 fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec<String>> {
     let mut tree = HashMap::new();
@@ -96,7 +129,14 @@ fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec
 
                         if depth >= 2 {
                             for layout in get_layout_subdirs() {
-                                paths.push(format!("{}/{}", dt_path, layout));
+                                let layout_path = format!("{}/{}", dt_path, layout);
+                                paths.push(layout_path.clone());
+
+                                if depth >= 3 {
+                                    for format in get_format_subdirs() {
+                                        paths.push(format!("{}/{}", layout_path, format));
+                                    }
+                                }
                             }
                         }
                     }
@@ -111,7 +151,14 @@ fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec
 
                         if depth >= 2 {
                             for layout in get_layout_subdirs() {
-                                paths.push(format!("{}/{}", dt_path, layout));
+                                let layout_path = format!("{}/{}", dt_path, layout);
+                                paths.push(layout_path.clone());
+
+                                if depth >= 3 {
+                                    for format in get_format_subdirs() {
+                                        paths.push(format!("{}/{}", layout_path, format));
+                                    }
+                                }
                             }
                         }
                     }
@@ -126,7 +173,14 @@ fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec
 
                         if depth >= 2 {
                             for layout in get_layout_subdirs() {
-                                paths.push(format!("{}/{}", dt_path, layout));
+                                let layout_path = format!("{}/{}", dt_path, layout);
+                                paths.push(layout_path.clone());
+
+                                if depth >= 3 {
+                                    for format in get_format_subdirs() {
+                                        paths.push(format!("{}/{}", layout_path, format));
+                                    }
+                                }
                             }
                         }
                     }
@@ -213,6 +267,9 @@ impl DirSource {
 
 /// Run the init command.
 pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
+    // Parse depth from string (supports numeric and named values)
+    let depth = parse_depth(&args.depth)?;
+
     // Determine base directory and its source
     let (base_dir, dir_source) = if let Some(dir) = args.dir {
         (dir, DirSource::CliArg)
@@ -265,7 +322,7 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
         .collect();
 
     // Build directory tree (custom dirs always have empty structure)
-    let tree = build_directory_tree(&defined_subdirs, args.depth);
+    let tree = build_directory_tree(&defined_subdirs, depth);
 
     if args.dry_run {
         println!("Would create the following directory structure:");
@@ -338,11 +395,14 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
         }
     }
 
-    if args.depth == 0 {
+    if depth == 0 {
         println!("\nUse --depth 1 to create data type subdirectories:");
         println!("  pdb-sync init --depth 1");
         println!("\nUse --depth 2 to create layout subdirectories (divided/all):");
         println!("  pdb-sync init --depth 2");
+        println!("\nUse --depth 3 (or --depth format) to create format subdirectories:");
+        println!("  pdb-sync init --depth 3");
+        println!("  pdb-sync init --depth format");
         println!("\nYou can also specify custom directories:");
         println!("  pdb-sync init --only data --only myproject");
     } else {
@@ -353,17 +413,44 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
                 base_dir.display()
             );
         }
-        if all_subdirs.contains(&"pdbj".to_string()) && args.depth >= 1 {
+        if all_subdirs.contains(&"pdbj".to_string()) && depth >= 1 {
             println!(
                 "  pdb-sync sync pdbj --type emdb --dest {}/pdbj/emdb",
                 base_dir.display()
             );
         }
-        if all_subdirs.contains(&"pdbe".to_string()) && args.depth >= 1 {
+        if all_subdirs.contains(&"pdbe".to_string()) && depth >= 1 {
             println!(
                 "  pdb-sync sync pdbe --type sifts --dest {}/pdbe/sifts",
                 base_dir.display()
             );
+        }
+    }
+
+    // Show directory tree after creation (not in dry_run mode)
+    if !args.dry_run {
+        println!("\nDirectory structure:");
+        let tree_options = TreeOptions {
+            max_depth: Some(depth + 1), // +1 to show base dir too
+            format_filter: None,
+            non_empty: false,
+        };
+        match build_tree(&base_dir, &tree_options).await {
+            Ok(tree) => {
+                let output = render_tree(
+                    &tree,
+                    &crate::tree::render::RenderOptions {
+                        show_size: false,
+                        show_count: false,
+                        no_summary: true,
+                    },
+                );
+                print!("{}", output);
+            }
+            Err(e) => {
+                // Tree display is optional, don't fail the command
+                eprintln!("Note: Could not display tree: {}", e);
+            }
         }
     }
 
@@ -536,5 +623,54 @@ mod tests {
         assert!(validate_dir_name("test\n").is_err());
         assert!(validate_dir_name("test\t").is_err());
         assert!(validate_dir_name("test\x00").is_err());
+    }
+
+    #[test]
+    fn test_parse_depth_numeric() {
+        assert_eq!(parse_depth("0").unwrap(), 0);
+        assert_eq!(parse_depth("1").unwrap(), 1);
+        assert_eq!(parse_depth("2").unwrap(), 2);
+        assert_eq!(parse_depth("3").unwrap(), 3);
+    }
+
+    #[test]
+    fn test_parse_depth_named() {
+        assert_eq!(parse_depth("base").unwrap(), 0);
+        assert_eq!(parse_depth("BASE").unwrap(), 0);
+        assert_eq!(parse_depth("types").unwrap(), 1);
+        assert_eq!(parse_depth("TYPES").unwrap(), 1);
+        assert_eq!(parse_depth("layouts").unwrap(), 2);
+        assert_eq!(parse_depth("LAYOUTS").unwrap(), 2);
+        assert_eq!(parse_depth("format").unwrap(), 3);
+        assert_eq!(parse_depth("FORMAT").unwrap(), 3);
+    }
+
+    #[test]
+    fn test_parse_depth_invalid() {
+        assert!(parse_depth("invalid").is_err());
+        assert!(parse_depth("4").is_err());
+        assert!(parse_depth("-1").is_err());
+    }
+
+    #[test]
+    fn test_build_directory_tree_depth_3() {
+        let subdirs = vec!["data".to_string()];
+        let tree = build_directory_tree(&subdirs, 3);
+
+        let paths = tree.get("data").unwrap();
+        // Should have format subdirectories
+        assert!(paths.iter().any(|p| p == "data/structures/divided/mmCIF"));
+        assert!(paths.iter().any(|p| p == "data/structures/divided/PDB"));
+        assert!(paths.iter().any(|p| p == "data/structures/all/mmCIF"));
+        assert!(paths.iter().any(|p| p == "data/structures/all/PDB"));
+        assert!(paths.iter().any(|p| p == "data/assemblies/divided/mmCIF"));
+    }
+
+    #[test]
+    fn test_get_format_subdirs() {
+        let formats = get_format_subdirs();
+        assert_eq!(formats.len(), 2);
+        assert!(formats.contains(&"mmCIF".to_string()));
+        assert!(formats.contains(&"PDB".to_string()));
     }
 }

@@ -910,9 +910,9 @@ pub struct InitArgs {
     #[arg(short, long, value_name = "DIR")]
     pub only: Option<Vec<String>>,
 
-    /// Directory depth to create (0=mirror only, 1=data types, 2=layouts like divided/all)
+    /// Directory depth to create (0-3, or: base, types, layouts, format)
     #[arg(long, default_value = "0")]
-    pub depth: usize,
+    pub depth: String,
 
     /// Show what would be created without creating
     #[arg(long, short = 'n')]
