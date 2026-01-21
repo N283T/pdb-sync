@@ -104,6 +104,9 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Initialize the base directory structure
+    Init(InitArgs),
+
     /// Sync files from a PDB mirror using rsync
     Sync(SyncArgs),
 
@@ -894,6 +897,26 @@ pub enum JobsAction {
         #[arg(long, default_value = "7d")]
         older_than: String,
     },
+}
+
+/// Arguments for init command.
+#[derive(Parser, Clone)]
+pub struct InitArgs {
+    /// Base directory path (default: $PDB_DIR, or config file, or ~/pdb)
+    #[arg(short, long)]
+    pub dir: Option<PathBuf>,
+
+    /// Create only specific subdirectories (can be specified multiple times)
+    #[arg(short, long, value_name = "DIR")]
+    pub only: Option<Vec<String>>,
+
+    /// Directory depth to create (0=mirror only, 1=data types, 2=layouts like divided/all)
+    #[arg(long, default_value = "0")]
+    pub depth: usize,
+
+    /// Show what would be created without creating
+    #[arg(long, short = 'n')]
+    pub dry_run: bool,
 }
 
 #[cfg(test)]
