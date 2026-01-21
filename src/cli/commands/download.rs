@@ -7,7 +7,9 @@ use crate::download::{
 };
 use crate::error::{PdbSyncError, Result};
 use crate::files::PdbId;
+use crate::utils::{hint, info, warning};
 use crate::utils::IdSource;
+use colored::Colorize;
 use std::time::Duration;
 use tokio::fs;
 
@@ -35,7 +37,7 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
         match PdbId::new(id_str) {
             Ok(pdb_id) => pdb_ids.push(pdb_id),
             Err(e) => {
-                eprintln!("Invalid PDB ID '{}': {}", id_str, e);
+                eprintln!("✗ {}", format!("Invalid PDB ID '{}': {}", id_str, e).red());
                 parse_errors.push((id_str.clone(), e));
             }
         }
@@ -77,9 +79,7 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
 
     // Warn if --decompress is used with aria2c (aria2c downloads raw files)
     if engine == EngineType::Aria2c && (args.decompress || ctx.config.download.auto_decompress) {
-        eprintln!(
-            "Warning: --decompress is not supported with aria2c engine; files will remain compressed"
-        );
+        warning("--decompress is not supported with aria2c engine; files will remain compressed");
     }
 
     // Handle export option
@@ -89,13 +89,13 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
         return Ok(());
     }
 
-    println!(
+    info(&format!(
         "Downloading {} {} ({} tasks, {} parallel)...",
         pdb_ids.len(),
         args.data_type,
         tasks.len(),
         args.parallel
-    );
+    ));
 
     // Execute download based on engine type
     let results = match engine {
@@ -119,9 +119,7 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
             match Aria2cDownloader::new(options.clone(), connections, split) {
                 Some(downloader) => downloader.download_many(tasks, &dest).await,
                 None => {
-                    eprintln!(
-                        "Warning: aria2c not found in PATH, falling back to built-in downloader"
-                    );
+                    warning("aria2c not found in PATH, falling back to built-in downloader");
                     let downloader = HttpsDownloader::new(options);
                     downloader.download_many(tasks, &dest).await
                 }
@@ -142,19 +140,18 @@ pub async fn run_download(args: DownloadArgs, ctx: AppContext) -> Result<()> {
             error,
         } = result
         {
-            eprintln!("Failed: {} ({}): {}", pdb_id, data_type, error);
+            eprintln!("✗ {}", format!("Failed: {} ({}): {}", pdb_id, data_type, error).red());
         }
     }
 
     // Print summary
-    println!(
-        "\nDownload complete: {} success, {} failed, {} skipped",
-        success_count, failed_count, skipped_count
-    );
-    println!("Destination: {}", dest.display());
+    println!();
+    println!("✓ {}", format!("Download complete: {} success, {} failed, {} skipped",
+        success_count, failed_count, skipped_count).green());
+    println!("Destination: {}", dest.display().to_string().cyan());
 
     if !parse_errors.is_empty() {
-        eprintln!("{} PDB ID(s) were invalid", parse_errors.len());
+        hint(&format!("{} PDB ID(s) were invalid", parse_errors.len()));
     }
 
     Ok(())

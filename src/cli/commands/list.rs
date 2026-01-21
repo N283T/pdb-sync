@@ -4,8 +4,9 @@ use crate::cli::args::{ListArgs, OutputFormat, SortField};
 use crate::context::AppContext;
 use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
-use crate::utils::{escape_csv_field, human_bytes};
+use crate::utils::{escape_csv_field, header, hint, human_bytes, success};
 use chrono::{DateTime, Local};
+use colored::Colorize;
 use glob::Pattern;
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -253,31 +254,38 @@ fn print_ids(files: &[LocalFile]) {
     for file in files {
         println!("{}", file.pdb_id);
     }
+
+    if !files.is_empty() {
+        hint(&format!("Found {} file(s)", files.len()));
+    }
 }
 
 /// Print files in text format
 fn print_text(files: &[LocalFile], show_size: bool, show_time: bool) {
     for file in files {
-        let mut parts = vec![file.pdb_id.clone()];
+        let mut parts = vec![file.pdb_id.clone().cyan().to_string()];
 
         if show_size {
-            parts.push(human_bytes(file.size));
+            parts.push(human_bytes(file.size).dimmed().to_string());
         }
 
         if show_time {
             if let Some(modified) = &file.modified {
-                parts.push(modified.format("%Y-%m-%d %H:%M").to_string());
+                parts.push(modified.format("%Y-%m-%d %H:%M").to_string().dimmed().to_string());
             } else {
-                parts.push("-".to_string());
+                parts.push("-".dimmed().to_string());
             }
         }
 
-        parts.push(file.format.clone());
+        parts.push(file.format.clone().yellow().to_string());
 
         println!("{}", parts.join("\t"));
     }
 
-    println!("\nTotal: {} files", files.len());
+    if !files.is_empty() {
+        println!();
+        success(&format!("Total: {} file(s)", files.len()));
+    }
 }
 
 /// Print files in JSON format
@@ -327,18 +335,18 @@ fn print_csv(files: &[LocalFile], show_size: bool, show_time: bool) {
 
 /// Print statistics in text format
 fn print_statistics_text(stats: &Statistics) {
-    println!("Local PDB Mirror Statistics");
-    println!("===========================");
-    println!("Total files: {}", stats.total_files);
-    println!("Total size:  {}", human_bytes(stats.total_size));
+    header("Local PDB Mirror Statistics");
     println!();
-    println!("By format:");
+    println!("  Total files: {}", stats.total_files.to_string().cyan());
+    println!("  Total size:  {}", human_bytes(stats.total_size).dimmed());
+    println!();
+    println!("  By format:");
     for (format, format_stats) in &stats.by_format {
         println!(
-            "  {}: {} files ({})",
-            format,
+            "    {} {} file(s) ({})",
+            format.yellow(),
             format_stats.count,
-            human_bytes(format_stats.size)
+            human_bytes(format_stats.size).dimmed()
         );
     }
 }

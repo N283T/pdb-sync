@@ -1,6 +1,8 @@
 use crate::config::{Config, ConfigLoader};
 use crate::error::Result;
 use crate::mirrors::MirrorId;
+use crate::utils::{header, hint, info, success, warning};
+use colored::Colorize;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -13,7 +15,7 @@ pub fn needs_setup() -> bool {
 
 /// Run the interactive setup wizard
 pub fn run_setup() -> Result<()> {
-    println!("Welcome to pdb-sync!");
+    header("Welcome to pdb-sync!");
     println!("Let's set up your configuration.\n");
 
     let mut config = Config::default();
@@ -37,15 +39,16 @@ pub fn run_setup() -> Result<()> {
     ConfigLoader::save(&config)?;
 
     let config_path = ConfigLoader::config_path().unwrap();
-    println!("\nConfiguration saved to: {}", config_path.display());
-    println!("You can modify these settings anytime with 'pdb-sync config set <key> <value>'");
+    println!();
+    success(&format!("Configuration saved to: {}", config_path.display()));
+    hint("You can modify these settings anytime with 'pdb-sync config set <key> <value>'");
     println!();
 
     Ok(())
 }
 
 fn prompt_mirror() -> Result<MirrorId> {
-    println!("Select your preferred mirror:");
+    info("Select your preferred mirror:");
     println!("  1) rcsb  - RCSB PDB (US)");
     println!("  2) pdbj  - PDBj (Japan)");
     println!("  3) pdbe  - PDBe (Europe)");
@@ -63,12 +66,12 @@ fn prompt_mirror() -> Result<MirrorId> {
         "3" | "pdbe" => MirrorId::Pdbe,
         "4" | "wwpdb" => MirrorId::Wwpdb,
         _ => {
-            println!("Invalid choice, using default (rcsb)");
+            warning("Invalid choice, using default (rcsb)");
             MirrorId::Rcsb
         }
     };
 
-    println!("Selected: {}\n", mirror);
+    println!("Selected: {}\n", mirror.to_string().green());
     Ok(mirror)
 }
 
@@ -77,7 +80,7 @@ fn prompt_pdb_dir() -> Result<Option<PathBuf>> {
         .map(|d| d.home_dir().join("pdb"))
         .unwrap_or_else(|| PathBuf::from("./pdb"));
 
-    print!("PDB files directory [default: {}]: ", default_dir.display());
+    print!("PDB files directory [default: {}]: ", default_dir.display().to_string().cyan());
     io::stdout().flush()?;
 
     let mut input = String::new();
@@ -91,16 +94,16 @@ fn prompt_pdb_dir() -> Result<Option<PathBuf>> {
     };
 
     if let Some(ref p) = path {
-        println!("PDB directory: {}\n", p.display());
+        println!("PDB directory: {}\n", p.display().to_string().cyan());
     } else {
-        println!("PDB directory: {} (default)\n", default_dir.display());
+        println!("PDB directory: {} (default)\n", default_dir.display().to_string().cyan());
     }
 
     Ok(path)
 }
 
 fn prompt_default_format() -> Result<String> {
-    println!("Select default download format:");
+    info("Select default download format:");
     println!("  1) mmcif   - mmCIF format (.cif)");
     println!("  2) pdb     - Legacy PDB format (.pdb)");
     println!("  3) bcif    - BinaryCIF format (.bcif)");
@@ -118,17 +121,17 @@ fn prompt_default_format() -> Result<String> {
         "3" | "bcif" => "bcif",
         "4" | "cif-gz" => "cif-gz",
         _ => {
-            println!("Invalid choice, using default (mmcif)");
+            warning("Invalid choice, using default (mmcif)");
             "mmcif"
         }
     };
 
-    println!("Selected: {}\n", format);
+    println!("Selected: {}\n", format.yellow());
     Ok(format.to_string())
 }
 
 fn prompt_yes_no(question: &str, default: bool) -> Result<bool> {
-    let default_str = if default { "Y/n" } else { "y/N" };
+    let default_str = if default { "Y/n".green() } else { "y/N".red() };
     print!("{} [{}]: ", question, default_str);
     io::stdout().flush()?;
 
@@ -143,6 +146,6 @@ fn prompt_yes_no(question: &str, default: bool) -> Result<bool> {
         _ => default,
     };
 
-    println!("{}\n", if result { "Yes" } else { "No" });
+    println!("{}\n", if result { "Yes".green() } else { "No".red() });
     Ok(result)
 }
