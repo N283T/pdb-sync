@@ -1,12 +1,15 @@
 //! Custom rsync sync handler.
 
 use std::process::Stdio;
+use std::sync::Arc;
 
 use tokio::process::Command;
+use tokio::sync::Semaphore;
 
 use crate::cli::args::SyncArgs;
 use crate::context::AppContext;
 use crate::error::{PdbSyncError, Result};
+use crate::sync::{parse_rsync_stats, SyncPlan};
 
 use super::common::validate_subpath;
 
@@ -47,6 +50,64 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     let flags = config_flags.merge_with_overrides(&cli_overrides);
     flags.validate()?;
 
+    // Build destination path
+    let dest_path = dest.join(&custom_config.dest);
+
+    // Handle plan mode - show what would change without executing
+    if args.plan {
+        println!("\nPlan mode - analyzing changes...");
+        let mut cmd = Command::new("rsync");
+        cmd.arg("-ah")
+            .arg("--dry-run")
+            .arg("--stats")
+            .arg("--itemize-changes");
+        flags.apply_to_command(&mut cmd);
+        cmd.arg(&custom_config.url).arg(&dest_path);
+
+        // Capture output for parsing
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::inherit());
+
+        let output = cmd.output().await?;
+
+        if !output.status.success() {
+            let mut cmd_args = vec![
+                "-ah".to_string(),
+                "--dry-run".to_string(),
+                "--stats".to_string(),
+                "--itemize-changes".to_string(),
+            ];
+            cmd_args.extend(flags.to_args());
+            return Err(PdbSyncError::Rsync {
+                command: format!(
+                    "rsync {} {} {}",
+                    cmd_args.join(" "),
+                    custom_config.url,
+                    dest_path.display()
+                ),
+                exit_code: output.status.code(),
+                stderr: None,
+            });
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stats = parse_rsync_stats(&stdout)?;
+
+        let plan = SyncPlan {
+            name: custom_config.name.clone(),
+            url: custom_config.url.clone(),
+            dest: custom_config.dest.clone(),
+            has_deletions: flags.delete,
+            stats,
+        };
+
+        println!();
+        plan.print();
+
+        return Ok(());
+    }
+
+    // Handle dry-run mode - show command without executing
     if flags.dry_run {
         println!("\nDry run - would execute:");
         let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
@@ -55,13 +116,10 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
             "rsync {} {} {}",
             cmd_args.join(" "),
             custom_config.url,
-            dest.join(&custom_config.dest).display()
+            dest_path.display()
         );
         return Ok(());
     }
-
-    // Build destination path
-    let dest_path = dest.join(&custom_config.dest);
 
     // Create destination directory
     tokio::fs::create_dir_all(&dest_path).await?;
@@ -174,6 +232,12 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     println!("Syncing {} custom configs...", custom_configs.len());
     println!();
 
+    // If parallel is set, run concurrent with semaphore
+    if let Some(parallel_count) = args.parallel {
+        return run_custom_all_parallel(custom_configs, args, ctx, parallel_count).await;
+    }
+
+    // Otherwise run sequentially
     let mut all_success = true;
 
     for custom_config in &custom_configs {
@@ -202,6 +266,223 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
             "One or more custom sync configs failed".to_string(),
         ))
     }
+}
+
+/// Run all custom configs in parallel with semaphore-based concurrency limiting.
+async fn run_custom_all_parallel(
+    custom_configs: Vec<crate::config::schema::CustomRsyncConfig>,
+    args: SyncArgs,
+    ctx: AppContext,
+    parallel_count: usize,
+) -> Result<()> {
+    use tokio::task::JoinSet;
+
+    // Create semaphore for concurrency limiting
+    let semaphore = Arc::new(Semaphore::new(parallel_count));
+    let fail_fast = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    // Use JoinSet for better task management
+    let mut join_set = JoinSet::new();
+
+    for custom_config in custom_configs {
+        let name = custom_config.name.clone();
+        let args_clone = args.clone();
+        let ctx_clone = ctx.clone();
+        let semaphore_clone = semaphore.clone();
+        let fail_fast_clone = fail_fast.clone();
+
+        join_set.spawn(async move {
+            // Capture fail_fast before moving args_clone
+            let fail_fast_flag = args_clone.fail_fast;
+
+            // Acquire semaphore permit FIRST (before checking fail_fast to avoid TOCTOU race)
+            let permit = match semaphore_clone.acquire().await {
+                Ok(p) => p,
+                Err(_) => {
+                    return (
+                        name.clone(),
+                        Err(PdbSyncError::Job(
+                            "Semaphore closed unexpectedly".to_string(),
+                        )),
+                    );
+                }
+            };
+
+            // Check if we should fail fast AFTER acquiring permit
+            if fail_fast_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                return (
+                    name.clone(),
+                    Err(PdbSyncError::Job(
+                        "Skipped due to previous failure".to_string(),
+                    )),
+                );
+            }
+
+            // Run the sync with output prefixing
+            let result = run_custom_with_prefix(&name, args_clone, ctx_clone).await;
+
+            // Update fail_fast if this failed
+            if result.is_err() && fail_fast_flag {
+                fail_fast_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+
+            // Keep permit alive until here
+            drop(permit);
+
+            (name, result)
+        });
+    }
+
+    // Collect and report results
+    let mut all_success = true;
+    while let Some(task_result) = join_set.join_next().await {
+        match task_result {
+            Ok((name, result)) => {
+                if let Err(e) = result {
+                    eprintln!("Error syncing '{}': {}", name, e);
+                    all_success = false;
+                }
+            }
+            Err(e) => {
+                eprintln!("Task error: {}", e);
+                all_success = false;
+            }
+        }
+    }
+
+    println!();
+    if all_success {
+        println!("All custom configs synced successfully.");
+        Ok(())
+    } else {
+        println!("Some custom configs failed to sync.");
+        Err(PdbSyncError::Job(
+            "One or more custom sync configs failed".to_string(),
+        ))
+    }
+}
+
+/// Run a single custom sync with output prefixing for parallel execution.
+async fn run_custom_with_prefix(name: &str, args: SyncArgs, ctx: AppContext) -> Result<()> {
+    let dest = args.dest.clone().unwrap_or_else(|| ctx.pdb_dir.clone());
+
+    // Find custom config by name
+    let custom_config = ctx
+        .config
+        .sync
+        .custom
+        .iter()
+        .find(|c| c.name == name)
+        .ok_or_else(|| PdbSyncError::Config {
+            message: format!("Custom sync config '{}' not found", name),
+            key: Some("custom".to_string()),
+            source: None,
+        })?;
+
+    println!("[{}]", name);
+
+    // Validate destination path to prevent path traversal
+    super::common::validate_subpath(&custom_config.dest)
+        .map_err(|e| PdbSyncError::InvalidInput(format!("Invalid dest path: {}", e)))?;
+
+    // Validate rsync URL format
+    validate_rsync_url(&custom_config.url)?;
+
+    // Merge config defaults with CLI overrides
+    let config_flags = custom_config.to_rsync_flags();
+    let cli_overrides = args.to_rsync_overrides();
+    let flags = config_flags.merge_with_overrides(&cli_overrides);
+    flags.validate()?;
+
+    // Handle plan mode
+    if args.plan {
+        println!("[{}] Plan mode - analyzing changes...", name);
+        let mut cmd = Command::new("rsync");
+        cmd.arg("-ah")
+            .arg("--dry-run")
+            .arg("--stats")
+            .arg("--itemize-changes");
+        flags.apply_to_command(&mut cmd);
+        cmd.arg(&custom_config.url)
+            .arg(dest.join(&custom_config.dest));
+
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::inherit());
+
+        let output = cmd.output().await?;
+
+        if !output.status.success() {
+            return Err(PdbSyncError::Rsync {
+                command: format!(
+                    "rsync --dry-run {} {}",
+                    custom_config.url,
+                    dest.join(&custom_config.dest).display()
+                ),
+                exit_code: output.status.code(),
+                stderr: None,
+            });
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stats = crate::sync::parse_rsync_stats(&stdout)?;
+
+        let plan = crate::sync::SyncPlan {
+            name: custom_config.name.clone(),
+            url: custom_config.url.clone(),
+            dest: custom_config.dest.clone(),
+            has_deletions: flags.delete,
+            stats,
+        };
+
+        println!();
+        plan.print();
+        return Ok(());
+    }
+
+    // Handle dry-run mode
+    if flags.dry_run {
+        println!("[{}] Dry run - would execute:", name);
+        let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
+        cmd_args.extend(flags.to_args());
+        println!(
+            "rsync {} {} {}",
+            cmd_args.join(" "),
+            custom_config.url,
+            dest.join(&custom_config.dest).display()
+        );
+        return Ok(());
+    }
+
+    // Build destination path
+    let dest_path = dest.join(&custom_config.dest);
+
+    // Create destination directory
+    tokio::fs::create_dir_all(&dest_path).await?;
+
+    // Build rsync command
+    let mut cmd = Command::new("rsync");
+    cmd.arg("-ah");
+    flags.apply_to_command(&mut cmd);
+    cmd.arg("--info=progress2")
+        .arg(&custom_config.url)
+        .arg(&dest_path);
+
+    // Execute rsync with real-time output
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
+
+    let status = cmd.spawn()?.wait().await?;
+
+    if !status.success() {
+        return Err(PdbSyncError::Rsync {
+            command: format!("rsync {} {}", custom_config.url, dest_path.display()),
+            exit_code: status.code(),
+            stderr: None,
+        });
+    }
+
+    println!("[{}]: completed", name);
+    Ok(())
 }
 
 #[cfg(test)]

@@ -43,6 +43,11 @@ async fn main() -> anyhow::Result<()> {
         SyncCommand::Env(args) => {
             cli::args::env::run_env(args, ctx)?;
         }
+        SyncCommand::Config(args) => match args.command {
+            cli::args::config::ConfigCommand::Validate(validate_args) => {
+                cli::args::config::run_validate(validate_args).await?;
+            }
+        },
     }
 
     Ok(())

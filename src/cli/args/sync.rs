@@ -143,6 +143,26 @@ pub struct SyncArgs {
     /// Do not itemize changes
     #[arg(long, action = ArgAction::SetTrue, overrides_with = "itemize_changes")]
     pub no_itemize_changes: bool,
+
+    /// Plan mode - show what would change without executing
+    #[arg(long)]
+    pub plan: bool,
+
+    /// List available profile presets
+    #[arg(long)]
+    pub profile_list: bool,
+
+    /// Add a profile preset to config
+    #[arg(long, value_name = "NAME")]
+    pub profile_add: Option<String>,
+
+    /// Dry-run for profile add (show what would be added without modifying config)
+    #[arg(long)]
+    pub profile_dry_run: bool,
+
+    /// Maximum number of concurrent sync operations
+    #[arg(long, value_name = "N")]
+    pub parallel: Option<usize>,
 }
 
 impl SyncArgs {
@@ -236,15 +256,230 @@ impl SyncArgs {
             include_from: self.include_from.clone(),
         }
     }
+
+    /// Validate sync arguments.
+    pub fn validate(&self) -> Result<()> {
+        if let Some(p) = self.parallel {
+            if p == 0 {
+                return Err(crate::error::PdbSyncError::InvalidInput(
+                    "parallel must be greater than 0".to_string(),
+                ));
+            }
+            if p > 100 {
+                return Err(crate::error::PdbSyncError::InvalidInput(
+                    "parallel cannot exceed 100 (to prevent resource exhaustion)".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Run sync based on arguments.
 pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
     use crate::cli::commands::sync::wwpdb::{run_custom, run_custom_all};
 
+    // Validate arguments
+    args.validate()?;
+
+    // Handle profile list
+    if args.profile_list {
+        crate::sync::presets::list_presets();
+        return Ok(());
+    }
+
+    // Handle profile add
+    if let Some(ref profile_name) = args.profile_add {
+        use crate::sync::presets;
+
+        let preset = presets::get_preset(profile_name).ok_or_else(|| {
+            crate::error::PdbSyncError::InvalidInput(format!(
+                "Profile preset '{}' not found. Use --profile-list to see available presets.",
+                profile_name
+            ))
+        })?;
+
+        if args.profile_dry_run {
+            println!("Dry-run mode - would add the following profile to config:");
+            println!();
+            println!("Name: {}", preset.name);
+            println!("  URL: {}", preset.url);
+            println!("  Destination: {}", preset.dest);
+            println!("  Description: {}", preset.description);
+            return Ok(());
+        }
+
+        // Add preset to config with file locking held throughout
+        // (read-modify-write in single atomic operation to prevent TOCTOU race)
+        let preset_name = preset.name.clone();
+        let preset_name_for_print = preset.name.clone();
+        let config_path = tokio::task::spawn_blocking(move || {
+            use fs2::FileExt;
+            use std::fs::OpenOptions;
+            use std::io::Write;
+
+            let config_path: std::path::PathBuf = crate::config::ConfigLoader::config_path()
+                .ok_or_else(|| crate::error::PdbSyncError::Config {
+                    message: "Could not determine config file path".to_string(),
+                    key: None,
+                    source: None,
+                })?;
+
+            // Create config directory if it doesn't exist
+            if let Some(parent) = config_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    crate::error::PdbSyncError::Config {
+                        message: format!("Failed to create config directory: {}", e),
+                        key: None,
+                        source: None,
+                    }
+                })?;
+            }
+
+            // Open file with read+write mode (creates if doesn't exist)
+            let mut file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(config_path.as_path())
+                .map_err(|e| crate::error::PdbSyncError::Config {
+                    message: format!("Failed to open config file: {}", e),
+                    key: None,
+                    source: None,
+                })?;
+
+            // Acquire exclusive lock - HELD THROUGHOUT ENTIRE OPERATION
+            file.lock_exclusive()
+                .map_err(|e| crate::error::PdbSyncError::Config {
+                    message: format!("Failed to lock config file: {}", e),
+                    key: None,
+                    source: None,
+                })?;
+
+            // Read existing config or use default
+            let mut config = if config_path.exists() {
+                let metadata = file
+                    .metadata()
+                    .map_err(|e| crate::error::PdbSyncError::Config {
+                        message: format!("Failed to get file metadata: {}", e),
+                        key: None,
+                        source: None,
+                    })?;
+
+                if metadata.len() > 0 {
+                    let mut content = String::new();
+                    use std::io::Read;
+                    file.read_to_string(&mut content).map_err(|e| {
+                        crate::error::PdbSyncError::Config {
+                            message: format!("Failed to read config file: {}", e),
+                            key: None,
+                            source: None,
+                        }
+                    })?;
+                    toml::from_str(&content).map_err(|e| crate::error::PdbSyncError::Config {
+                        message: format!("Failed to parse config file: {}", e),
+                        key: None,
+                        source: None,
+                    })?
+                } else {
+                    crate::config::Config::default()
+                }
+            } else {
+                crate::config::Config::default()
+            };
+
+            // Check for conflicting name (while lock is still held!)
+            if config.sync.custom.iter().any(|c| c.name == preset_name) {
+                return Err(crate::error::PdbSyncError::InvalidInput(format!(
+                    "A config with name '{}' already exists. Please remove it first or choose a different name.",
+                    preset_name
+                )));
+            }
+
+            // Add preset to config (while lock is still held!)
+            config
+                .sync
+                .custom
+                .push(crate::config::schema::CustomRsyncConfig {
+                    name: preset.name.clone(),
+                    url: preset.url.clone(),
+                    dest: preset.dest.clone(),
+                    description: Some(preset.description.clone()),
+                    rsync_delete: false,
+                    rsync_compress: false,
+                    rsync_checksum: false,
+                    rsync_partial: false,
+                    rsync_partial_dir: None,
+                    rsync_max_size: None,
+                    rsync_min_size: None,
+                    rsync_timeout: None,
+                    rsync_contimeout: None,
+                    rsync_backup: false,
+                    rsync_backup_dir: None,
+                    rsync_chmod: None,
+                    rsync_exclude: Vec::new(),
+                    rsync_include: Vec::new(),
+                    rsync_exclude_from: None,
+                    rsync_include_from: None,
+                    rsync_verbose: false,
+                    rsync_quiet: false,
+                    rsync_itemize_changes: false,
+                });
+
+            // Truncate and write new config (while lock is still held!)
+            file.set_len(0).map_err(|e| crate::error::PdbSyncError::Config {
+                message: format!("Failed to truncate config file: {}", e),
+                key: None,
+                source: None,
+            })?;
+
+            let toml_string = toml::to_string_pretty(&config).map_err(|e| {
+                crate::error::PdbSyncError::Config {
+                    message: format!("Failed to serialize config: {}", e),
+                    key: None,
+                    source: None,
+                }
+            })?;
+
+            file.write_all(toml_string.as_bytes()).map_err(|e| {
+                crate::error::PdbSyncError::Config {
+                    message: format!("Failed to write config file: {}", e),
+                    key: None,
+                    source: None,
+                }
+            })?;
+
+            // Sync to ensure data is written to disk
+            file.sync_all()
+                .map_err(|e| crate::error::PdbSyncError::Config {
+                    message: format!("Failed to sync config file: {}", e),
+                    key: None,
+                    source: None,
+                })?;
+
+            // Lock is released when file is dropped here
+            Ok::<std::path::PathBuf, crate::error::PdbSyncError>(config_path)
+        })
+        .await
+        .map_err(|e| crate::error::PdbSyncError::Job(format!("Failed to add profile: {}", e)))??;
+
+        println!(
+            "Added profile '{}' to config file: {}",
+            preset_name_for_print,
+            config_path.display()
+        );
+        return Ok(());
+    }
+
     if args.list {
         crate::cli::commands::sync::wwpdb::list_custom(&ctx);
         return Ok(());
+    }
+
+    // Warn if --parallel is set for single config sync
+    if args.parallel.is_some() && args.name.is_some() {
+        eprintln!("Warning: --parallel is ignored when syncing a single config (use --all or omit NAME to run multiple configs in parallel)");
     }
 
     if args.all {
