@@ -41,22 +41,6 @@ pub enum Layout {
     All,
 }
 
-/// Init template options for directory structure.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, ValueEnum, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Template {
-    /// wwPDB standard structure (default)
-    /// Creates: pub/ with pdb/data/, pdb_ihm/, emdb/
-    #[default]
-    Wwpdb,
-    /// Minimal (structures only)
-    /// Creates: pub/pdb/data/structures/ only
-    Minimal,
-    /// Custom user selection
-    /// Creates: User-selected directories via --only
-    Custom,
-}
-
 impl DataType {
     /// Get the rsync subpath for this data type and layout.
     ///
@@ -219,6 +203,10 @@ impl std::fmt::Display for PdbjDataType {
 ///
 /// These data types are exclusive to the PDBe mirror and use
 /// different rsync paths than the standard wwPDB data.
+///
+/// Note: The `pdb-sync init` command creates 11 PDBe directories,
+/// but only these 3 types are supported for sync operations.
+/// Additional directories can be added to the enum as needed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PdbeDataType {
