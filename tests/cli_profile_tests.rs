@@ -1,7 +1,7 @@
 //! Integration tests for profile preset CLI commands.
 
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Get the path to the pdb-sync binary.
 fn pdb_sync_bin() -> PathBuf {
