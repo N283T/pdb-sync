@@ -1,8 +1,12 @@
 //! Environment diagnostics command.
 
 use crate::context::AppContext;
+use crate::error::{PdbSyncError, Result};
 use colored::Colorize;
 use std::process::Command;
+
+/// Test file name for checking directory writability.
+const WRITE_TEST_FILE: &str = ".pdb-sync-write-test";
 
 /// Result of a diagnostic check.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -121,15 +125,15 @@ fn check_rsync() -> Check {
                     .unwrap_or("rsync")
                     .to_string();
 
-                // Parse version from "rsync  version X.X.X" format
-                let version_str = if let Some(rest) = version_line.strip_prefix("rsync") {
-                    rest.trim()
-                        .strip_prefix("version")
-                        .map(|v| v.trim().to_string())
-                        .unwrap_or_else(|| "unknown".to_string())
-                } else {
-                    "unknown".to_string()
-                };
+                // Extract version more robustly - filter out "rsync" and "version" words
+                // and take the next token, which should be the version number
+                let version_str = version_line
+                    .split_whitespace()
+                    .find(|s| {
+                        !s.eq_ignore_ascii_case("rsync") && !s.eq_ignore_ascii_case("version")
+                    })
+                    .unwrap_or("unknown")
+                    .to_string();
 
                 Check {
                     name: "rsync".to_string(),
@@ -191,7 +195,7 @@ fn check_config() -> Check {
 fn check_pdb_dir(pdb_dir: &std::path::Path) -> Check {
     if pdb_dir.exists() {
         // Test writability by creating a temp file
-        let test_file = pdb_dir.join(".pdb-sync-write-test");
+        let test_file = pdb_dir.join(WRITE_TEST_FILE);
         match std::fs::write(&test_file, b"test") {
             Ok(_) => {
                 let _ = std::fs::remove_file(&test_file);
@@ -217,13 +221,18 @@ fn check_pdb_dir(pdb_dir: &std::path::Path) -> Check {
 }
 
 /// Run the environment diagnostics command.
-pub async fn run_doctor(ctx: AppContext) -> crate::error::Result<()> {
+pub fn run_doctor(ctx: AppContext) -> Result<()> {
     let checks = vec![check_rsync(), check_config(), check_pdb_dir(&ctx.pdb_dir)];
 
     let report = DoctorReport::new(checks);
     report.print();
 
-    std::process::exit(report.exit_code());
+    let code = report.exit_code();
+    if code != 0 {
+        Err(PdbSyncError::DoctorFailed { exit_code: code })
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

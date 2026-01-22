@@ -172,6 +172,13 @@ pub enum PdbSyncError {
     /// Job-related errors.
     #[error("Job error: {0}")]
     Job(String),
+
+    /// Environment doctor check failures.
+    #[error("Environment check failed with exit code: {exit_code}")]
+    DoctorFailed {
+        /// Exit code from the doctor check
+        exit_code: i32,
+    },
 }
 
 impl PdbSyncError {

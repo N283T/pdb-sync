@@ -19,8 +19,8 @@ pub enum EnvCommand {
 }
 
 /// Run env based on arguments.
-pub async fn run_env(args: EnvArgs, ctx: AppContext) -> Result<()> {
+pub fn run_env(args: EnvArgs, ctx: AppContext) -> Result<()> {
     match args.command {
-        EnvCommand::Doctor => crate::cli::commands::env::run_doctor(ctx).await,
+        EnvCommand::Doctor => crate::cli::commands::env::run_doctor(ctx),
     }
 }
