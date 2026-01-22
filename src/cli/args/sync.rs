@@ -3,7 +3,30 @@
 use crate::context::AppContext;
 use crate::error::Result;
 use crate::sync::RsyncFlagOverrides;
-use clap::{ArgAction, Parser};
+use clap::{ArgAction, Parser, Subcommand};
+
+/// Profile subcommands for managing sync profile presets.
+#[derive(Subcommand, Clone, Debug)]
+pub enum ProfileSubcommand {
+    /// List all available sync profile presets
+    List,
+    /// Show details of a specific preset
+    Show {
+        /// Preset name to show
+        name: String,
+    },
+    /// Add a preset to configuration
+    Add {
+        /// Preset name to add
+        name: String,
+        /// Overwrite existing custom config with the same name
+        #[arg(long)]
+        force: bool,
+        /// Preview changes without modifying config
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
 
 /// Sync command arguments.
 #[derive(Parser, Clone, Debug)]
@@ -19,6 +42,10 @@ pub struct SyncArgs {
     /// Override destination directory
     #[arg(short, long)]
     pub dest: Option<std::path::PathBuf>,
+
+    /// Profile subcommands
+    #[command(subcommand)]
+    pub profile: Option<ProfileSubcommand>,
 
     /// List available custom sync configs
     #[arg(long)]
@@ -240,7 +267,21 @@ impl SyncArgs {
 
 /// Run sync based on arguments.
 pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
+    use crate::cli::commands::profile::{run_profile_add, run_profile_list, run_profile_show};
     use crate::cli::commands::sync::wwpdb::{run_custom, run_custom_all};
+
+    // Handle profile subcommands first
+    if let Some(profile_cmd) = args.profile {
+        return match profile_cmd {
+            ProfileSubcommand::List => run_profile_list(),
+            ProfileSubcommand::Show { name } => run_profile_show(name),
+            ProfileSubcommand::Add {
+                name,
+                force,
+                dry_run,
+            } => run_profile_add(name, force, dry_run, ctx).await,
+        };
+    }
 
     if args.list {
         crate::cli::commands::sync::wwpdb::list_custom(&ctx);
