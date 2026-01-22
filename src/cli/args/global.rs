@@ -5,6 +5,7 @@ use clap::builder::Styles;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use std::path::PathBuf;
 
+use super::env::EnvArgs;
 use super::sync::SyncArgs;
 
 // Configures colored help menu colors (similar to uv)
@@ -36,7 +37,9 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum SyncCommand {
     /// Sync from a configured source (runs all if no name specified)
-    Sync(SyncArgs),
+    Sync(Box<SyncArgs>),
+    /// Environment diagnostics and validation
+    Env(EnvArgs),
 }
 
 /// Parse CLI with colored styles
