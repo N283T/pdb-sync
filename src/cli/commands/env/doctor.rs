@@ -16,9 +16,9 @@ impl CheckStatus {
     /// Returns the symbol for this status.
     pub fn symbol(&self) -> &str {
         match self {
-            CheckStatus::Pass => "\u{2713}",  // ✓
-            CheckStatus::Warn => "\u{26a0}",  // ⚠
-            CheckStatus::Fail => "\u{2717}",  // ✗
+            CheckStatus::Pass => "\u{2713}", // ✓
+            CheckStatus::Warn => "\u{26a0}", // ⚠
+            CheckStatus::Fail => "\u{2717}", // ✗
         }
     }
 
@@ -69,8 +69,16 @@ impl DoctorReport {
 
     /// Print the summary message.
     fn print_summary(&self) {
-        let fail_count = self.checks.iter().filter(|c| c.status == CheckStatus::Fail).count();
-        let warn_count = self.checks.iter().filter(|c| c.status == CheckStatus::Warn).count();
+        let fail_count = self
+            .checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Fail)
+            .count();
+        let warn_count = self
+            .checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Warn)
+            .count();
 
         if fail_count > 0 {
             eprintln!(
@@ -115,8 +123,7 @@ fn check_rsync() -> Check {
 
                 // Parse version from "rsync  version X.X.X" format
                 let version_str = if let Some(rest) = version_line.strip_prefix("rsync") {
-                    rest
-                        .trim()
+                    rest.trim()
                         .strip_prefix("version")
                         .map(|v| v.trim().to_string())
                         .unwrap_or_else(|| "unknown".to_string())
@@ -211,11 +218,7 @@ fn check_pdb_dir(pdb_dir: &std::path::Path) -> Check {
 
 /// Run the environment diagnostics command.
 pub async fn run_doctor(ctx: AppContext) -> crate::error::Result<()> {
-    let checks = vec![
-        check_rsync(),
-        check_config(),
-        check_pdb_dir(&ctx.pdb_dir),
-    ];
+    let checks = vec![check_rsync(), check_config(), check_pdb_dir(&ctx.pdb_dir)];
 
     let report = DoctorReport::new(checks);
     report.print();
@@ -270,13 +273,11 @@ mod tests {
 
     #[test]
     fn test_report_exit_code_warn_only() {
-        let report = DoctorReport::new(vec![
-            Check {
-                name: "check1".to_string(),
-                status: CheckStatus::Warn,
-                message: "Warning".to_string(),
-            },
-        ]);
+        let report = DoctorReport::new(vec![Check {
+            name: "check1".to_string(),
+            status: CheckStatus::Warn,
+            message: "Warning".to_string(),
+        }]);
         assert_eq!(report.exit_code(), 2);
     }
 
@@ -307,7 +308,9 @@ mod tests {
 
     #[test]
     fn test_pdb_dir_not_exists() {
-        let check = check_pdb_dir(std::path::Path::new("/nonexistent/path/that/does/not/exist"));
+        let check = check_pdb_dir(std::path::Path::new(
+            "/nonexistent/path/that/does/not/exist",
+        ));
         assert_eq!(check.status, CheckStatus::Fail);
         assert!(check.message.contains("Does not exist"));
     }
