@@ -68,10 +68,7 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     // Build rsync command with base options and merged flags
     let mut cmd = Command::new("rsync");
     cmd.arg("-ah"); // Base archive options
-    if flags.delete {
-        cmd.arg("--delete");
-    }
-    flags.apply_to_command(&mut cmd); // Apply merged user flags
+    flags.apply_to_command(&mut cmd); // Apply merged user flags (includes --delete if set)
     cmd.arg("--info=progress2")
         .arg(&custom_config.url)
         .arg(&dest_path);
@@ -103,7 +100,7 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
 }
 
 /// Validate rsync URL format to prevent injection or unintended behavior.
-fn validate_rsync_url(url: &str) -> Result<()> {
+pub fn validate_rsync_url(url: &str) -> Result<()> {
     // Check for command injection patterns
     let dangerous_chars = [';', '&', '|', '`', '$', '\n', '\r', '\t'];
     for ch in dangerous_chars {
@@ -177,4 +174,52 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_standard_rsync() {
+        assert!(validate_rsync_url("rsync.example.com::module/path").is_ok());
+        assert!(validate_rsync_url("data.pdbj.org::rsync/pub/emdb/").is_ok());
+        assert!(validate_rsync_url("rsync.ebi.ac.uk::pdbe/data").is_ok());
+    }
+
+    #[test]
+    fn test_validate_rsync_url_format() {
+        assert!(validate_rsync_url("rsync://example.com:873/module/path").is_ok());
+        assert!(validate_rsync_url("rsync://rsync.wwpdb.org:873/ftp_data/").is_ok());
+    }
+
+    #[test]
+    fn test_validate_dangerous_chars() {
+        assert!(validate_rsync_url("rsync://ex;ample.com::module").is_err());
+        assert!(validate_rsync_url("rsync://example.com::mod`ule").is_err());
+        assert!(validate_rsync_url("rsync://example.com&evil.com::module").is_err());
+        assert!(validate_rsync_url("rsync://example.com::module|pipe").is_err());
+        assert!(validate_rsync_url("rsync://example.com::mod$ule").is_err());
+    }
+
+    #[test]
+    fn test_validate_shell_metachars() {
+        assert!(validate_rsync_url("rsync://example.com::module--delete").is_err());
+        assert!(validate_rsync_url("rsync://example.com::mod'ule").is_err());
+        assert!(validate_rsync_url("rsync://example.com::mod\"ule").is_err());
+    }
+
+    #[test]
+    fn test_validate_path_traversal() {
+        assert!(validate_rsync_url("rsync://example.com::module/../etc").is_err());
+        assert!(validate_rsync_url("rsync://example.com::module\\..\\etc").is_err());
+        assert!(validate_rsync_url("rsync://example.com::module/../../etc").is_err());
+    }
+
+    #[test]
+    fn test_validate_invalid_format() {
+        assert!(validate_rsync_url("not-a-valid-url").is_err());
+        assert!(validate_rsync_url("http://example.com").is_err());
+        assert!(validate_rsync_url("ftp://example.com").is_err());
+    }
 }
