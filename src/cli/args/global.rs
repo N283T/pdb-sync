@@ -37,7 +37,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum SyncCommand {
     /// Sync from a configured source (runs all if no name specified)
-    Sync(SyncArgs),
+    Sync(Box<SyncArgs>),
     /// Validate configuration file for correctness
     ConfigValidate(ValidateArgs),
 }

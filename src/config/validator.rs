@@ -8,6 +8,7 @@ use crate::config::schema::{Config, CustomRsyncConfig};
 use crate::data_types::DataType;
 use crate::error::{PdbSyncError, Result};
 use serde::{Deserialize, Serialize};
+use shellexpand;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;

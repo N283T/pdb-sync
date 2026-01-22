@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     // Dispatch to command
     match cli.command {
         SyncCommand::Sync(args) => {
-            run_sync(args, ctx).await?;
+            run_sync(*args, ctx).await?;
         }
         SyncCommand::ConfigValidate(args) => {
             run_validate(args, ctx).await?;
