@@ -7,7 +7,7 @@ Simple CLI tool for syncing PDB (Protein Data Bank) data from rsync mirrors.
 - **Custom rsync configs**: Define multiple sync sources in config file
 - **Batch sync**: Run all configured syncs with a single command
 - **Flexible rsync options**: Per-config rsync flag defaults with CLI override support
-- **Progress tracking**: Real-time rsync progress output
+- **Real-time progress**: rsync progress output (`--info=progress2`) is always enabled
 
 ## Installation
 
@@ -61,7 +61,6 @@ Arguments:
 Options:
   -a, --all           Run all custom sync configs
   -d, --dest <DIR>    Override destination directory
-  -P, --progress      Show detailed progress (rsync --info=progress2)
   -v, --verbose       Enable verbose output
   -h, --help          Print help
 ```
@@ -185,8 +184,8 @@ pdb-sync sync emdb
 # Override destination
 pdb-sync sync structures --dest /mnt/c/pdb
 
-# Run with progress
-pdb-sync sync --all --progress
+# Run all syncs
+pdb-sync sync --all
 
 # Verbose mode
 pdb-sync sync -v --all
