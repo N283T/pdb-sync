@@ -14,6 +14,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 /// Options for rsync synchronization.
+#[allow(dead_code)]
 pub struct RsyncOptions {
     pub mirror: MirrorId,
     pub data_types: Vec<DataType>,
@@ -49,6 +50,7 @@ pub struct SyncResult {
     pub success: bool,
 }
 
+#[allow(dead_code)]
 pub struct RsyncRunner {
     options: RsyncOptions,
 }

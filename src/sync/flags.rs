@@ -1,7 +1,5 @@
 //! Common rsync flag definitions shared between CLI and config.
 
-#![allow(dead_code)]
-
 use crate::error::{PdbSyncError, Result};
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
@@ -273,6 +271,7 @@ impl RsyncFlags {
     /// Convert these flags to a vector of command-line argument strings.
     ///
     /// This is used for displaying the command that would be run.
+    #[allow(dead_code)]
     pub fn to_args(&self) -> Vec<String> {
         let mut args = Vec::new();
 

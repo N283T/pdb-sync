@@ -4,13 +4,11 @@
 //! (defaults, config file, environment variables, CLI arguments) while
 //! tracking where each value originated.
 
-#![allow(dead_code)]
-
 use crate::config::source::SourcedValue;
 use crate::config::Config;
 use crate::mirrors::MirrorId;
 use std::path::PathBuf;
-///
+
 /// This struct represents the final configuration after merging values from
 /// all sources (defaults, config file, environment variables, and CLI arguments),
 /// with each field tracking its origin.
@@ -30,6 +28,9 @@ impl MergedConfig {
     /// 2. Environment variables
     /// 3. Config file
     /// 4. Default values
+    ///
+    /// Merge configs from multiple sources.
+    #[allow(dead_code)]
     pub fn merge(
         cli_pdb_dir: Option<PathBuf>,
         cli_mirror: Option<MirrorId>,
@@ -77,6 +78,7 @@ impl MergedConfig {
     }
 
     /// Display all configuration sources for debugging.
+    #[allow(dead_code)]
     pub fn display_sources(&self) -> String {
         let mut output = String::new();
 

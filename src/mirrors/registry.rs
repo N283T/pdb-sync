@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::error::{PdbSyncError, Result};
 use crate::files::{FileFormat, PdbId};
 use std::str::FromStr;
@@ -84,6 +82,7 @@ impl Mirror {
     }
 
     /// Build the rsync source URL for a given subpath
+    #[allow(dead_code)]
     pub fn rsync_url(&self, subpath: &str) -> String {
         match self.id {
             MirrorId::Pdbj => {
@@ -110,6 +109,7 @@ impl Mirror {
     ///
     /// This is the canonical URL construction for structure files across all mirrors.
     /// Used by both `HttpsDownloader` and `UpdateChecker`.
+    #[allow(dead_code)]
     pub fn build_structure_url(&self, pdb_id: &PdbId, format: FileFormat) -> String {
         let id = pdb_id.as_str();
         let base = format.base_format();

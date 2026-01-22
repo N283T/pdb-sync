@@ -1,7 +1,5 @@
 //! ValueEnum types for CLI arguments.
 
-#![allow(dead_code)]
-
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +66,7 @@ pub enum ExperimentalMethod {
 
 impl ExperimentalMethod {
     /// Get the RCSB API value for this method
+    #[allow(dead_code)]
     pub fn as_rcsb_value(&self) -> &str {
         match self {
             ExperimentalMethod::Xray => "X-RAY DIFFRACTION",
@@ -91,6 +90,7 @@ pub enum SyncFormat {
 }
 
 impl SyncFormat {
+    #[allow(dead_code)]
     pub fn to_file_formats(self) -> Vec<crate::files::FileFormat> {
         match self {
             SyncFormat::Pdb => vec![crate::files::FileFormat::Pdb],

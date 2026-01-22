@@ -1,7 +1,5 @@
 //! Automatic mirror selection based on latency testing.
 
-#![allow(dead_code)]
-
 use crate::mirrors::{Mirror, MirrorId};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -218,6 +216,7 @@ fn matches_region_alias(preferred: &str, mirror_region: &str) -> bool {
 }
 
 /// Print latency test results for all mirrors.
+#[allow(dead_code)]
 pub async fn print_mirror_latencies() {
     println!("Testing mirror latencies...\n");
 
