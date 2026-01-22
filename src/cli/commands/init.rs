@@ -20,9 +20,14 @@
 //! - pub/emdb/       # EMDB data (flat)
 //! - pub/pdb_ihm/    # PDB-IHM data (flat)
 //! - pdbj/:
-//!   ├── pdbjplus/
 //!   ├── bsma/
-//!   └── mmdb/
+//!   ├── efsite/
+//!   ├── pdb_nextgen/
+//!   ├── pdb_versioned/
+//!   ├── pdbjplus/
+//!   ├── promode/
+//!   ├── uniprot/
+//!   └── xrda/
 //! - pdbe/:
 //!   ├── assemblies/
 //!   ├── foldseek/
@@ -98,9 +103,14 @@ pub fn get_common_data_types() -> Vec<String> {
 /// Note: These are PDBj-specific directories (emdb/pdb_ihm are now in pub/)
 pub fn get_pdbj_data_types() -> Vec<String> {
     vec![
-        "pdbjplus".to_string(),
         "bsma".to_string(),
-        "mmdb".to_string(),
+        "efsite".to_string(),
+        "pdb_nextgen".to_string(),
+        "pdb_versioned".to_string(),
+        "pdbjplus".to_string(),
+        "promode".to_string(),
+        "uniprot".to_string(),
+        "xrda".to_string(),
     ]
 }
 
@@ -496,10 +506,15 @@ mod tests {
     #[test]
     fn test_get_pdbj_data_types() {
         let types = get_pdbj_data_types();
-        assert_eq!(types.len(), 3);
-        assert!(types.contains(&"pdbjplus".to_string()));
+        assert_eq!(types.len(), 8);
         assert!(types.contains(&"bsma".to_string()));
-        assert!(types.contains(&"mmdb".to_string()));
+        assert!(types.contains(&"efsite".to_string()));
+        assert!(types.contains(&"pdb_nextgen".to_string()));
+        assert!(types.contains(&"pdb_versioned".to_string()));
+        assert!(types.contains(&"pdbjplus".to_string()));
+        assert!(types.contains(&"promode".to_string()));
+        assert!(types.contains(&"uniprot".to_string()));
+        assert!(types.contains(&"xrda".to_string()));
     }
 
     #[test]
@@ -577,9 +592,14 @@ mod tests {
         let tree = build_directory_tree(&subdirs, 2);
 
         let paths = tree.get("pdbj").unwrap();
-        assert!(paths.iter().any(|p| p == "pdbj/pdbjplus"));
         assert!(paths.iter().any(|p| p == "pdbj/bsma"));
-        assert!(paths.iter().any(|p| p == "pdbj/mmdb"));
+        assert!(paths.iter().any(|p| p == "pdbj/efsite"));
+        assert!(paths.iter().any(|p| p == "pdbj/pdb_nextgen"));
+        assert!(paths.iter().any(|p| p == "pdbj/pdb_versioned"));
+        assert!(paths.iter().any(|p| p == "pdbj/pdbjplus"));
+        assert!(paths.iter().any(|p| p == "pdbj/promode"));
+        assert!(paths.iter().any(|p| p == "pdbj/uniprot"));
+        assert!(paths.iter().any(|p| p == "pdbj/xrda"));
         // No layouts for PDBj-specific directories (flat structure)
         assert!(!paths.iter().any(|p| p.contains("divided")));
     }
