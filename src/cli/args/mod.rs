@@ -6,6 +6,7 @@
 //! - [`sync`]: Sync command arguments
 
 mod enums;
+pub mod env;
 mod global;
 pub mod sync;
 
