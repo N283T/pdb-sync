@@ -2,7 +2,6 @@
 use pdb_sync::data_types;
 use pdb_sync::error;
 use pdb_sync::files;
-use pdb_sync::utils;
 
 // Binary-specific modules
 mod cli;

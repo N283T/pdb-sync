@@ -1,6 +1,3 @@
-use crate::files::PdbId;
-use std::path::PathBuf;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum FileFormat {
     /// Legacy PDB format (decompressed)
@@ -22,34 +19,6 @@ pub enum FileFormat {
 }
 
 impl FileFormat {
-    #[allow(dead_code)]
-    pub fn extension(&self) -> &'static str {
-        match self {
-            FileFormat::Pdb => "pdb",
-            FileFormat::Mmcif => "cif",
-            FileFormat::Bcif => "bcif",
-            FileFormat::PdbGz => "ent.gz",
-            FileFormat::CifGz => "cif.gz",
-            FileFormat::BcifGz => "bcif.gz",
-        }
-    }
-
-    pub fn subdir(&self) -> &'static str {
-        match self {
-            FileFormat::Pdb | FileFormat::PdbGz => "pdb",
-            FileFormat::Mmcif | FileFormat::CifGz => "mmCIF",
-            FileFormat::Bcif | FileFormat::BcifGz => "bcif",
-        }
-    }
-
-    /// Whether this format should be downloaded compressed
-    pub fn is_compressed(&self) -> bool {
-        matches!(
-            self,
-            FileFormat::PdbGz | FileFormat::CifGz | FileFormat::BcifGz
-        )
-    }
-
     /// Get the base format (uncompressed version)
     pub fn base_format(&self) -> FileFormat {
         match self {
@@ -89,129 +58,9 @@ impl std::str::FromStr for FileFormat {
     }
 }
 
-/// Build the relative path for a PDB file in the standard directory structure.
-///
-/// # Path patterns
-///
-/// ## Classic IDs (e.g., "1abc")
-/// - PDB format: `pdb/ab/pdb1abc.ent.gz` (has "pdb" prefix in filename)
-/// - mmCIF format: `mmCIF/ab/1abc.cif.gz`
-/// - BCIF format: `bcif/ab/1abc.bcif.gz`
-///
-/// ## Extended IDs (e.g., "pdb_00001abc")
-/// - PDB format: `pdb/01/pdb_00001abc.ent.gz` (no extra "pdb" prefix)
-/// - mmCIF format: `mmCIF/01/pdb_00001abc.cif.gz`
-/// - BCIF format: `bcif/01/pdb_00001abc.bcif.gz`
-#[allow(dead_code)]
-pub fn build_relative_path(pdb_id: &PdbId, format: FileFormat) -> PathBuf {
-    let middle = pdb_id.middle_chars();
-    let id = pdb_id.as_str();
-
-    match format {
-        FileFormat::Pdb => {
-            // Classic IDs get "pdb" prefix in filename, extended IDs don't
-            if pdb_id.is_classic() {
-                PathBuf::from(format!("pdb/{}/pdb{}.pdb", middle, id))
-            } else {
-                PathBuf::from(format!("pdb/{}/{}.pdb", middle, id))
-            }
-        }
-        FileFormat::Mmcif => PathBuf::from(format!("mmCIF/{}/{}.cif", middle, id)),
-        FileFormat::Bcif => PathBuf::from(format!("bcif/{}/{}.bcif", middle, id)),
-        FileFormat::PdbGz => {
-            // Classic IDs get "pdb" prefix in filename, extended IDs don't
-            if pdb_id.is_classic() {
-                PathBuf::from(format!("pdb/{}/pdb{}.ent.gz", middle, id))
-            } else {
-                PathBuf::from(format!("pdb/{}/{}.ent.gz", middle, id))
-            }
-        }
-        FileFormat::CifGz => PathBuf::from(format!("mmCIF/{}/{}.cif.gz", middle, id)),
-        FileFormat::BcifGz => PathBuf::from(format!("bcif/{}/{}.bcif.gz", middle, id)),
-    }
-}
-
-/// Build the full path for a PDB file given a base directory
-#[allow(dead_code)]
-pub fn build_full_path(base_dir: &std::path::Path, pdb_id: &PdbId, format: FileFormat) -> PathBuf {
-    base_dir.join(build_relative_path(pdb_id, format))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // === Classic ID path tests ===
-
-    #[test]
-    fn test_build_relative_path_classic_pdb() {
-        let id = PdbId::new("1abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::PdbGz);
-        assert_eq!(path, PathBuf::from("pdb/ab/pdb1abc.ent.gz"));
-    }
-
-    #[test]
-    fn test_build_relative_path_classic_pdb_uncompressed() {
-        let id = PdbId::new("1abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::Pdb);
-        assert_eq!(path, PathBuf::from("pdb/ab/pdb1abc.pdb"));
-    }
-
-    #[test]
-    fn test_build_relative_path_classic_mmcif() {
-        let id = PdbId::new("1abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::CifGz);
-        assert_eq!(path, PathBuf::from("mmCIF/ab/1abc.cif.gz"));
-    }
-
-    #[test]
-    fn test_build_relative_path_classic_bcif() {
-        let id = PdbId::new("1abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::BcifGz);
-        assert_eq!(path, PathBuf::from("bcif/ab/1abc.bcif.gz"));
-    }
-
-    // === Extended ID path tests ===
-
-    #[test]
-    fn test_build_relative_path_extended_pdb() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::PdbGz);
-        // Extended IDs don't get extra "pdb" prefix in filename
-        // middle_chars for "pdb_00001abc" is "00" (positions 6-7)
-        assert_eq!(path, PathBuf::from("pdb/00/pdb_00001abc.ent.gz"));
-    }
-
-    #[test]
-    fn test_build_relative_path_extended_pdb_uncompressed() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::Pdb);
-        assert_eq!(path, PathBuf::from("pdb/00/pdb_00001abc.pdb"));
-    }
-
-    #[test]
-    fn test_build_relative_path_extended_mmcif() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::CifGz);
-        assert_eq!(path, PathBuf::from("mmCIF/00/pdb_00001abc.cif.gz"));
-    }
-
-    #[test]
-    fn test_build_relative_path_extended_bcif() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        let path = build_relative_path(&id, FileFormat::BcifGz);
-        assert_eq!(path, PathBuf::from("bcif/00/pdb_00001abc.bcif.gz"));
-    }
-
-    #[test]
-    fn test_build_relative_path_extended_middle_chars() {
-        // "pdb_12345678" → middle chars are positions 6-7 = "34"
-        let id = PdbId::new("pdb_12345678").unwrap();
-        let path = build_relative_path(&id, FileFormat::CifGz);
-        assert_eq!(path, PathBuf::from("mmCIF/34/pdb_12345678.cif.gz"));
-    }
-
-    // === FileFormat tests ===
 
     #[test]
     fn test_format_from_str() {
@@ -221,20 +70,9 @@ mod tests {
     }
 
     #[test]
-    fn test_is_compressed() {
-        assert!(!FileFormat::Pdb.is_compressed());
-        assert!(!FileFormat::Mmcif.is_compressed());
-        assert!(FileFormat::CifGz.is_compressed());
-        assert!(FileFormat::PdbGz.is_compressed());
-    }
-
-    #[test]
     fn test_format_alias_cif() {
-        use clap::ValueEnum;
         // "cif" should be an alias for "mmcif"
-        assert_eq!(
-            FileFormat::from_str("cif", true).unwrap(),
-            FileFormat::Mmcif
-        );
+        use std::str::FromStr;
+        assert_eq!(FileFormat::from_str("cif").unwrap(), FileFormat::Mmcif);
     }
 }
