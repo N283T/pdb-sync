@@ -585,7 +585,10 @@ mod tests {
         assert_eq!(PdbjDataType::Bsma.rsync_module(), "pdbj/bsma");
         assert_eq!(PdbjDataType::Efsite.rsync_module(), "pdbj/efsite");
         assert_eq!(PdbjDataType::PdbNextgen.rsync_module(), "pdbj/pdb_nextgen");
-        assert_eq!(PdbjDataType::PdbVersioned.rsync_module(), "pdbj/pdb_versioned");
+        assert_eq!(
+            PdbjDataType::PdbVersioned.rsync_module(),
+            "pdbj/pdb_versioned"
+        );
         assert_eq!(PdbjDataType::Pdbjplus.rsync_module(), "pdbj/pdbjplus");
         assert_eq!(PdbjDataType::Promode.rsync_module(), "pdbj/promode");
         assert_eq!(PdbjDataType::Uniprot.rsync_module(), "pdbj/uniprot");
