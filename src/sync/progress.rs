@@ -1,10 +1,13 @@
 //! Progress display for rsync operations.
 
+#![allow(dead_code)]
+
 use crate::utils::human_bytes;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
 /// Tracks sync progress by parsing rsync output.
+#[allow(dead_code)]
 pub struct SyncProgress {
     progress_bar: ProgressBar,
     files_transferred: u64,

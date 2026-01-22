@@ -4,7 +4,7 @@ pub mod schema;
 pub mod source;
 
 pub use loader::ConfigLoader;
-pub use merged::MergedConfig;
+#[allow(unused_imports)]
 pub use schema::Config;
 #[allow(unused_imports)]
 pub use source::{FlagSource, SourcedValue};

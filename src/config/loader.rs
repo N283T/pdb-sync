@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::{PdbSyncError, Result};
+use crate::error::Result;
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
@@ -39,43 +39,5 @@ impl ConfigLoader {
         let content = std::fs::read_to_string(&path)?;
         let config: Config = toml::from_str(&content)?;
         Ok(config)
-    }
-
-    /// Save config to file
-    pub fn save(config: &Config) -> Result<()> {
-        let path = Self::config_path().ok_or_else(|| PdbSyncError::Config {
-            message: "Cannot determine config path".to_string(),
-            key: None,
-            source: None,
-        })?;
-
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let content = toml::to_string_pretty(config)?;
-        std::fs::write(&path, content)?;
-        Ok(())
-    }
-
-    /// Initialize config file with defaults
-    pub fn init() -> Result<PathBuf> {
-        let path = Self::config_path().ok_or_else(|| PdbSyncError::Config {
-            message: "Cannot determine config path".to_string(),
-            key: None,
-            source: None,
-        })?;
-
-        if path.exists() {
-            return Err(PdbSyncError::Config {
-                message: format!("Config file already exists at {}", path.display()),
-                key: None,
-                source: None,
-            });
-        }
-
-        let config = Config::default();
-        Self::save(&config)?;
-        Ok(path)
     }
 }

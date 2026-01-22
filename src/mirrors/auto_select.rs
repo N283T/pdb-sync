@@ -216,6 +216,7 @@ fn matches_region_alias(preferred: &str, mirror_region: &str) -> bool {
 }
 
 /// Print latency test results for all mirrors.
+#[allow(dead_code)]
 pub async fn print_mirror_latencies() {
     println!("Testing mirror latencies...\n");
 

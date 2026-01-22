@@ -1,180 +1,164 @@
-//! wwPDB standard data sync handler.
+//! Custom rsync sync handler.
 
-use std::path::Path;
+use std::process::Stdio;
 
-use crate::cli::args::{ShortcutSyncArgs, SyncArgs, SyncFormat, WwpdbSyncArgs};
+use tokio::process::Command;
+
+use crate::cli::args::SyncArgs;
 use crate::context::AppContext;
-use crate::data_types::{DataType, Layout};
-use crate::error::Result;
-use crate::mirrors::MirrorId;
-use crate::sync::{RsyncOptions, RsyncRunner};
+use crate::error::{PdbSyncError, Result};
 
-use super::common::print_summary;
+use super::common::validate_subpath;
 
-/// Run wwPDB sync with explicit subcommand arguments.
-pub async fn run(args: WwpdbSyncArgs, parent_args: &SyncArgs, ctx: AppContext) -> Result<()> {
-    let dest = parent_args
-        .dest
-        .clone()
-        .unwrap_or_else(|| ctx.pdb_dir.clone());
-    let mirror = parent_args.mirror.unwrap_or(ctx.mirror);
-
-    // Default to Structures if no data types specified
-    let data_types = if args.data_types.is_empty() {
-        vec![DataType::Structures]
-    } else {
-        args.data_types.clone()
-    };
-
-    run_wwpdb_sync(
-        mirror,
-        data_types,
-        args.format,
-        args.layout,
-        parent_args.delete,
-        parent_args.bwlimit,
-        parent_args.dry_run,
-        args.filters,
-        parent_args.progress,
-        &dest,
-    )
-    .await
-}
-
-/// Run structures shortcut command.
-pub async fn run_structures(
-    args: ShortcutSyncArgs,
-    parent_args: &SyncArgs,
-    ctx: AppContext,
-) -> Result<()> {
-    let dest = parent_args
-        .dest
-        .clone()
-        .unwrap_or_else(|| ctx.pdb_dir.clone());
-    let mirror = parent_args.mirror.unwrap_or(ctx.mirror);
-
-    run_wwpdb_sync(
-        mirror,
-        vec![DataType::Structures],
-        args.format,
-        args.layout,
-        parent_args.delete,
-        parent_args.bwlimit,
-        parent_args.dry_run,
-        args.filters,
-        parent_args.progress,
-        &dest,
-    )
-    .await
-}
-
-/// Run assemblies shortcut command.
-pub async fn run_assemblies(
-    args: ShortcutSyncArgs,
-    parent_args: &SyncArgs,
-    ctx: AppContext,
-) -> Result<()> {
-    let dest = parent_args
-        .dest
-        .clone()
-        .unwrap_or_else(|| ctx.pdb_dir.clone());
-    let mirror = parent_args.mirror.unwrap_or(ctx.mirror);
-
-    run_wwpdb_sync(
-        mirror,
-        vec![DataType::Assemblies],
-        args.format,
-        args.layout,
-        parent_args.delete,
-        parent_args.bwlimit,
-        parent_args.dry_run,
-        args.filters,
-        parent_args.progress,
-        &dest,
-    )
-    .await
-}
-
-/// Run wwPDB sync in legacy mode (backward compatibility when no subcommand is specified).
-pub async fn run_legacy(args: SyncArgs, ctx: AppContext) -> Result<()> {
+/// Run custom rsync sync by name.
+pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result<()> {
     let dest = args.dest.clone().unwrap_or_else(|| ctx.pdb_dir.clone());
-    let mirror = args.mirror.unwrap_or(ctx.mirror);
 
-    // Default to Structures if no data types specified
-    let data_types = if args.data_types.is_empty() {
-        vec![DataType::Structures]
-    } else {
-        args.data_types.clone()
-    };
+    // Find custom config by name
+    let custom_config = ctx
+        .config
+        .sync
+        .custom
+        .iter()
+        .find(|c| c.name == name)
+        .ok_or_else(|| PdbSyncError::Config {
+            message: format!("Custom sync config '{}' not found", name),
+            key: Some("custom".to_string()),
+            source: None,
+        })?;
 
-    run_wwpdb_sync(
-        mirror,
-        data_types,
-        args.format,
-        args.layout,
-        args.delete,
-        args.bwlimit,
-        args.dry_run,
-        args.filters,
-        args.progress,
-        &dest,
-    )
-    .await
-}
+    println!("Syncing custom config: {}", custom_config.name);
+    if let Some(ref desc) = custom_config.description {
+        println!("Description: {}", desc);
+    }
+    println!("URL: {}", custom_config.url);
+    println!("Destination: {}/{}", dest.display(), custom_config.dest);
 
-/// Internal function to run wwPDB sync with all parameters.
-#[allow(clippy::too_many_arguments)]
-async fn run_wwpdb_sync(
-    mirror: MirrorId,
-    data_types: Vec<DataType>,
-    format: SyncFormat,
-    layout: Layout,
-    delete: bool,
-    bwlimit: Option<u32>,
-    dry_run: bool,
-    filters: Vec<String>,
-    show_progress: bool,
-    dest: &Path,
-) -> Result<()> {
-    let options = RsyncOptions {
-        mirror,
-        data_types: data_types.clone(),
-        formats: format.to_file_formats(),
-        layout,
-        delete,
-        bwlimit,
-        dry_run,
-        filters,
-        show_progress,
-    };
+    // Validate destination path to prevent path traversal
+    validate_subpath(&custom_config.dest)
+        .map_err(|e| PdbSyncError::InvalidInput(format!("Invalid dest path: {}", e)))?;
 
-    let runner = RsyncRunner::new(options);
+    // Validate rsync URL format
+    validate_rsync_url(&custom_config.url)?;
 
-    // Print sync configuration
-    println!("Syncing from {} mirror...", mirror);
-    println!(
-        "Data types: {}",
-        data_types
-            .iter()
-            .map(|dt| dt.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-    println!("Layout: {}", layout);
-    println!("Destination: {}", dest.display());
+    // Merge config defaults with CLI overrides
+    let config_flags = custom_config.to_rsync_flags();
+    let cli_flags = args.to_rsync_flags();
+    let flags = config_flags.merge_with_cli(&cli_flags);
+    flags.validate()?;
 
-    if dry_run {
+    if flags.dry_run {
         println!("\nDry run - would execute:");
-        for arg in runner.build_command_string(dest) {
-            print!("{} ", arg);
-        }
-        println!();
+        println!(
+            "rsync -ah --delete --info=progress2 {} {}",
+            custom_config.url,
+            dest.join(&custom_config.dest).display()
+        );
+        return Ok(());
     }
 
-    let results = runner.run(dest).await?;
+    // Build destination path
+    let dest_path = dest.join(&custom_config.dest);
 
-    // Print summary
-    print_summary(&results);
+    // Create destination directory
+    tokio::fs::create_dir_all(&dest_path).await?;
+
+    // Build rsync command with base options and merged flags
+    let mut cmd = Command::new("rsync");
+    cmd.arg("-ah"); // Base archive options
+    flags.apply_to_command(&mut cmd); // Apply merged user flags
+    cmd.arg("--info=progress2")
+        .arg(&custom_config.url)
+        .arg(&dest_path);
+
+    // Execute rsync with real-time output
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
+
+    let status = cmd.spawn()?.wait().await?;
+
+    if !status.success() {
+        return Err(PdbSyncError::Rsync {
+            command: format!(
+                "rsync -ah --delete --info=progress2 {} {}",
+                custom_config.url,
+                dest_path.display()
+            ),
+            exit_code: status.code(),
+            stderr: None,
+        });
+    }
+
+    println!();
+    println!("{}: completed", custom_config.name);
+
+    Ok(())
+}
+
+/// Validate rsync URL format to prevent injection or unintended behavior.
+fn validate_rsync_url(url: &str) -> Result<()> {
+    // Basic validation for rsync URL formats:
+    // - host::module/path (standard rsync)
+    // - rsync://host:port/module/path (rsync over SSH)
+
+    // Reject shell metacharacters or embedded options
+    if url.contains("--") || url.contains('\'') || url.contains('"') {
+        return Err(PdbSyncError::InvalidInput(
+            "Invalid characters in rsync URL".to_string(),
+        ));
+    }
+
+    // Reject path traversal attempts in URL
+    if url.contains("..") || url.contains('\\') {
+        return Err(PdbSyncError::InvalidInput(
+            "Path traversal not allowed in rsync URL".to_string(),
+        ));
+    }
+
+    // Ensure URL has minimum valid structure
+    let parts: Vec<&str> = url.split("::").collect();
+    if parts.len() < 2 {
+        return Err(PdbSyncError::InvalidInput(
+            "Invalid rsync URL format (expected host::module/path)".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Run all custom rsync configs.
+pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
+    let custom_configs = ctx.config.sync.custom.clone();
+
+    if custom_configs.is_empty() {
+        println!("No custom sync configs found.");
+        return Ok(());
+    }
+
+    println!("Syncing {} custom configs...", custom_configs.len());
+    println!();
+
+    let mut all_success = true;
+
+    for custom_config in &custom_configs {
+        let name = custom_config.name.clone();
+        let result = run_custom(name.clone(), args.clone(), ctx.clone()).await;
+
+        match result {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error syncing '{}': {}", name.clone(), e);
+                all_success = false;
+            }
+        }
+    }
+
+    println!();
+    if all_success {
+        println!("All custom configs synced successfully.");
+    } else {
+        println!("Some custom configs failed to sync.");
+    }
 
     Ok(())
 }

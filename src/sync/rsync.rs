@@ -1,10 +1,12 @@
 //! rsync-based synchronization for PDB data.
 
+#![allow(dead_code)]
+
 use crate::data_types::{DataType, Layout};
 use crate::error::{PdbSyncError, Result};
 use crate::files::FileFormat;
 use crate::mirrors::{Mirror, MirrorId};
-use crate::sync::SyncProgress;
+use crate::sync::{RsyncFlags, SyncProgress};
 use crate::utils::human_bytes;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -12,14 +14,13 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 /// Options for rsync synchronization.
+#[allow(dead_code)]
 pub struct RsyncOptions {
     pub mirror: MirrorId,
     pub data_types: Vec<DataType>,
     pub formats: Vec<FileFormat>,
     pub layout: Layout,
-    pub delete: bool,
-    pub bwlimit: Option<u32>,
-    pub dry_run: bool,
+    pub flags: RsyncFlags,
     pub filters: Vec<String>,
     pub show_progress: bool,
 }
@@ -31,9 +32,7 @@ impl Default for RsyncOptions {
             data_types: vec![DataType::Structures],
             formats: vec![FileFormat::Mmcif],
             layout: Layout::Divided,
-            delete: false,
-            bwlimit: None,
-            dry_run: false,
+            flags: RsyncFlags::default(),
             filters: Vec::new(),
             show_progress: false,
         }
@@ -51,6 +50,7 @@ pub struct SyncResult {
     pub success: bool,
 }
 
+#[allow(dead_code)]
 pub struct RsyncRunner {
     options: RsyncOptions,
 }
@@ -283,22 +283,8 @@ impl RsyncRunner {
         // Note: Port is already embedded in the rsync URL (rsync://host:port/...)
         // No need for separate --port= argument
 
-        // Delete option
-        if self.options.delete {
-            cmd.arg("--delete");
-        }
-
-        // Bandwidth limit
-        if let Some(limit) = self.options.bwlimit {
-            if limit > 0 {
-                cmd.arg(format!("--bwlimit={}", limit));
-            }
-        }
-
-        // Dry run
-        if self.options.dry_run {
-            cmd.arg("--dry-run");
-        }
+        // Apply all rsync flags from RsyncFlags
+        self.options.flags.apply_to_command(&mut cmd);
 
         // Include filters (validated to be safe PDB ID patterns)
         for filter in &self.options.filters {
@@ -325,19 +311,8 @@ impl RsyncRunner {
 
         // Note: Port is already in the rsync URL, no --port= needed
 
-        if self.options.delete {
-            args.push("--delete".to_string());
-        }
-
-        if let Some(limit) = self.options.bwlimit {
-            if limit > 0 {
-                args.push(format!("--bwlimit={}", limit));
-            }
-        }
-
-        if self.options.dry_run {
-            args.push("--dry-run".to_string());
-        }
+        // Add args from flags
+        args.extend(self.options.flags.to_args());
 
         for filter in &self.options.filters {
             args.push(format!("--include=**/{}*", filter));
@@ -375,12 +350,14 @@ mod tests {
         assert_eq!(opts.data_types, vec![DataType::Structures]);
         assert_eq!(opts.formats, vec![FileFormat::Mmcif]);
         assert_eq!(opts.layout, Layout::Divided);
+        assert!(!opts.flags.delete);
     }
 
     #[test]
     fn test_applicable_formats_structures() {
         let opts = RsyncOptions {
             formats: vec![FileFormat::Mmcif, FileFormat::Pdb],
+            flags: RsyncFlags::default(),
             ..Default::default()
         };
         let runner = RsyncRunner::new(opts);
