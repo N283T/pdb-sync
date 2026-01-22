@@ -1,3 +1,3 @@
 pub mod flags;
 
-pub use flags::RsyncFlags;
+pub use flags::{RsyncFlagOverrides, RsyncFlags};

@@ -43,16 +43,17 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
 
     // Merge config defaults with CLI overrides
     let config_flags = custom_config.to_rsync_flags();
-    let cli_flags = args.to_rsync_flags();
-    let flags = config_flags.merge_with_cli(&cli_flags);
+    let cli_overrides = args.to_rsync_overrides();
+    let flags = config_flags.merge_with_overrides(&cli_overrides);
     flags.validate()?;
 
     if flags.dry_run {
         println!("\nDry run - would execute:");
-        let delete_flag = if flags.delete { " --delete" } else { "" };
+        let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
+        cmd_args.extend(flags.to_args());
         println!(
-            "rsync -ah{} --info=progress2 {} {}",
-            delete_flag,
+            "rsync {} {} {}",
+            cmd_args.join(" "),
             custom_config.url,
             dest.join(&custom_config.dest).display()
         );
@@ -80,11 +81,12 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     let status = cmd.spawn()?.wait().await?;
 
     if !status.success() {
-        let delete_flag = if flags.delete { " --delete" } else { "" };
+        let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
+        cmd_args.extend(flags.to_args());
         return Err(PdbSyncError::Rsync {
             command: format!(
-                "rsync -ah{} --info=progress2 {} {}",
-                delete_flag,
+                "rsync {} {} {}",
+                cmd_args.join(" "),
                 custom_config.url,
                 dest_path.display()
             ),
@@ -139,6 +141,27 @@ pub fn validate_rsync_url(url: &str) -> Result<()> {
     Ok(())
 }
 
+/// List all custom rsync configs.
+pub fn list_custom(ctx: &AppContext) {
+    let custom_configs = &ctx.config.sync.custom;
+    if custom_configs.is_empty() {
+        println!("No custom sync configs found.");
+        return;
+    }
+
+    println!("Custom sync configs ({}):", custom_configs.len());
+    println!();
+    for custom_config in custom_configs {
+        println!("Name: {}", custom_config.name);
+        if let Some(ref desc) = custom_config.description {
+            println!("  Description: {}", desc);
+        }
+        println!("  URL: {}", custom_config.url);
+        println!("  Dest: {}", custom_config.dest);
+        println!();
+    }
+}
+
 /// Run all custom rsync configs.
 pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     let custom_configs = ctx.config.sync.custom.clone();
@@ -162,6 +185,9 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
             Err(e) => {
                 eprintln!("Error syncing '{}': {}", name.clone(), e);
                 all_success = false;
+                if args.fail_fast {
+                    return Err(e);
+                }
             }
         }
     }
@@ -169,11 +195,13 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     println!();
     if all_success {
         println!("All custom configs synced successfully.");
+        Ok(())
     } else {
         println!("Some custom configs failed to sync.");
+        Err(PdbSyncError::Job(
+            "One or more custom sync configs failed".to_string(),
+        ))
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
