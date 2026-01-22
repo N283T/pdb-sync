@@ -72,6 +72,41 @@ pub struct RsyncFlags {
     pub itemize_changes: bool,
 }
 
+/// CLI overrides for rsync flags.
+///
+/// Uses `Option` to distinguish "not provided" from "explicitly set".
+#[derive(Debug, Clone, Default)]
+pub struct RsyncFlagOverrides {
+    pub delete: Option<bool>,
+    pub bwlimit: Option<u32>,
+    pub dry_run: Option<bool>,
+
+    pub compress: Option<bool>,
+    pub checksum: Option<bool>,
+    pub partial: Option<bool>,
+    pub partial_dir: Option<String>,
+
+    pub max_size: Option<String>,
+    pub min_size: Option<String>,
+
+    pub timeout: Option<u32>,
+    pub contimeout: Option<u32>,
+
+    pub backup: Option<bool>,
+    pub backup_dir: Option<String>,
+
+    pub chmod: Option<String>,
+
+    pub exclude: Option<Vec<String>>,
+    pub include: Option<Vec<String>>,
+    pub exclude_from: Option<String>,
+    pub include_from: Option<String>,
+
+    pub verbose: Option<bool>,
+    pub quiet: Option<bool>,
+    pub itemize_changes: Option<bool>,
+}
+
 impl RsyncFlags {
     /// Validate the rsync flags.
     ///
@@ -114,55 +149,55 @@ impl RsyncFlags {
         Ok(())
     }
 
-    /// Merge CLI flags over config defaults.
+    /// Merge CLI overrides over config defaults.
     ///
-    /// CLI flags take priority over config defaults. For boolean flags, the
-    /// CLI value is used directly (can't distinguish between unspecified and
-    /// explicit false from clap). Use `--no-*` negation flags to explicitly
-    /// disable a config default.
-    pub fn merge_with_cli(&self, cli: &RsyncFlags) -> RsyncFlags {
+    /// CLI overrides take priority over config defaults. `Option` fields allow
+    /// distinguishing "not provided" from "explicitly set".
+    pub fn merge_with_overrides(&self, overrides: &RsyncFlagOverrides) -> RsyncFlags {
         RsyncFlags {
-            // Boolean flags: CLI value takes priority
-            // Note: clap bool args can't distinguish "not set" from "false"
-            // To override config true to false, use --no-flag if available
-            delete: cli.delete,
-            compress: cli.compress,
-            checksum: cli.checksum,
-            partial: cli.partial,
-            backup: cli.backup,
-            itemize_changes: cli.itemize_changes,
-            verbose: cli.verbose,
-            quiet: cli.quiet,
+            // Boolean flags: overrides take priority, otherwise use config values.
+            delete: overrides.delete.unwrap_or(self.delete),
+            compress: overrides.compress.unwrap_or(self.compress),
+            checksum: overrides.checksum.unwrap_or(self.checksum),
+            partial: overrides.partial.unwrap_or(self.partial),
+            backup: overrides.backup.unwrap_or(self.backup),
+            itemize_changes: overrides.itemize_changes.unwrap_or(self.itemize_changes),
+            verbose: overrides.verbose.unwrap_or(self.verbose),
+            quiet: overrides.quiet.unwrap_or(self.quiet),
 
             // dry_run is additive (true from either source means true)
-            dry_run: cli.dry_run || self.dry_run,
+            dry_run: overrides.dry_run.unwrap_or(false) || self.dry_run,
 
             // Option types: CLI Some value overrides, None falls back to config
-            bwlimit: cli.bwlimit.or(self.bwlimit),
-            partial_dir: cli.partial_dir.clone().or_else(|| self.partial_dir.clone()),
-            max_size: cli.max_size.clone().or_else(|| self.max_size.clone()),
-            min_size: cli.min_size.clone().or_else(|| self.min_size.clone()),
-            timeout: cli.timeout.or(self.timeout),
-            contimeout: cli.contimeout.or(self.contimeout),
-            backup_dir: cli.backup_dir.clone().or_else(|| self.backup_dir.clone()),
-            chmod: cli.chmod.clone().or_else(|| self.chmod.clone()),
+            bwlimit: overrides.bwlimit.or(self.bwlimit),
+            partial_dir: overrides
+                .partial_dir
+                .clone()
+                .or_else(|| self.partial_dir.clone()),
+            max_size: overrides.max_size.clone().or_else(|| self.max_size.clone()),
+            min_size: overrides.min_size.clone().or_else(|| self.min_size.clone()),
+            timeout: overrides.timeout.or(self.timeout),
+            contimeout: overrides.contimeout.or(self.contimeout),
+            backup_dir: overrides
+                .backup_dir
+                .clone()
+                .or_else(|| self.backup_dir.clone()),
+            chmod: overrides.chmod.clone().or_else(|| self.chmod.clone()),
 
-            // Vec types: CLI extends config (or overrides if non-empty)
-            exclude: if !cli.exclude.is_empty() {
-                cli.exclude.clone()
-            } else {
-                self.exclude.clone()
-            },
-            include: if !cli.include.is_empty() {
-                cli.include.clone()
-            } else {
-                self.include.clone()
-            },
-            exclude_from: cli
+            // Vec types: CLI overrides if provided
+            exclude: overrides
+                .exclude
+                .clone()
+                .unwrap_or_else(|| self.exclude.clone()),
+            include: overrides
+                .include
+                .clone()
+                .unwrap_or_else(|| self.include.clone()),
+            exclude_from: overrides
                 .exclude_from
                 .clone()
                 .or_else(|| self.exclude_from.clone()),
-            include_from: cli
+            include_from: overrides
                 .include_from
                 .clone()
                 .or_else(|| self.include_from.clone()),
@@ -576,7 +611,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_with_cli() {
+    fn test_merge_with_overrides() {
         let config = RsyncFlags {
             delete: false,
             compress: true,
@@ -585,15 +620,14 @@ mod tests {
             ..Default::default()
         };
 
-        let cli = RsyncFlags {
-            delete: true,
-            compress: false,
-            bwlimit: None,
+        let overrides = RsyncFlagOverrides {
+            delete: Some(true),
+            compress: Some(false),
             max_size: Some("1G".to_string()),
             ..Default::default()
         };
 
-        let merged = config.merge_with_cli(&cli);
+        let merged = config.merge_with_overrides(&overrides);
 
         assert!(merged.delete); // CLI override
         assert!(!merged.compress); // CLI override (false explicitly set)
@@ -603,24 +637,24 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_with_cli_empty_vecs() {
+    fn test_merge_with_overrides_vecs() {
         let config = RsyncFlags {
             exclude: vec!["*.tmp".to_string(), "*.log".to_string()],
             include: vec!["*.cif".to_string()],
             ..Default::default()
         };
 
-        let cli = RsyncFlags {
-            exclude: vec!["*.bak".to_string()],
-            include: vec![],
+        let overrides = RsyncFlagOverrides {
+            exclude: Some(vec!["*.bak".to_string()]),
+            include: None,
             ..Default::default()
         };
 
-        let merged = config.merge_with_cli(&cli);
+        let merged = config.merge_with_overrides(&overrides);
 
         // CLI overrides non-empty vec
         assert_eq!(merged.exclude, vec!["*.bak".to_string()]);
-        // Config preserved when CLI vec is empty
+        // Config preserved when overrides not provided
         assert_eq!(merged.include, vec!["*.cif".to_string()]);
     }
 

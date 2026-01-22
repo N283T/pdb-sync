@@ -61,6 +61,17 @@ Arguments:
 Options:
   -a, --all           Run all custom sync configs
   -d, --dest <DIR>    Override destination directory
+  --list              List available custom sync configs
+  --fail-fast         Stop on first failure when syncing all configs
+  -n, --dry-run        Dry run without changes
+  --delete            Delete files not present on remote
+  --bwlimit <KBPS>    Bandwidth limit in KB/s
+  -z, --compress      Compress data during transfer
+  -c, --checksum      Use checksum for file comparison
+  --exclude <PATTERN> Exclude patterns (repeatable)
+  --include <PATTERN> Include patterns (repeatable)
+  --rsync-verbose     Verbose rsync output
+  --rsync-quiet       Quiet rsync output
   -v, --verbose       Enable verbose output
   -h, --help          Print help
 ```
@@ -106,8 +117,8 @@ rsync_exclude = ["*.tmp", "test/*"]
 | `rsync_chmod` | --chmod | Change permission flags |
 | `rsync_exclude` | --exclude | Exclude patterns (array) |
 | `rsync_include` | --include | Include patterns (array) |
-| `rsync_verbose` | --verbose | Verbose output |
-| `rsync_quiet` | --quiet | Quiet mode |
+| `rsync_verbose` | --rsync-verbose | Verbose output |
+| `rsync_quiet` | --rsync-quiet | Quiet mode |
 | `rsync_dry_run` | -n, --dry-run | Dry run without changes |
 
 ### Example Configs
