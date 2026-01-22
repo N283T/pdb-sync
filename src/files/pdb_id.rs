@@ -17,7 +17,7 @@ static EXTENDED_REGEX: LazyLock<Regex> =
 /// # Examples
 ///
 /// ```
-/// use pdb_cli::files::PdbId;
+/// use pdb_sync::files::PdbId;
 ///
 /// // Classic format: 4 characters starting with a digit
 /// let classic = PdbId::new("1abc").unwrap();

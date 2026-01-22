@@ -1,5 +1,7 @@
 //! Progress display for rsync operations.
 
+#![allow(dead_code)]
+
 use crate::utils::human_bytes;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;

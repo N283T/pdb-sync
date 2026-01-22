@@ -4,6 +4,8 @@
 //! (defaults, config file, environment variables, CLI arguments) while
 //! tracking where each value originated.
 
+#![allow(dead_code)]
+
 use crate::config::source::SourcedValue;
 use crate::config::Config;
 use crate::mirrors::MirrorId;

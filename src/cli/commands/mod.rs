@@ -1,34 +1,3 @@
-pub mod config;
-pub mod convert;
-pub mod copy;
-pub mod download;
-pub mod env;
-pub mod find;
-pub mod info;
-pub mod init;
-pub mod jobs;
-pub mod list;
-pub mod setup;
-pub mod stats;
-pub mod sync;
-pub mod tree;
-pub mod update;
-pub mod validate;
-pub mod watch;
+//! CLI command handlers.
 
-pub use config::run_config;
-pub use convert::run_convert;
-pub use copy::run_copy;
-pub use download::run_download;
-pub use env::run_env;
-pub use find::run_find;
-pub use info::run_info;
-pub use jobs::run_jobs;
-pub use list::run_list;
-pub use setup::{needs_setup, run_setup};
-pub use stats::run_stats;
-pub use sync::run_sync;
-pub use tree::run_tree;
-pub use update::run_update;
-pub use validate::run_validate;
-pub use watch::run_watch;
+pub mod sync;

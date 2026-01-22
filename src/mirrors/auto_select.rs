@@ -1,5 +1,7 @@
 //! Automatic mirror selection based on latency testing.
 
+#![allow(dead_code)]
+
 use crate::mirrors::{Mirror, MirrorId};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

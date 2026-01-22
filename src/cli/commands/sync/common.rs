@@ -6,6 +6,7 @@ use crate::sync::SyncResult;
 pub use crate::utils::human_bytes;
 
 /// Print a summary of sync results.
+#[allow(dead_code)]
 pub fn print_summary(results: &[SyncResult]) {
     println!("\n--- Sync Summary ---");
     for result in results {
@@ -45,6 +46,7 @@ pub fn print_summary(results: &[SyncResult]) {
 }
 
 /// Print a simple summary for mirror-specific syncs (without file format info).
+#[allow(dead_code)]
 pub fn print_mirror_summary(data_type: &str, success: bool, files: u64, bytes: u64) {
     let status = if success { "OK" } else { "FAILED" };
     if files > 0 || bytes > 0 {
@@ -62,6 +64,7 @@ pub fn print_mirror_summary(data_type: &str, success: bool, files: u64, bytes: u
 
 /// Parse rsync output to extract file count and bytes transferred.
 /// This is a simplified parser that looks for common rsync output patterns.
+#[allow(dead_code)]
 pub fn parse_rsync_output(output: &[u8]) -> (u64, u64) {
     let output_str = String::from_utf8_lossy(output);
 
@@ -104,6 +107,7 @@ pub fn parse_rsync_output(output: &[u8]) -> (u64, u64) {
 /// Validate a subpath to prevent path traversal attacks.
 ///
 /// Returns an error if the subpath contains dangerous patterns like `..`.
+#[allow(dead_code)]
 pub fn validate_subpath(subpath: &str) -> Result<(), &'static str> {
     // Check for path traversal patterns
     if subpath.contains("..") {

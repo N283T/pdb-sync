@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// Application context that combines configuration, environment variables, and CLI arguments
+#[derive(Clone)]
 pub struct AppContext {
     pub config: Config,
     pub pdb_dir: PathBuf,

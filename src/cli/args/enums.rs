@@ -1,5 +1,7 @@
 //! ValueEnum types for CLI arguments.
 
+#![allow(dead_code)]
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
