@@ -46,7 +46,6 @@ pub struct CustomRsyncConfig {
     pub description: Option<String>,
 
     // === Per-config rsync option defaults ===
-
     /// Delete files that don't exist on the remote
     #[serde(rename = "rsync_delete")]
     pub rsync_delete: bool,

@@ -146,10 +146,7 @@ impl RsyncFlags {
             min_size: cli.min_size.clone().or_else(|| self.min_size.clone()),
             timeout: cli.timeout.or(self.timeout),
             contimeout: cli.contimeout.or(self.contimeout),
-            backup_dir: cli
-                .backup_dir
-                .clone()
-                .or_else(|| self.backup_dir.clone()),
+            backup_dir: cli.backup_dir.clone().or_else(|| self.backup_dir.clone()),
             chmod: cli.chmod.clone().or_else(|| self.chmod.clone()),
 
             // Vec types: CLI extends config (or overrides if non-empty)
@@ -384,7 +381,9 @@ fn validate_size_string(s: &str) -> Result<()> {
     let s = s.trim();
 
     if s.is_empty() {
-        return Err(PdbSyncError::InvalidInput("Size string is empty".to_string()));
+        return Err(PdbSyncError::InvalidInput(
+            "Size string is empty".to_string(),
+        ));
     }
 
     // Check if string ends with valid suffix (optional)
@@ -420,15 +419,18 @@ fn validate_chmod_string(s: &str) -> Result<()> {
     let s = s.trim();
 
     if s.is_empty() {
-        return Err(PdbSyncError::InvalidInput("chmod string is empty".to_string()));
+        return Err(PdbSyncError::InvalidInput(
+            "chmod string is empty".to_string(),
+        ));
     }
 
     // Reject dangerous characters
     for ch in s.chars() {
         if ch == ';' || ch == '&' || ch == '|' || ch == '$' || ch == '`' || ch == '\\' {
-            return Err(PdbSyncError::InvalidInput(
-                format!("Invalid character in chmod string: '{}'", ch)
-            ));
+            return Err(PdbSyncError::InvalidInput(format!(
+                "Invalid character in chmod string: '{}'",
+                ch
+            )));
         }
     }
 
@@ -446,8 +448,10 @@ fn validate_chmod_string(s: &str) -> Result<()> {
         // Pattern 3: Just octal (e.g., 755)
 
         let has_df_prefix = part.starts_with('D') || part.starts_with('F');
-        let has_ugo_prefix = part.starts_with('u') || part.starts_with('g')
-            || part.starts_with('o') || part.starts_with('a');
+        let has_ugo_prefix = part.starts_with('u')
+            || part.starts_with('g')
+            || part.starts_with('o')
+            || part.starts_with('a');
 
         // After prefix, should have +-= and/or octal/symbolic modes
         let valid = if has_df_prefix {
@@ -456,8 +460,12 @@ fn validate_chmod_string(s: &str) -> Result<()> {
         } else if has_ugo_prefix {
             // u+rwx, go-rx - should contain operator and mode chars
             let has_operator = part.contains('+') || part.contains('-') || part.contains('=');
-            let has_mode = part.contains('r') || part.contains('w') || part.contains('x')
-                || part.contains('X') || part.contains('s') || part.contains('t');
+            let has_mode = part.contains('r')
+                || part.contains('w')
+                || part.contains('x')
+                || part.contains('X')
+                || part.contains('s')
+                || part.contains('t');
             has_operator && has_mode
         } else {
             // Just octal like "755"

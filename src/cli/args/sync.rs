@@ -1,9 +1,9 @@
 //! Sync command arguments.
 
-use clap::Parser;
 use crate::context::AppContext;
 use crate::error::Result;
 use crate::sync::RsyncFlags;
+use clap::Parser;
 
 /// Sync command arguments.
 #[derive(Parser, Clone, Debug)]
