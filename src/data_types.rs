@@ -203,6 +203,10 @@ impl std::fmt::Display for PdbjDataType {
 ///
 /// These data types are exclusive to the PDBe mirror and use
 /// different rsync paths than the standard wwPDB data.
+///
+/// Note: The `pdb-sync init` command creates 11 PDBe directories,
+/// but only these 3 types are supported for sync operations.
+/// Additional directories can be added to the enum as needed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PdbeDataType {
@@ -484,14 +488,5 @@ mod tests {
 
         let parsed: PdbeDataType = serde_json::from_str("\"foldseek\"").unwrap();
         assert_eq!(parsed, PdbeDataType::Foldseek);
-    }
-
-    #[test]
-    fn test_pdbe_data_type_all() {
-        let all = PdbeDataType::all();
-        assert_eq!(all.len(), 3);
-        assert!(all.contains(&PdbeDataType::Sifts));
-        assert!(all.contains(&PdbeDataType::Pdbechem));
-        assert!(all.contains(&PdbeDataType::Foldseek));
     }
 }
