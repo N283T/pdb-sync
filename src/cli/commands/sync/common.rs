@@ -1,6 +1,18 @@
 //! Shared utilities for sync command handlers.
 
-use crate::sync::SyncResult;
+use crate::data_types::{DataType, Layout};
+use crate::files::FileFormat;
+
+/// Result of a single data type synchronization.
+#[derive(Debug, Clone)]
+pub struct SyncResult {
+    pub data_type: DataType,
+    pub layout: Layout,
+    pub format: Option<FileFormat>,
+    pub files_count: u64,
+    pub bytes_transferred: u64,
+    pub success: bool,
+}
 
 // Re-export human_bytes from utils for use by sync subcommands
 pub use crate::utils::human_bytes;

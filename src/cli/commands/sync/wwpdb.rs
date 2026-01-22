@@ -49,8 +49,10 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
 
     if flags.dry_run {
         println!("\nDry run - would execute:");
+        let delete_flag = if flags.delete { " --delete" } else { "" };
         println!(
-            "rsync -ah --delete --info=progress2 {} {}",
+            "rsync -ah{} --info=progress2 {} {}",
+            delete_flag,
             custom_config.url,
             dest.join(&custom_config.dest).display()
         );
@@ -66,6 +68,9 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     // Build rsync command with base options and merged flags
     let mut cmd = Command::new("rsync");
     cmd.arg("-ah"); // Base archive options
+    if flags.delete {
+        cmd.arg("--delete");
+    }
     flags.apply_to_command(&mut cmd); // Apply merged user flags
     cmd.arg("--info=progress2")
         .arg(&custom_config.url)
@@ -78,9 +83,11 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     let status = cmd.spawn()?.wait().await?;
 
     if !status.success() {
+        let delete_flag = if flags.delete { " --delete" } else { "" };
         return Err(PdbSyncError::Rsync {
             command: format!(
-                "rsync -ah --delete --info=progress2 {} {}",
+                "rsync -ah{} --info=progress2 {} {}",
+                delete_flag,
                 custom_config.url,
                 dest_path.display()
             ),
@@ -97,9 +104,16 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
 
 /// Validate rsync URL format to prevent injection or unintended behavior.
 fn validate_rsync_url(url: &str) -> Result<()> {
-    // Basic validation for rsync URL formats:
-    // - host::module/path (standard rsync)
-    // - rsync://host:port/module/path (rsync over SSH)
+    // Check for command injection patterns
+    let dangerous_chars = [';', '&', '|', '`', '$', '\n', '\r', '\t'];
+    for ch in dangerous_chars {
+        if url.contains(ch) {
+            return Err(PdbSyncError::InvalidInput(format!(
+                "Invalid character '{}' in rsync URL",
+                ch
+            )));
+        }
+    }
 
     // Reject shell metacharacters or embedded options
     if url.contains("--") || url.contains('\'') || url.contains('"') {
@@ -115,11 +129,13 @@ fn validate_rsync_url(url: &str) -> Result<()> {
         ));
     }
 
-    // Ensure URL has minimum valid structure
-    let parts: Vec<&str> = url.split("::").collect();
-    if parts.len() < 2 {
+    // Validate URL format: either host::module/path or rsync://host:port/module/path
+    let is_standard_rsync = url.contains("::");
+    let is_url_rsync = url.starts_with("rsync://");
+
+    if !is_standard_rsync && !is_url_rsync {
         return Err(PdbSyncError::InvalidInput(
-            "Invalid rsync URL format (expected host::module/path)".to_string(),
+            "Invalid rsync URL format (expected host::module/path or rsync://host:port/module/path)".to_string(),
         ));
     }
 
