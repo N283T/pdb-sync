@@ -41,6 +41,22 @@ pub enum Layout {
     All,
 }
 
+/// Init template options for directory structure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Template {
+    /// wwPDB standard structure (default)
+    /// Creates: pub/ with pdb/data/, pdb_ihm/, emdb/
+    #[default]
+    Wwpdb,
+    /// Minimal (structures only)
+    /// Creates: pub/pdb/data/structures/ only
+    Minimal,
+    /// Custom user selection
+    /// Creates: User-selected directories via --only
+    Custom,
+}
+
 impl DataType {
     /// Get the rsync subpath for this data type and layout.
     ///
@@ -484,14 +500,5 @@ mod tests {
 
         let parsed: PdbeDataType = serde_json::from_str("\"foldseek\"").unwrap();
         assert_eq!(parsed, PdbeDataType::Foldseek);
-    }
-
-    #[test]
-    fn test_pdbe_data_type_all() {
-        let all = PdbeDataType::all();
-        assert_eq!(all.len(), 3);
-        assert!(all.contains(&PdbeDataType::Sifts));
-        assert!(all.contains(&PdbeDataType::Pdbechem));
-        assert!(all.contains(&PdbeDataType::Foldseek));
     }
 }

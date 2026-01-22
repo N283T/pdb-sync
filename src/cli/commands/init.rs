@@ -5,32 +5,39 @@
 //! ## Directory Structure
 //!
 //! ### Base (depth=0)
-//! - pdb/
-//!   ├── data/       # Common wwPDB data (same across all mirrors)
-//!   ├── pdbj/        # PDBj-specific data only
-//!   ├── pdbe/        # PDBe-specific data only
-//!   └── local/    # User-managed space
+//! - basedir/
+//!   ├── pub/        # wwPDB common data (RCSB/PDBj/PDBe)
+//!   ├── pdbj/       # PDBj-specific data only
+//!   ├── pdbe/       # PDBe-specific data only
+//!   └── local/      # User-managed space
 //!
 //! ### Data Types (depth=1)
-//! - data/:
+//! - pub/pdb/data/:
 //!   ├── structures/
 //!   ├── assemblies/
 //!   ├── biounit/
-//!   ├── structure_factors/
-//!   ├── nmr_chemical_shifts/
-//!   ├── nmr_restraints/
 //!   └── obsolete/
+//! - pub/emdb/       # EMDB data (flat)
+//! - pub/pdb_ihm/    # PDB-IHM data (flat)
 //! - pdbj/:
-//!   ├── emdb/
-//!   ├── pdb_ihm/
-//!   └── derived/
+//!   ├── pdbjplus/
+//!   ├── bsma/
+//!   └── mmdb/
 //! - pdbe/:
+//!   ├── assemblies/
+//!   ├── foldseek/
+//!   ├── fragment_screening/
+//!   ├── graphdb/
+//!   ├── nmr/
+//!   ├── pdb-assemblies-analysis/
+//!   ├── pdb_uncompressed/
+//!   ├── pdbechem_v2/
 //!   ├── sifts/
-//!   ├── pdbechem/
-//!   └── foldseek/
+//!   ├── status/
+//!   └── updated_mmcif/
 //!
 //! ### Layouts (depth=2)
-//! - All data types get divided/all subdirectories:
+//! - Only pub/pdb/data/ types get divided/all subdirectories:
 //!   - structures/divided/, structures/all/
 //!   - assemblies/divided/, assemblies/all/
 //!   - etc.
@@ -71,36 +78,48 @@ fn parse_depth(depth_str: &str) -> Result<usize> {
 }
 
 /// Subdirectories to create in the base directory (depth=0)
-pub const SUBDIRS: &[&str] = &["data", "pdbj", "pdbe", "local"];
+pub const SUBDIRS: &[&str] = &["pub", "pdbj", "pdbe", "local"];
 
 /// Common wwPDB data types (shared across all mirrors)
+///
+/// Note: structure_factors, nmr_chemical_shifts, nmr_restraints are
+/// subdirectories under structures/divided/ (not top-level).
 pub fn get_common_data_types() -> Vec<String> {
     vec![
         "structures".to_string(),
         "assemblies".to_string(),
         "biounit".to_string(),
-        "structure_factors".to_string(),
-        "nmr_chemical_shifts".to_string(),
-        "nmr_restraints".to_string(),
         "obsolete".to_string(),
     ]
 }
 
 /// PDBj-specific data types
+///
+/// Note: These are PDBj-specific directories (emdb/pdb_ihm are now in pub/)
 pub fn get_pdbj_data_types() -> Vec<String> {
     vec![
-        "emdb".to_string(),
-        "pdb_ihm".to_string(),
-        "derived".to_string(),
+        "pdbjplus".to_string(),
+        "bsma".to_string(),
+        "mmdb".to_string(),
     ]
 }
 
 /// PDBe-specific data types
+///
+/// Note: Uses actual directory names from ftp.ebi.ac.uk/pub/databases/msd/
 pub fn get_pdbe_data_types() -> Vec<String> {
     vec![
-        "sifts".to_string(),
-        "pdbechem".to_string(),
+        "assemblies".to_string(),
         "foldseek".to_string(),
+        "fragment_screening".to_string(),
+        "graphdb".to_string(),
+        "nmr".to_string(),
+        "pdb-assemblies-analysis".to_string(),
+        "pdb_uncompressed".to_string(),
+        "pdbechem_v2".to_string(),
+        "sifts".to_string(),
+        "status".to_string(),
+        "updated_mmcif".to_string(),
     ]
 }
 
@@ -110,8 +129,10 @@ pub fn get_layout_subdirs() -> Vec<String> {
 }
 
 /// Format subdirectories for depth=3
+///
+/// Note: "pdb" is lowercase to match actual rsync/HTTP structure.
 pub fn get_format_subdirs() -> Vec<String> {
-    vec!["mmCIF".to_string(), "PDB".to_string()]
+    vec!["mmCIF".to_string(), "pdb".to_string()]
 }
 
 /// Build the complete directory tree based on depth
@@ -122,11 +143,12 @@ fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec
         let mut paths = Vec::new();
 
         match subdir.as_str() {
-            "data" => {
-                // Common wwPDB data types
+            "pub" => {
+                // Common wwPDB data under pub/
                 if depth >= 1 {
+                    // pub/pdb/data/ - main PDB data with layouts
                     for data_type in get_common_data_types() {
-                        let dt_path = format!("data/{}", data_type);
+                        let dt_path = format!("pub/pdb/data/{}", data_type);
                         paths.push(dt_path.clone());
 
                         if depth >= 2 {
@@ -142,49 +164,27 @@ fn build_directory_tree(subdirs: &[String], depth: usize) -> HashMap<String, Vec
                             }
                         }
                     }
+
+                    // pub/emdb/ - flat directory (no layouts)
+                    paths.push("pub/emdb".to_string());
+
+                    // pub/pdb_ihm/ - flat directory (no layouts)
+                    paths.push("pub/pdb_ihm".to_string());
                 }
             }
             "pdbj" => {
-                // PDBj-specific data
+                // PDBj-specific data (flat directories, no layouts)
                 if depth >= 1 {
                     for data_type in get_pdbj_data_types() {
-                        let dt_path = format!("pdbj/{}", data_type);
-                        paths.push(dt_path.clone());
-
-                        if depth >= 2 {
-                            for layout in get_layout_subdirs() {
-                                let layout_path = format!("{}/{}", dt_path, layout);
-                                paths.push(layout_path.clone());
-
-                                if depth >= 3 {
-                                    for format in get_format_subdirs() {
-                                        paths.push(format!("{}/{}", layout_path, format));
-                                    }
-                                }
-                            }
-                        }
+                        paths.push(format!("pdbj/{}", data_type));
                     }
                 }
             }
             "pdbe" => {
-                // PDBe-specific data
+                // PDBe-specific data (flat directories, no layouts)
                 if depth >= 1 {
                     for data_type in get_pdbe_data_types() {
-                        let dt_path = format!("pdbe/{}", data_type);
-                        paths.push(dt_path.clone());
-
-                        if depth >= 2 {
-                            for layout in get_layout_subdirs() {
-                                let layout_path = format!("{}/{}", dt_path, layout);
-                                paths.push(layout_path.clone());
-
-                                if depth >= 3 {
-                                    for format in get_format_subdirs() {
-                                        paths.push(format!("{}/{}", layout_path, format));
-                                    }
-                                }
-                            }
-                        }
+                        paths.push(format!("pdbe/{}", data_type));
                     }
                 }
             }
@@ -414,19 +414,19 @@ pub async fn run_init(args: InitArgs, ctx: AppContext) -> Result<()> {
         println!("  pdb-sync init --depth format");
         println!();
         hint("You can also specify custom directories:");
-        println!("  pdb-sync init --only data --only myproject");
+        println!("  pdb-sync init --only pub --only myproject");
     } else {
         println!();
         info("You can now use sync commands with --dest to target specific directories:");
-        if all_subdirs.contains(&"data".to_string()) {
+        if all_subdirs.contains(&"pub".to_string()) {
             println!(
-                "  pdb-sync sync structures --dest {}/data/structures/divided",
+                "  pdb-sync sync structures --dest {}/pub/pdb/data/structures/divided",
                 base_dir.display()
             );
         }
-        if all_subdirs.contains(&"pdbj".to_string()) && depth >= 1 {
+        if all_subdirs.contains(&"pub".to_string()) && depth >= 1 {
             println!(
-                "  pdb-sync sync pdbj --type emdb --dest {}/pdbj/emdb",
+                "  pdb-sync sync pdbj --type emdb --dest {}/pub/emdb",
                 base_dir.display()
             );
         }
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn test_subdirs_const() {
         assert_eq!(SUBDIRS.len(), 4);
-        assert!(SUBDIRS.contains(&"data"));
+        assert!(SUBDIRS.contains(&"pub"));
         assert!(SUBDIRS.contains(&"pdbj"));
         assert!(SUBDIRS.contains(&"pdbe"));
         assert!(SUBDIRS.contains(&"local"));
@@ -484,28 +484,39 @@ mod tests {
     #[test]
     fn test_get_common_data_types() {
         let types = get_common_data_types();
-        assert!(!types.is_empty());
+        assert_eq!(types.len(), 4);
         assert!(types.contains(&"structures".to_string()));
         assert!(types.contains(&"assemblies".to_string()));
-        assert!(types.contains(&"structure_factors".to_string()));
+        assert!(types.contains(&"biounit".to_string()));
+        assert!(types.contains(&"obsolete".to_string()));
+        // structure_factors, nmr_chemical_shifts, nmr_restraints
+        // are subdirs under structures/divided/, not top-level
     }
 
     #[test]
     fn test_get_pdbj_data_types() {
         let types = get_pdbj_data_types();
         assert_eq!(types.len(), 3);
-        assert!(types.contains(&"emdb".to_string()));
-        assert!(types.contains(&"pdb_ihm".to_string()));
-        assert!(types.contains(&"derived".to_string()));
+        assert!(types.contains(&"pdbjplus".to_string()));
+        assert!(types.contains(&"bsma".to_string()));
+        assert!(types.contains(&"mmdb".to_string()));
     }
 
     #[test]
     fn test_get_pdbe_data_types() {
         let types = get_pdbe_data_types();
-        assert_eq!(types.len(), 3);
-        assert!(types.contains(&"sifts".to_string()));
-        assert!(types.contains(&"pdbechem".to_string()));
+        assert_eq!(types.len(), 11);
+        assert!(types.contains(&"assemblies".to_string()));
         assert!(types.contains(&"foldseek".to_string()));
+        assert!(types.contains(&"fragment_screening".to_string()));
+        assert!(types.contains(&"graphdb".to_string()));
+        assert!(types.contains(&"nmr".to_string()));
+        assert!(types.contains(&"pdb-assemblies-analysis".to_string()));
+        assert!(types.contains(&"pdb_uncompressed".to_string()));
+        assert!(types.contains(&"pdbechem_v2".to_string()));
+        assert!(types.contains(&"sifts".to_string()));
+        assert!(types.contains(&"status".to_string()));
+        assert!(types.contains(&"updated_mmcif".to_string()));
     }
 
     #[test]
@@ -518,35 +529,37 @@ mod tests {
 
     #[test]
     fn test_build_directory_tree_depth_0() {
-        let subdirs = vec!["data".to_string(), "pdbj".to_string()];
+        let subdirs = vec!["pub".to_string(), "pdbj".to_string()];
         let tree = build_directory_tree(&subdirs, 0);
 
-        assert_eq!(tree.get("data"), Some(&vec![]));
+        assert_eq!(tree.get("pub"), Some(&vec![]));
         assert_eq!(tree.get("pdbj"), Some(&vec![]));
     }
 
     #[test]
     fn test_build_directory_tree_depth_1() {
-        let subdirs = vec!["data".to_string()];
+        let subdirs = vec!["pub".to_string()];
         let tree = build_directory_tree(&subdirs, 1);
 
-        let paths = tree.get("data").unwrap();
+        let paths = tree.get("pub").unwrap();
         assert!(!paths.is_empty());
-        assert!(paths.iter().any(|p| p == "data/structures"));
-        assert!(paths.iter().any(|p| p == "data/assemblies"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/assemblies"));
+        assert!(paths.iter().any(|p| p == "pub/emdb"));
+        assert!(paths.iter().any(|p| p == "pub/pdb_ihm"));
         assert!(!paths.iter().any(|p| p.contains("divided"))); // depth 1 shouldn't have layouts
     }
 
     #[test]
     fn test_build_directory_tree_depth_2() {
-        let subdirs = vec!["data".to_string()];
+        let subdirs = vec!["pub".to_string()];
         let tree = build_directory_tree(&subdirs, 2);
 
-        let paths = tree.get("data").unwrap();
-        assert!(paths.iter().any(|p| p == "data/structures"));
-        assert!(paths.iter().any(|p| p == "data/structures/divided"));
-        assert!(paths.iter().any(|p| p == "data/structures/all"));
-        assert!(paths.iter().any(|p| p == "data/assemblies/divided"));
+        let paths = tree.get("pub").unwrap();
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/divided"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/all"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/assemblies/divided"));
     }
 
     #[test]
@@ -564,10 +577,11 @@ mod tests {
         let tree = build_directory_tree(&subdirs, 2);
 
         let paths = tree.get("pdbj").unwrap();
-        assert!(paths.iter().any(|p| p == "pdbj/emdb"));
-        assert!(paths.iter().any(|p| p == "pdbj/emdb/divided"));
-        assert!(paths.iter().any(|p| p == "pdbj/pdb_ihm"));
-        assert!(paths.iter().any(|p| p == "pdbj/pdb_ihm/divided"));
+        assert!(paths.iter().any(|p| p == "pdbj/pdbjplus"));
+        assert!(paths.iter().any(|p| p == "pdbj/bsma"));
+        assert!(paths.iter().any(|p| p == "pdbj/mmdb"));
+        // No layouts for PDBj-specific directories (flat structure)
+        assert!(!paths.iter().any(|p| p.contains("divided")));
     }
 
     #[test]
@@ -577,9 +591,11 @@ mod tests {
 
         let paths = tree.get("pdbe").unwrap();
         assert!(paths.iter().any(|p| p == "pdbe/sifts"));
-        assert!(paths.iter().any(|p| p == "pdbe/sifts/divided"));
-        assert!(paths.iter().any(|p| p == "pdbe/pdbechem"));
+        assert!(paths.iter().any(|p| p == "pdbe/pdbechem_v2"));
         assert!(paths.iter().any(|p| p == "pdbe/foldseek"));
+        assert!(paths.iter().any(|p| p == "pdbe/assemblies"));
+        // No layouts for PDBe-specific directories (flat structure)
+        assert!(!paths.iter().any(|p| p.contains("divided")));
     }
 
     #[test]
@@ -592,7 +608,7 @@ mod tests {
     #[test]
     fn test_validate_dir_name_valid() {
         // Valid names should pass
-        assert!(validate_dir_name("data").is_ok());
+        assert!(validate_dir_name("pub").is_ok());
         assert!(validate_dir_name("myproject").is_ok());
         assert!(validate_dir_name("test-dir").is_ok());
         assert!(validate_dir_name("test_dir").is_ok());
@@ -665,16 +681,16 @@ mod tests {
 
     #[test]
     fn test_build_directory_tree_depth_3() {
-        let subdirs = vec!["data".to_string()];
+        let subdirs = vec!["pub".to_string()];
         let tree = build_directory_tree(&subdirs, 3);
 
-        let paths = tree.get("data").unwrap();
-        // Should have format subdirectories
-        assert!(paths.iter().any(|p| p == "data/structures/divided/mmCIF"));
-        assert!(paths.iter().any(|p| p == "data/structures/divided/PDB"));
-        assert!(paths.iter().any(|p| p == "data/structures/all/mmCIF"));
-        assert!(paths.iter().any(|p| p == "data/structures/all/PDB"));
-        assert!(paths.iter().any(|p| p == "data/assemblies/divided/mmCIF"));
+        let paths = tree.get("pub").unwrap();
+        // Should have format subdirectories (pdb is lowercase to match rsync)
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/divided/mmCIF"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/divided/pdb"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/all/mmCIF"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/all/pdb"));
+        assert!(paths.iter().any(|p| p == "pub/pdb/data/assemblies/divided/mmCIF"));
     }
 
     #[test]
@@ -682,6 +698,6 @@ mod tests {
         let formats = get_format_subdirs();
         assert_eq!(formats.len(), 2);
         assert!(formats.contains(&"mmCIF".to_string()));
-        assert!(formats.contains(&"PDB".to_string()));
+        assert!(formats.contains(&"pdb".to_string()));  // lowercase to match rsync
     }
 }
