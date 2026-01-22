@@ -26,7 +26,7 @@ static EXTENDED_REGEX: LazyLock<Regex> =
 ///
 /// // Extended format: "pdb_" prefix + 8 alphanumeric characters
 /// let extended = PdbId::new("pdb_00001abc").unwrap();
-/// assert!(extended.is_extended());
+/// assert!(!extended.is_classic());
 /// assert_eq!(extended.middle_chars(), "00");  // positions 6-7
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -88,24 +88,6 @@ impl PdbId {
     pub fn is_classic(&self) -> bool {
         matches!(self, PdbId::Classic(_))
     }
-
-    /// Returns true if this is an extended 12-character PDB ID.
-    #[allow(dead_code)]
-    pub fn is_extended(&self) -> bool {
-        matches!(self, PdbId::Extended(_))
-    }
-
-    /// Returns the short form of the ID for filename construction.
-    ///
-    /// - Classic IDs: returns the full ID (e.g., "1abc")
-    /// - Extended IDs: returns the full ID (e.g., "pdb_00001abc")
-    ///
-    /// Note: For PDB format files, classic IDs use "pdb{id}.ent.gz" pattern,
-    /// while extended IDs use "{id}.ent.gz" pattern (without "pdb" prefix).
-    #[allow(dead_code)]
-    pub fn short_form(&self) -> &str {
-        self.as_str()
-    }
 }
 
 impl fmt::Display for PdbId {
@@ -140,7 +122,6 @@ mod tests {
     fn test_classic_is_classic() {
         let id = PdbId::new("1abc").unwrap();
         assert!(id.is_classic());
-        assert!(!id.is_extended());
     }
 
     #[test]
@@ -175,13 +156,6 @@ mod tests {
     }
 
     #[test]
-    fn test_extended_is_extended() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        assert!(id.is_extended());
-        assert!(!id.is_classic());
-    }
-
-    #[test]
     fn test_extended_normalization() {
         let id = PdbId::new("PDB_00001ABC").unwrap();
         assert_eq!(id.as_str(), "pdb_00001abc");
@@ -212,12 +186,6 @@ mod tests {
     fn test_extended_display() {
         let id = PdbId::new("pdb_00001abc").unwrap();
         assert_eq!(format!("{}", id), "pdb_00001abc");
-    }
-
-    #[test]
-    fn test_extended_short_form() {
-        let id = PdbId::new("pdb_00001abc").unwrap();
-        assert_eq!(id.short_form(), "pdb_00001abc");
     }
 
     // === Invalid format tests ===
@@ -259,7 +227,7 @@ mod tests {
     #[test]
     fn test_from_str_extended() {
         let id: PdbId = "pdb_00001abc".parse().unwrap();
-        assert!(id.is_extended());
+        assert!(!id.is_classic());
         assert_eq!(id.as_str(), "pdb_00001abc");
     }
 

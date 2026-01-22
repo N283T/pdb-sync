@@ -4,7 +4,6 @@ use colored::Colorize;
 
 /// Message type for different levels of output
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub enum MessageType {
     Success,
     Error,
@@ -47,18 +46,6 @@ pub fn success(message: &str) {
     println!("{}", MessageType::Success.format(message));
 }
 
-/// Print an error message (red)
-#[allow(dead_code)]
-pub fn error(message: &str) {
-    eprintln!("{}", MessageType::Error.format(message));
-}
-
-/// Print a warning message (yellow)
-#[allow(dead_code)]
-pub fn warning(message: &str) {
-    eprintln!("{}", MessageType::Warning.format(message));
-}
-
 /// Print an info message (blue)
 pub fn info(message: &str) {
     println!("{}", MessageType::Info.format(message));
@@ -72,16 +59,4 @@ pub fn hint(message: &str) {
 /// Print a header/title (bold, cyan)
 pub fn header(message: &str) {
     println!("\n{}", message.bold().cyan());
-}
-
-/// Print a section title (bold)
-#[allow(dead_code)]
-pub fn title(message: &str) {
-    println!("\n{}", message.bold());
-}
-
-/// Print a key-value pair
-#[allow(dead_code)]
-pub fn kv(key: &str, value: &str) {
-    println!("  {}: {}", key.bold(), value);
 }

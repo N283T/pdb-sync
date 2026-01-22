@@ -1,4 +1,4 @@
-use crate::data_types::{DataType, Layout};
+use crate::data_types::Layout;
 use crate::mirrors::MirrorId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,15 +19,6 @@ pub struct PathsConfig {
     /// Per-data-type directories (e.g., "structures" -> "/data/pdb/structures")
     #[serde(default)]
     pub data_type_dirs: HashMap<String, PathBuf>,
-}
-
-impl PathsConfig {
-    /// Get the directory for a specific data type, if configured.
-    #[allow(dead_code)]
-    pub fn dir_for(&self, data_type: &DataType) -> Option<&PathBuf> {
-        let key = data_type.to_string();
-        self.data_type_dirs.get(&key)
-    }
 }
 
 /// Custom rsync configuration for user-defined sync targets.
@@ -274,28 +265,6 @@ mod tests {
         // New fields should have defaults
         assert_eq!(config.sync.layout, Layout::Divided);
         assert!(!config.mirror_selection.auto_select);
-    }
-
-    #[test]
-    fn test_data_type_dirs() {
-        let toml_str = r#"
-            [paths]
-            pdb_dir = "/data/pdb"
-
-            [paths.data_type_dirs]
-            structures = "/data/pdb/structures"
-            assemblies = "/data/pdb/assemblies"
-        "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(
-            config.paths.dir_for(&DataType::Structures),
-            Some(&PathBuf::from("/data/pdb/structures"))
-        );
-        assert_eq!(
-            config.paths.dir_for(&DataType::Assemblies),
-            Some(&PathBuf::from("/data/pdb/assemblies"))
-        );
-        assert_eq!(config.paths.dir_for(&DataType::Biounit), None);
     }
 
     #[test]
