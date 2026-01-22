@@ -686,11 +686,19 @@ mod tests {
 
         let paths = tree.get("pub").unwrap();
         // Should have format subdirectories (pdb is lowercase to match rsync)
-        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/divided/mmCIF"));
-        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/divided/pdb"));
-        assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/all/mmCIF"));
+        assert!(paths
+            .iter()
+            .any(|p| p == "pub/pdb/data/structures/divided/mmCIF"));
+        assert!(paths
+            .iter()
+            .any(|p| p == "pub/pdb/data/structures/divided/pdb"));
+        assert!(paths
+            .iter()
+            .any(|p| p == "pub/pdb/data/structures/all/mmCIF"));
         assert!(paths.iter().any(|p| p == "pub/pdb/data/structures/all/pdb"));
-        assert!(paths.iter().any(|p| p == "pub/pdb/data/assemblies/divided/mmCIF"));
+        assert!(paths
+            .iter()
+            .any(|p| p == "pub/pdb/data/assemblies/divided/mmCIF"));
     }
 
     #[test]
@@ -698,6 +706,6 @@ mod tests {
         let formats = get_format_subdirs();
         assert_eq!(formats.len(), 2);
         assert!(formats.contains(&"mmCIF".to_string()));
-        assert!(formats.contains(&"pdb".to_string()));  // lowercase to match rsync
+        assert!(formats.contains(&"pdb".to_string())); // lowercase to match rsync
     }
 }
