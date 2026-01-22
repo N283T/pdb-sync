@@ -172,6 +172,16 @@ pub enum PdbSyncError {
     /// Job-related errors.
     #[error("Job error: {0}")]
     Job(String),
+
+    /// Task join errors.
+    #[error("Task join error: {0}")]
+    TaskJoin(String),
+}
+
+impl From<tokio::task::JoinError> for PdbSyncError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        PdbSyncError::TaskJoin(err.to_string())
+    }
 }
 
 impl PdbSyncError {
