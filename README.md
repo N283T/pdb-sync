@@ -4,6 +4,7 @@ Simple CLI tool for syncing PDB (Protein Data Bank) data from rsync mirrors.
 
 ## Features
 
+- **Built-in profile presets**: Quick setup for common PDB data sources
 - **Custom rsync configs**: Define multiple sync sources in config file
 - **Batch sync**: Run all configured syncs with a single command
 - **Flexible rsync options**: Per-config rsync flag defaults with CLI override support
@@ -50,6 +51,65 @@ pdb-sync sync emdb
 pdb-sync sync --all
 ```
 
+## Profile Presets
+
+Built-in presets for common PDB data sources are available. These allow you to quickly add pre-configured sync sources without manually specifying URLs and options.
+
+### List Available Presets
+
+```bash
+pdb-sync sync profile list
+```
+
+Output:
+```
+Available sync profile presets:
+
+  structures (PDB Structures)
+    Coordinate files (mmCIF format) from wwPDB
+    URL: rsync://rsync.wwpdb.org/ftp_data/structures/divided/mmCIF/
+
+  assemblies (PDB Assemblies)
+    Biological assembly files from wwPDB
+    URL: rsync://rsync.wwpdb.org/ftp_data/assemblies/mmCIF/divided/
+
+  emdb (EMDB Entries)
+    Electron Microscopy Data Bank entries from PDBj
+    URL: data.pdbj.org::rsync/pub/emdb/
+
+  sifts (SIFTS Mapping)
+    Structure-to-function mappings from PDBe
+    URL: rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/
+```
+
+### Show Preset Details
+
+```bash
+pdb-sync sync profile show structures
+```
+
+### Add Preset to Configuration
+
+```bash
+# Add preset (preview without changes)
+pdb-sync sync profile add structures --dry-run
+
+# Add preset to config
+pdb-sync sync profile add structures
+
+# Overwrite existing config with same name
+pdb-sync sync profile add structures --force
+```
+
+### Available Presets
+
+| Preset | Description | URL |
+|--------|-------------|-----|
+| `structures` | PDB coordinate files (mmCIF) | rsync://rsync.wwpdb.org/ftp_data/structures/divided/mmCIF/ |
+| `assemblies` | Biological assemblies | rsync://rsync.wwpdb.org/ftp_data/assemblies/mmCIF/divided/ |
+| `emdb` | EMDB entries | data.pdbj.org::rsync/pub/emdb/ |
+| `sifts` | SIFTS mappings | rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/ |
+
 ## Usage
 
 ```
@@ -74,6 +134,11 @@ Options:
   --rsync-quiet       Quiet rsync output
   -v, --verbose       Enable verbose output
   -h, --help          Print help
+
+Profile Subcommands:
+  pdb-sync sync profile list
+  pdb-sync sync profile show <name>
+  pdb-sync sync profile add <name> [--dry-run] [--force]
 ```
 
 ## Configuration
