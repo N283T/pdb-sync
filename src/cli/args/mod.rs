@@ -4,7 +4,9 @@
 //! - [`enums`]: ValueEnum types (OutputFormat, SyncFormat, etc.)
 //! - [`global`]: Global CLI structures and STYLES constant
 //! - [`sync`]: Sync command arguments
+//! - [`config`]: Config command arguments
 
+pub mod config;
 mod enums;
 pub mod env;
 mod global;
