@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     // Dispatch to command
     match cli.command {
         SyncCommand::Sync(args) => {
-            cli::args::sync::run_sync(args, ctx).await?;
+            cli::args::sync::run_sync(*args, ctx).await?;
         }
         SyncCommand::Env(args) => {
             cli::args::env::run_env(args, ctx).await?;
