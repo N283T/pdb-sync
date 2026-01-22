@@ -112,8 +112,8 @@ async fn sync_pdbj_data_type(
         base_url
     };
 
-    // Build destination path (create subdirectory based on data type)
-    let dest_path = dest.join(data_type.rsync_module());
+    // Build destination path using dest_subdir() which routes pub/ vs pdbj/
+    let dest_path = dest.join(data_type.dest_subdir());
 
     // Build rsync command
     let mut cmd = Command::new("rsync");
