@@ -29,7 +29,16 @@ impl AppContext {
 
         // Mirror selection priority: ENV > auto-select > config
         let mirror = if let Ok(env_mirror) = std::env::var("PDB_SYNC_MIRROR") {
-            env_mirror.parse().unwrap_or(config.sync.mirror)
+            match env_mirror.parse() {
+                Ok(id) => id,
+                Err(_) => {
+                    tracing::warn!(
+                        "Invalid PDB_SYNC_MIRROR value '{}', using config default",
+                        env_mirror
+                    );
+                    config.sync.mirror
+                }
+            }
         } else if config.mirror_selection.auto_select {
             let ttl = Duration::from_secs(config.mirror_selection.latency_cache_ttl);
             let preferred = config.mirror_selection.preferred_region.as_deref();
