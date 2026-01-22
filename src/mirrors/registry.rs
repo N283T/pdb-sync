@@ -84,12 +84,18 @@ impl Mirror {
 
     /// Build the rsync source URL for a given subpath
     pub fn rsync_url(&self, subpath: &str) -> String {
-        match self.rsync_port {
-            Some(port) => format!(
-                "{}:{}/{}/{}",
-                self.rsync_host, port, self.rsync_module, subpath
-            ),
-            None => format!("{}/{}/{}", self.rsync_host, self.rsync_module, subpath),
+        match self.id {
+            MirrorId::Pdbj => {
+                // PDBj standard wwPDB data is under pub/pdb/data/
+                format!("{}::rsync/pub/pdb/data/{}", self.rsync_host, subpath)
+            }
+            _ => match self.rsync_port {
+                Some(port) => format!(
+                    "{}:{}/{}/{}",
+                    self.rsync_host, port, self.rsync_module, subpath
+                ),
+                None => format!("{}/{}/{}", self.rsync_host, self.rsync_module, subpath),
+            },
         }
     }
 
@@ -162,13 +168,28 @@ impl Mirror {
     /// Get PDBj-specific rsync URL (only valid for PDBj mirror).
     ///
     /// Returns `None` if called on a non-PDBj mirror.
+    ///
+    /// Uses data.pdbj.org::rsync/{path}/ format where:
+    /// - pub/ data: data.pdbj.org::rsync/pub/{module}/
+    /// - pdbj/ data: data.pdbj.org::rsync/{directory}/
     pub fn pdbj_rsync_url(&self, data_type: PdbjDataType) -> Option<String> {
         if self.id != MirrorId::Pdbj {
             return None;
         }
-        // Extract host from rsync_host (which has format "rsync://host")
-        let host = self.rsync_host.trim_start_matches("rsync://");
-        Some(format!("rsync://{}/{}/", host, data_type.rsync_module()))
+        // data.pdbj.org::rsync/{path}/
+        let host = self.rsync_host; // "data.pdbj.org"
+        let module = self.rsync_module; // "rsync"
+
+        // Build path based on data type
+        let path = if data_type.is_pub_data() {
+            // pub/ data: pub/emdb/, pub/pdb_ihm/, pub/derived_data/
+            format!("{}/", data_type.dest_subdir())
+        } else {
+            // pdbj/ data: bsma/, efsite/, etc.
+            format!("{}/", data_type.dest_subdir())
+        };
+
+        Some(format!("{}::{}/{}", host, module, path))
     }
 
     /// Get PDBe-specific rsync URL (only valid for PDBe mirror).
@@ -195,13 +216,15 @@ static RCSB_MIRROR: Mirror = Mirror {
     https_base: "https://files.rcsb.org/download",
 };
 
-// PDBj: rsync://rsync.pdbj.org/ftp_data/structures/divided/
+// PDBj: data.pdbj.org::rsync/{path}/
+// Root contains: bsma, efsite, pdb_nextgen, pdb_versioned, pdbjplus, promode, pub, uniprot, xrda
+// pub/ contains: emdb, pdb (wwPDB common data), pdb_ihm
 static PDBJ_MIRROR: Mirror = Mirror {
     id: MirrorId::Pdbj,
     name: "PDBj",
     region: "Japan",
-    rsync_host: "rsync://rsync.pdbj.org",
-    rsync_module: "ftp_data",
+    rsync_host: "data.pdbj.org",
+    rsync_module: "rsync",
     rsync_port: None,
     https_base: "https://pdbj.org/rest/downloadPDBfile",
 };
@@ -251,7 +274,7 @@ mod tests {
         let pdbj = Mirror::get(MirrorId::Pdbj);
         assert_eq!(
             pdbj.rsync_url("structures/divided/mmCIF/"),
-            "rsync://rsync.pdbj.org/ftp_data/structures/divided/mmCIF/"
+            "data.pdbj.org::rsync/pub/pdb/data/structures/divided/mmCIF/"
         );
 
         let pdbe = Mirror::get(MirrorId::Pdbe);
@@ -327,17 +350,36 @@ mod tests {
 
         let pdbj = Mirror::get(MirrorId::Pdbj);
 
+        // pub/ data (wwPDB common)
         assert_eq!(
             pdbj.pdbj_rsync_url(PdbjDataType::Emdb),
-            Some("rsync://rsync.pdbj.org/emdb/".to_string())
+            Some("data.pdbj.org::rsync/pub/emdb/".to_string())
         );
         assert_eq!(
             pdbj.pdbj_rsync_url(PdbjDataType::PdbIhm),
-            Some("rsync://rsync.pdbj.org/pdb_ihm/".to_string())
+            Some("data.pdbj.org::rsync/pub/pdb_ihm/".to_string())
         );
         assert_eq!(
             pdbj.pdbj_rsync_url(PdbjDataType::Derived),
-            Some("rsync://rsync.pdbj.org/ftp_derived/".to_string())
+            Some("data.pdbj.org::rsync/pub/derived_data/".to_string())
+        );
+
+        // pdbj/ data (PDBj-specific)
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::Bsma),
+            Some("data.pdbj.org::rsync/pdbj/bsma/".to_string())
+        );
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::Efsite),
+            Some("data.pdbj.org::rsync/pdbj/efsite/".to_string())
+        );
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::PdbNextgen),
+            Some("data.pdbj.org::rsync/pdbj/pdb_nextgen/".to_string())
+        );
+        assert_eq!(
+            pdbj.pdbj_rsync_url(PdbjDataType::PdbVersioned),
+            Some("data.pdbj.org::rsync/pdbj/pdb_versioned/".to_string())
         );
     }
 

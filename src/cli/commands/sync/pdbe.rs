@@ -112,13 +112,8 @@ async fn sync_pdbe_data_type(
         base_url
     };
 
-    // Build destination path (create subdirectory based on data type)
-    let dest_subdir = match data_type {
-        PdbeDataType::Sifts => "sifts",
-        PdbeDataType::Pdbechem => "pdbechem_v2",
-        PdbeDataType::Foldseek => "foldseek",
-    };
-    let dest_path = dest.join(dest_subdir);
+    // Build destination path using dest_subdir() which returns pdbe/ subdirectory name
+    let dest_path = dest.join("pdbe").join(data_type.dest_subdir());
 
     // Build rsync command
     let mut cmd = Command::new("rsync");
