@@ -16,10 +16,6 @@ pub struct SyncArgs {
     #[arg(long)]
     pub all: bool,
 
-    /// Show detailed progress
-    #[arg(short = 'P', long)]
-    pub progress: bool,
-
     /// Override destination directory
     #[arg(short, long)]
     pub dest: Option<std::path::PathBuf>,
