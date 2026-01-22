@@ -40,5 +40,4 @@ impl ConfigLoader {
         let config: Config = toml::from_str(&content)?;
         Ok(config)
     }
-
 }
