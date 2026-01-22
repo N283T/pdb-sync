@@ -240,9 +240,15 @@ async fn run_sequential(
                 results.push(SyncResult::success(name, start.elapsed()));
             }
             Err(e) => {
+                // Extract exit code from Rsync errors
+                let exit_code = if let PdbSyncError::Rsync { exit_code, .. } = e {
+                    exit_code
+                } else {
+                    None
+                };
                 results.push(SyncResult::failed(
                     name,
-                    None,
+                    exit_code,
                     e.to_string(),
                     start.elapsed(),
                 ));
@@ -275,7 +281,15 @@ async fn run_parallel(
 
             match run_sync_with_prefix(&name, args_clone, ctx_clone).await {
                 Ok(_) => SyncResult::success(name, start.elapsed()),
-                Err(e) => SyncResult::failed(name, None, e.to_string(), start.elapsed()),
+                Err(e) => {
+                    // Extract exit code from Rsync errors
+                    let exit_code = if let PdbSyncError::Rsync { exit_code, .. } = e {
+                        exit_code
+                    } else {
+                        None
+                    };
+                    SyncResult::failed(name, exit_code, e.to_string(), start.elapsed())
+                }
             }
         });
 
