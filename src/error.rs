@@ -39,9 +39,6 @@ pub enum PdbSyncError {
         url: String,
         /// Error message
         message: String,
-        /// Underlying reqwest error
-        #[source]
-        source: Option<reqwest::Error>,
         /// Whether this error is retriable
         is_retriable: bool,
     },
@@ -222,25 +219,6 @@ impl PdbSyncError {
     }
 }
 
-// ===== Backward compatibility: Legacy error constructors =====
-
-impl From<reqwest::Error> for PdbSyncError {
-    fn from(err: reqwest::Error) -> Self {
-        // Determine if retriable based on error type
-        let is_retriable = err.is_timeout() || err.is_connect();
-
-        PdbSyncError::Network {
-            url: err
-                .url()
-                .map(|u| u.to_string())
-                .unwrap_or_else(|| "unknown".to_string()),
-            message: err.to_string(),
-            source: Some(err),
-            is_retriable,
-        }
-    }
-}
-
 /// Result type alias for pdb-sync.
 pub type Result<T> = std::result::Result<T, PdbSyncError>;
 
@@ -253,7 +231,6 @@ mod tests {
         let err = PdbSyncError::Network {
             url: "https://example.com".to_string(),
             message: "timeout".to_string(),
-            source: None,
             is_retriable: true,
         };
         assert!(err.is_retriable());
@@ -264,7 +241,6 @@ mod tests {
         let err = PdbSyncError::Network {
             url: "https://example.com".to_string(),
             message: "404 Not Found".to_string(),
-            source: None,
             is_retriable: false,
         };
         assert!(!err.is_retriable());
@@ -323,7 +299,6 @@ mod tests {
         let err = PdbSyncError::Network {
             url: "https://example.com".to_string(),
             message: "error".to_string(),
-            source: None,
             is_retriable: false,
         };
         assert_eq!(err.pdb_id(), None);

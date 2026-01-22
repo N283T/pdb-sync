@@ -13,38 +13,17 @@ serde_json = "1.0"
 directories = "5.0"
 thiserror = "2.0"
 anyhow = "1.0"
-reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "json"] }
-tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "signal", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "time"] }
 libc = "0.2"
 indicatif = "0.17"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 regex = "1.10"
-url = "2.5"
-futures-util = "0.3"
-async-compression = { version = "0.4", features = ["tokio", "gzip"] }
-glob = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-md-5 = "0.10"
 humantime = "2"
-which = "7.0"
-tempfile = "3.10"
 thousands = "0.2"
 colored = "2.1"
 
-[dependencies.notify-rust]
-version = "4"
-optional = true
-
-[dependencies.lettre]
-version = "0.11"
-default-features = false
-features = ["tokio1-rustls-tls", "smtp-transport", "builder"]
-optional = true
-
-[features]
-default = []
-desktop-notify = ["notify-rust"]
-email-notify = ["lettre"]
-
 [dev-dependencies]
+tempfile = "3.10"

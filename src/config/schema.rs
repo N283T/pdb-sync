@@ -9,7 +9,6 @@ use std::path::PathBuf;
 pub struct Config {
     pub paths: PathsConfig,
     pub sync: SyncConfig,
-    pub download: DownloadConfig,
     pub mirror_selection: MirrorSelectionConfig,
 }
 
@@ -169,36 +168,6 @@ impl Default for SyncConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct DownloadConfig {
-    pub auto_decompress: bool,
-    pub parallel: usize,
-    pub default_format: String,
-    /// Number of retry attempts for failed downloads
-    pub retry_count: u32,
-    /// Download engine: "builtin" or "aria2c"
-    pub engine: String,
-    /// Number of connections per server for aria2c (-x flag)
-    pub aria2c_connections: u32,
-    /// Number of splits per download for aria2c (-s flag)
-    pub aria2c_split: u32,
-}
-
-impl Default for DownloadConfig {
-    fn default() -> Self {
-        Self {
-            auto_decompress: true,
-            parallel: 4,
-            default_format: "mmcif".to_string(),
-            retry_count: 3,
-            engine: "builtin".to_string(),
-            aria2c_connections: 4,
-            aria2c_split: 1,
-        }
-    }
-}
-
 /// Configuration for automatic mirror selection based on latency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -251,9 +220,7 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert_eq!(config.sync.mirror, MirrorId::Rcsb);
-        assert_eq!(config.download.parallel, 4);
         assert_eq!(config.sync.layout, Layout::Divided);
-        assert_eq!(config.download.retry_count, 3);
         assert!(!config.mirror_selection.auto_select);
     }
 
@@ -276,11 +243,6 @@ mod tests {
             bwlimit = 1000
             layout = "all"
 
-            [download]
-            auto_decompress = false
-            parallel = 8
-            retry_count = 5
-
             [mirror_selection]
             auto_select = true
             preferred_region = "jp"
@@ -290,9 +252,6 @@ mod tests {
         assert_eq!(config.sync.mirror, MirrorId::Pdbj);
         assert_eq!(config.sync.bwlimit, 1000);
         assert_eq!(config.sync.layout, Layout::All);
-        assert!(!config.download.auto_decompress);
-        assert_eq!(config.download.parallel, 8);
-        assert_eq!(config.download.retry_count, 5);
         assert!(config.mirror_selection.auto_select);
         assert_eq!(
             config.mirror_selection.preferred_region,
@@ -310,15 +269,10 @@ mod tests {
             [sync]
             mirror = "pdbj"
             bwlimit = 1000
-
-            [download]
-            auto_decompress = false
-            parallel = 8
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         // New fields should have defaults
         assert_eq!(config.sync.layout, Layout::Divided);
-        assert_eq!(config.download.retry_count, 3);
         assert!(!config.mirror_selection.auto_select);
     }
 
