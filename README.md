@@ -59,10 +59,11 @@ Arguments:
   [NAME]  Name of custom sync config to run (runs all if not specified)
 
 Options:
-  -a, --all           Run all custom sync configs
-  -d, --dest <DIR>    Override destination directory
-  -v, --verbose       Enable verbose output
-  -h, --help          Print help
+  -a, --all              Run all custom sync configs
+  -d, --dest <DIR>       Override destination directory
+  --parallel <N>         Maximum concurrent sync processes [default: 1]
+  -v, --verbose          Enable verbose output
+  -h, --help             Print help
 ```
 
 ## Configuration
@@ -186,6 +187,9 @@ pdb-sync sync structures --dest /mnt/c/pdb
 
 # Run all syncs
 pdb-sync sync --all
+
+# Run with 3 concurrent syncs
+pdb-sync sync --all --parallel 3
 
 # Verbose mode
 pdb-sync sync -v --all
