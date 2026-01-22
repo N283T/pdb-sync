@@ -10,6 +10,7 @@ mod context;
 mod mirrors;
 mod sync;
 
+use cli::args::{run_sync, run_validate};
 use cli::{parse_cli, SyncCommand};
 use context::AppContext;
 use tracing_subscriber::EnvFilter;
@@ -35,10 +36,13 @@ async fn main() -> anyhow::Result<()> {
         .await?
         .with_overrides(cli.pdb_dir.clone(), None);
 
-    // Dispatch to sync command
+    // Dispatch to command
     match cli.command {
         SyncCommand::Sync(args) => {
-            cli::args::sync::run_sync(args, ctx).await?;
+            run_sync(args, ctx).await?;
+        }
+        SyncCommand::ConfigValidate(args) => {
+            run_validate(args, ctx).await?;
         }
     }
 

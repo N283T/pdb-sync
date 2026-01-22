@@ -4,7 +4,9 @@
 //! - [`enums`]: ValueEnum types (OutputFormat, SyncFormat, etc.)
 //! - [`global`]: Global CLI structures and STYLES constant
 //! - [`sync`]: Sync command arguments
+//! - [`config`]: Config command arguments
 
+pub mod config;
 mod enums;
 mod global;
 pub mod sync;
@@ -13,4 +15,7 @@ pub mod sync;
 pub use global::{parse_cli, SyncCommand};
 
 // Sync-related arguments
-pub use sync::SyncArgs;
+pub use sync::{run_sync, SyncArgs};
+
+// Config-related arguments
+pub use config::run_validate;

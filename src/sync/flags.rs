@@ -376,7 +376,7 @@ impl RsyncFlags {
 /// Validate a size string for rsync (--max-size, --min-size).
 ///
 /// Valid formats: "100", "100K", "100M", "1G", etc.
-fn validate_size_string(s: &str) -> Result<()> {
+pub fn validate_size_string(s: &str) -> Result<()> {
     let s = s.trim();
 
     if s.is_empty() {
@@ -414,7 +414,7 @@ fn validate_size_string(s: &str) -> Result<()> {
 /// Validate chmod string format.
 ///
 /// Basic validation - checks for common chmod patterns like "D755", "F644", etc.
-fn validate_chmod_string(s: &str) -> Result<()> {
+pub fn validate_chmod_string(s: &str) -> Result<()> {
     let s = s.trim();
 
     if s.is_empty() {
