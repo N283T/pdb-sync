@@ -172,6 +172,16 @@ pub enum PdbSyncError {
     /// Job-related errors.
     #[error("Job error: {0}")]
     Job(String),
+
+    /// Stats parsing errors.
+    #[error("Failed to parse rsync stats: {message}")]
+    StatsParse {
+        /// Error message
+        message: String,
+        /// Underlying error if available
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 }
 
 impl PdbSyncError {

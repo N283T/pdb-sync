@@ -12,5 +12,8 @@ pub mod sync;
 // Re-export global CLI types (for external use by main.rs)
 pub use global::{parse_cli, SyncCommand};
 
+// Re-export enums (for use by commands)
+pub use enums::OutputFormat;
+
 // Sync-related arguments
 pub use sync::SyncArgs;

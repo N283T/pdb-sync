@@ -1,5 +1,6 @@
 //! Sync command arguments.
 
+use crate::cli::args::OutputFormat;
 use crate::context::AppContext;
 use crate::error::Result;
 use crate::sync::RsyncFlags;
@@ -19,12 +20,25 @@ pub struct SyncArgs {
     /// Override destination directory
     #[arg(short, long)]
     pub dest: Option<std::path::PathBuf>,
+
+    /// Show what would change (plan mode)
+    #[arg(long)]
+    pub plan: bool,
+
+    /// Output format for plan mode
+    #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+    pub output: OutputFormat,
 }
 
 impl SyncArgs {
     /// Convert args to rsync flags (for CLI override functionality)
     pub fn to_rsync_flags(&self) -> RsyncFlags {
         RsyncFlags::default()
+    }
+
+    /// Check if plan mode is enabled
+    pub fn is_plan_mode(&self) -> bool {
+        self.plan
     }
 }
 
