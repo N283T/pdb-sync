@@ -2,7 +2,7 @@
 //!
 //! This module defines the TOML configuration structure with support for:
 //! - **Preset-based configs**: Use built-in presets like "safe", "fast"
-//! - **Nested options**: Override specific flags with `[sync.custom.options]`
+//! - **Nested options**: Override specific flags with `[sync.custom.NAME.options]`
 //! - **Legacy format**: Backward compatible with old `rsync_*` fields
 //!
 //! # Examples
@@ -10,8 +10,7 @@
 //! ## Preset-Only Config
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "structures"
+//! [sync.custom.structures]
 //! url = "rsync.wwpdb.org::ftp_data/structures/"
 //! dest = "data/structures"
 //! preset = "fast"
@@ -20,13 +19,12 @@
 //! ## Preset + Override
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "structures"
+//! [sync.custom.structures]
 //! url = "rsync.wwpdb.org::ftp_data/structures/"
 //! dest = "data/structures"
 //! preset = "fast"
 //!
-//! [sync.custom.options]
+//! [sync.custom.structures.options]
 //! max_size = "5GB"
 //! exclude = ["obsolete/"]
 //! ```
@@ -34,12 +32,11 @@
 //! ## Fully Custom
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "sifts"
+//! [sync.custom.sifts]
 //! url = "rsync.wwpdb.org::ftp_data/sifts/"
 //! dest = "data/sifts"
 //!
-//! [sync.custom.options]
+//! [sync.custom.sifts.options]
 //! delete = true
 //! compress = true
 //! checksum = true

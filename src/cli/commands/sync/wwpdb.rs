@@ -308,7 +308,11 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     // Otherwise run sequentially
     let mut all_success = true;
 
-    for name in custom_configs.keys() {
+    // Sort keys for deterministic execution order
+    let mut names: Vec<_> = custom_configs.keys().collect();
+    names.sort();
+
+    for name in names {
         let result = run_custom(name.clone(), args.clone(), ctx.clone()).await;
 
         match result {
@@ -351,7 +355,11 @@ async fn run_custom_all_parallel(
     // Use JoinSet for better task management
     let mut join_set = JoinSet::new();
 
-    for name in custom_configs.keys() {
+    // Sort keys for deterministic execution order
+    let mut names: Vec<_> = custom_configs.keys().collect();
+    names.sort();
+
+    for name in names {
         let name = name.clone();
         let args_clone = args.clone();
         let ctx_clone = ctx.clone();
