@@ -1,4 +1,39 @@
 //! Built-in sync profile presets and rsync flag presets.
+//!
+//! This module provides:
+//! - **Profile presets**: Common PDB data sources (structures, assemblies, emdb, sifts)
+//! - **Rsync flag presets**: Common flag combinations (safe, fast, minimal, conservative)
+//!
+//! # Examples
+//!
+//! ## Using Rsync Flag Presets in Config
+//!
+//! ```toml
+//! [[sync.custom]]
+//! name = "structures"
+//! url = "rsync.wwpdb.org::ftp_data/structures/"
+//! dest = "data/structures"
+//! preset = "fast"  # Uses: delete=true, compress=true, checksum=false, partial=true
+//! ```
+//!
+//! ## Available Presets
+//!
+//! - **safe**: No delete, compress, checksum, partial (for first-time sync)
+//! - **fast**: Delete, compress, no checksum, partial (for regular updates)
+//! - **minimal**: Bare minimum flags (full manual control)
+//! - **conservative**: No delete, compress, checksum, partial, backup (production use)
+//!
+//! ## Programmatic Usage
+//!
+//! ```rust
+//! use pdb_sync::sync::presets::RsyncPreset;
+//!
+//! let preset = RsyncPreset::Safe;
+//! let flags = preset.to_flags();
+//! assert!(flags.compress);
+//! assert!(flags.checksum);
+//! assert!(!flags.delete);
+//! ```
 
 use super::RsyncFlags;
 use serde::{Deserialize, Serialize};

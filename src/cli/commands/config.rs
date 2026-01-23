@@ -1,9 +1,53 @@
 //! Config management commands.
+//!
+//! This module provides commands for managing pdb-sync configuration files:
+//! - **migrate**: Convert old `rsync_*` format to new preset/nested format
+//! - **validate**: Check config file syntax and preset names
+//! - **presets**: List available rsync flag presets
+//!
+//! # Examples
+//!
+//! ## Migrating Old Config
+//!
+//! ```bash
+//! # Preview migration without modifying file
+//! pdb-sync config migrate --dry-run
+//!
+//! # Actually migrate (creates backup as .toml.bak)
+//! pdb-sync config migrate
+//! ```
+//!
+//! ## Validating Config
+//!
+//! ```bash
+//! # Validate default config
+//! pdb-sync config validate
+//!
+//! # Validate specific config file
+//! pdb-sync config validate --config-path /path/to/config.toml
+//! ```
+//!
+//! ## Listing Presets
+//!
+//! ```bash
+//! pdb-sync config presets
+//! ```
 
 use crate::config::schema::{Config, CustomRsyncConfig, RsyncOptionsConfig};
 use crate::error::{PdbSyncError, Result};
 use crate::sync::{list_rsync_presets, RsyncFlags, RsyncPreset};
 use std::path::PathBuf;
+
+/// Result of a migration attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MigrationType {
+    /// Config was migrated to preset format
+    ToPreset,
+    /// Config was migrated to nested [options] format
+    ToNested,
+    /// Config is already using new format
+    AlreadyNew,
+}
 
 /// Config subcommand variants.
 #[derive(Debug, Clone)]
@@ -61,17 +105,36 @@ async fn run_migrate(config_path: Option<PathBuf>, dry_run: bool) -> Result<()> 
     })?;
 
     // Migrate custom rsync configs
-    let mut migrated = false;
+    let mut migrated_count = 0;
+    let mut preset_count = 0;
+    let mut nested_count = 0;
+
+    println!("\nMigrating custom rsync configs:");
     for custom in &mut config.sync.custom {
-        if try_migrate_custom_config(custom) {
-            migrated = true;
+        match try_migrate_custom_config(custom) {
+            MigrationType::ToPreset => {
+                migrated_count += 1;
+                preset_count += 1;
+            }
+            MigrationType::ToNested => {
+                migrated_count += 1;
+                nested_count += 1;
+            }
+            MigrationType::AlreadyNew => {
+                // Skip
+            }
         }
     }
 
-    if !migrated {
+    if migrated_count == 0 {
         println!("No migration needed - config is already using new format or has no custom rsync configs.");
         return Ok(());
     }
+
+    println!("\nMigration summary:");
+    println!("  {} configs migrated", migrated_count);
+    println!("  {} → preset format", preset_count);
+    println!("  {} → nested [options] format", nested_count);
 
     // Serialize migrated config
     let new_content = toml::to_string_pretty(&config).map_err(|e| PdbSyncError::Config {
@@ -84,6 +147,17 @@ async fn run_migrate(config_path: Option<PathBuf>, dry_run: bool) -> Result<()> 
         println!("\n=== DRY RUN - Migrated config (not written to file) ===\n");
         println!("{}", new_content);
     } else {
+        // Create backup before modifying
+        let backup_path = config_path.with_extension("toml.bak");
+        tokio::fs::copy(&config_path, &backup_path)
+            .await
+            .map_err(|e| PdbSyncError::Config {
+                message: format!("Failed to create backup: {}", e),
+                key: None,
+                source: Some(Box::new(e)),
+            })?;
+        println!("Created backup at: {}", backup_path.display());
+
         // Write back to file
         tokio::fs::write(&config_path, &new_content)
             .await
@@ -100,11 +174,11 @@ async fn run_migrate(config_path: Option<PathBuf>, dry_run: bool) -> Result<()> 
 
 /// Try to migrate a custom rsync config to new format.
 ///
-/// Returns true if migration was performed.
-fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> bool {
+/// Returns the type of migration performed.
+fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> MigrationType {
     // If already using preset or options format, skip
     if custom.preset.is_some() || custom.options.is_some() {
-        return false;
+        return MigrationType::AlreadyNew;
     }
 
     // Check if flags match a preset
@@ -123,8 +197,8 @@ fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> bool {
             // Use preset
             custom.preset = Some(preset_name.to_string());
             clear_legacy_fields(custom);
-            println!("  {} → preset = \"{}\"", custom.name, preset_name);
-            return true;
+            println!("  '{}' → preset = \"{}\"", custom.name, preset_name);
+            return MigrationType::ToPreset;
         }
     }
 
@@ -152,8 +226,8 @@ fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> bool {
     });
 
     clear_legacy_fields(custom);
-    println!("  {} → [options] nested format", custom.name);
-    true
+    println!("  '{}' → [options] nested format", custom.name);
+    MigrationType::ToNested
 }
 
 /// Check if two RsyncFlags are equivalent (ignoring bwlimit and dry_run).
