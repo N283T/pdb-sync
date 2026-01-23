@@ -89,9 +89,8 @@ Location: `~/.config/pdb-sync/config.toml`
 
 Key sections:
 - `[paths]`: `pdb_dir`
-- `[sync]`: `mirror`, `bwlimit`, `delete`, `layout`, `data_types`
+- `[sync]`: `defaults`, `custom` (rsync configurations with presets)
 - `[download]`: `default_format`, `auto_decompress`, `parallel`, `retry_count`
-- `[mirror_selection]`: `auto_select`, `preferred_region`, `latency_cache_ttl`
 
 ### PDB ID Support
 
