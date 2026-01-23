@@ -308,7 +308,7 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
     // Otherwise run sequentially
     let mut all_success = true;
 
-    for (name, _custom_config) in &custom_configs {
+    for name in custom_configs.keys() {
         let result = run_custom(name.clone(), args.clone(), ctx.clone()).await;
 
         match result {
@@ -351,7 +351,7 @@ async fn run_custom_all_parallel(
     // Use JoinSet for better task management
     let mut join_set = JoinSet::new();
 
-    for (name, _custom_config) in custom_configs {
+    for name in custom_configs.keys() {
         let name = name.clone();
         let args_clone = args.clone();
         let ctx_clone = ctx.clone();

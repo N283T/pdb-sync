@@ -521,7 +521,10 @@ mod tests {
         assert_eq!(emdb.description, Some("EMDB data".to_string()));
 
         let sifts = config.sync.custom.get("pdbe-sifts").unwrap();
-        assert_eq!(sifts.url, "rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/");
+        assert_eq!(
+            sifts.url,
+            "rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/"
+        );
         assert_eq!(sifts.dest, "pdbe/sifts");
         assert_eq!(sifts.description, None);
     }
