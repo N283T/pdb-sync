@@ -10,6 +10,9 @@ PDB (Protein Data Bank) データを rsync ミラーから同期するための�
 - **自動リトライ**: 指数バックオフ付きで一時的な失敗を自動リトライ
 - **プランモード**: `--plan` で実行前に変更内容をプレビュー
 - **ビルトインプリセット**: よく使われる PDB ソースのクイックスタートプロファイル
+- **rsync フラグプリセット**: 4つのプリセット (safe, fast, minimal, conservative) で簡単設定
+- **柔軟な設定形式**: プリセットのみからフルカスタムまで4つのスタイルをサポート
+- **設定の自動移行**: 古い `rsync_*` 形式から新しいネストフォーマットへ自動変換
 - **柔軟な rsync オプション**: 設定ファイルのデフォルト値を CLI で上書き
 - **進捗表示**: rsync の `--info=progress2` を常に有効化
 
@@ -25,20 +28,27 @@ cargo install --path .
 
 ```toml
 [sync]
-mirror = "rcsb"  # デフォルトミラー（custom には直接使いません）
+mirror = "rcsb"
 
-# カスタム rsync 設定
+# プリセットを使った簡単設定
 [[sync.custom]]
 name = "structures"
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
+preset = "fast"  # fast, safe, minimal, conservative から選択
 
 [[sync.custom]]
 name = "emdb"
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "EMDB (Electron Microscopy Data Bank)"
+preset = "safe"
+
+# またはオプションでカスタマイズ
+[sync.custom.options]
+max_size = "5G"
+exclude = ["obsolete/"]
 ```
 
 2. 同期を実行:
@@ -58,6 +68,8 @@ pdb-sync sync --list
 ```
 
 ## 使い方
+
+### Sync コマンド
 
 ```
 pdb-sync sync [NAME] [OPTIONS]
@@ -117,6 +129,24 @@ Options:
   -h, --help                ヘルプ表示
 ```
 
+### Config コマンド
+
+設定ファイルとプリセットの管理:
+
+```bash
+# 設定ファイルの検証
+pdb-sync config validate
+
+# 古い形式を新しいネスト形式に移行
+pdb-sync config migrate
+
+# 移行のプレビュー表示（ドライラン）
+pdb-sync config migrate --dry-run
+
+# 利用可能な rsync フラグプリセットの一覧表示
+pdb-sync config presets
+```
+
 ### ビルトインプロファイルでクイックスタート
 
 ```bash
@@ -166,20 +196,121 @@ pdb-sync sync structures --retry 3 --retry-delay 5
 
 ### カスタム rsync 設定
 
+`pdb-sync` は3つの設定スタイルをサポートしています:
+
+#### スタイル1: プリセットのみ（最も簡単）
+
+一般的な rsync フラグの組み合わせにビルトインプリセットを使用:
+
 ```toml
 [[sync.custom]]
-name = "my-sync"              # 必須: 一意の識別子
-url = "host::module/path"      # 必須: rsync URL
-dest = "local/path"            # 必須: 出力先（pdb_dir からの相対パス）
-description = "Description"    # 任意
+name = "structures"
+url = "rsync.wwpdb.org::ftp_data/structures/"
+dest = "data/structures"
+preset = "safe"  # safe, fast, minimal, conservative から選択
+```
 
-# 任意の rsync フラグ（設定のデフォルト値）
+#### スタイル2: プリセット + 上書き（推奨）
+
+プリセットから始めて、特定のオプションを上書き:
+
+```toml
+[[sync.custom]]
+name = "structures"
+url = "rsync.wwpdb.org::ftp_data/structures/"
+dest = "data/structures"
+preset = "fast"
+
+[sync.custom.options]
+max_size = "5GB"
+exclude = ["obsolete/"]
+```
+
+#### スタイル3: フルカスタム
+
+すべてのオプションを明示的に定義:
+
+```toml
+[[sync.custom]]
+name = "sifts"
+url = "rsync.wwpdb.org::ftp_data/sifts/"
+dest = "data/sifts"
+
+[sync.custom.options]
+delete = true
+compress = true
+checksum = true
+timeout = 300
+```
+
+#### スタイル4: レガシー形式（後方互換）
+
+古い `rsync_` プレフィックス形式も引き続きサポート:
+
+```toml
+[[sync.custom]]
+name = "legacy"
+url = "example.org::data"
+dest = "data/legacy"
 rsync_delete = true
 rsync_compress = true
-rsync_bwlimit = 1000           # KB/s
-rsync_timeout = 600            # seconds
-rsync_exclude = ["*.tmp", "test/*"]
+rsync_checksum = true
 ```
+
+### rsync フラグプリセット
+
+| プリセット | delete | compress | checksum | backup | 用途 |
+|-----------|--------|----------|----------|--------|------|
+| `safe` | ❌ | ✅ | ✅ | ❌ | 初回同期、慎重なユーザー向け |
+| `fast` | ✅ | ✅ | ❌ | ❌ | 定期更新、速度優先 |
+| `minimal` | ❌ | ❌ | ❌ | ❌ | 最小限、完全制御が必要な場合 |
+| `conservative` | ❌ | ✅ | ✅ | ✅ | 本番環境、最大限の安全性 |
+
+利用可能なプリセットの一覧表示:
+
+```bash
+pdb-sync config presets
+```
+
+### 設定の優先順位
+
+複数の設定スタイルを使用する場合、優先順位は: **options > preset > legacy**
+
+```toml
+[[sync.custom]]
+name = "test"
+url = "example.org::data"
+dest = "data/test"
+
+# Legacy: delete=false
+rsync_delete = false
+
+# Preset "fast": delete=true
+preset = "fast"
+
+# Options: delete=false (最優先)
+[sync.custom.options]
+delete = false
+```
+
+結果: `delete = false` (options から)
+
+### 古い設定の移行
+
+古い `rsync_*` 形式を新しいネスト形式に変換:
+
+```bash
+# ドライラン（変更内容を確認）
+pdb-sync config migrate --dry-run
+
+# 実際に移行
+pdb-sync config migrate
+```
+
+マイグレーションツールは:
+1. フラグがプリセットに一致するか検出 → `preset = "name"` を使用
+2. そうでない場合 → ネストした `[options]` 形式に変換
+3. `rsync_` プレフィックスを除去
 
 ### rsync オプション一覧
 

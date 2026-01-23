@@ -433,6 +433,8 @@ pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
                     url: preset.url.clone(),
                     dest: preset.dest.clone(),
                     description: Some(preset.description.clone()),
+                    preset: None,
+                    options: None,
                     rsync_delete: false,
                     rsync_compress: false,
                     rsync_checksum: false,

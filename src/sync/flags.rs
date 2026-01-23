@@ -149,6 +149,63 @@ impl RsyncFlags {
         Ok(())
     }
 
+    /// Merge two RsyncFlags, with `other` taking priority over `self`.
+    ///
+    /// For `Option` fields: `other` Some values override, None preserves `self`.
+    /// For `bool` fields: `other` true overrides `self`.
+    /// For `Vec` fields: Non-empty `other` overrides, empty preserves `self`.
+    pub fn merge_with(&self, other: &RsyncFlags) -> RsyncFlags {
+        RsyncFlags {
+            // Boolean flags: other=true takes priority
+            delete: if other.delete { true } else { self.delete },
+            compress: if other.compress { true } else { self.compress },
+            checksum: if other.checksum { true } else { self.checksum },
+            partial: if other.partial { true } else { self.partial },
+            backup: if other.backup { true } else { self.backup },
+            itemize_changes: if other.itemize_changes {
+                true
+            } else {
+                self.itemize_changes
+            },
+            verbose: if other.verbose { true } else { self.verbose },
+            quiet: if other.quiet { true } else { self.quiet },
+            dry_run: other.dry_run || self.dry_run,
+
+            // Option fields: other Some overrides, None preserves self
+            bwlimit: other.bwlimit.or(self.bwlimit),
+            partial_dir: other
+                .partial_dir
+                .clone()
+                .or_else(|| self.partial_dir.clone()),
+            max_size: other.max_size.clone().or_else(|| self.max_size.clone()),
+            min_size: other.min_size.clone().or_else(|| self.min_size.clone()),
+            timeout: other.timeout.or(self.timeout),
+            contimeout: other.contimeout.or(self.contimeout),
+            backup_dir: other.backup_dir.clone().or_else(|| self.backup_dir.clone()),
+            chmod: other.chmod.clone().or_else(|| self.chmod.clone()),
+            exclude_from: other
+                .exclude_from
+                .clone()
+                .or_else(|| self.exclude_from.clone()),
+            include_from: other
+                .include_from
+                .clone()
+                .or_else(|| self.include_from.clone()),
+
+            // Vec fields: non-empty other overrides, empty preserves self
+            exclude: if !other.exclude.is_empty() {
+                other.exclude.clone()
+            } else {
+                self.exclude.clone()
+            },
+            include: if !other.include.is_empty() {
+                other.include.clone()
+            } else {
+                self.include.clone()
+            },
+        }
+    }
+
     /// Merge CLI overrides over config defaults.
     ///
     /// CLI overrides take priority over config defaults. `Option` fields allow
@@ -677,5 +734,63 @@ mod tests {
         assert!(args.contains(&"--bwlimit=500".to_string()));
         assert!(args.contains(&"--max-size=1G".to_string()));
         assert!(args.contains(&"--exclude=*.tmp".to_string()));
+    }
+
+    #[test]
+    fn test_merge_with() {
+        let base = RsyncFlags {
+            delete: false,
+            compress: true,
+            checksum: false,
+            bwlimit: Some(1000),
+            max_size: Some("1G".to_string()),
+            exclude: vec!["*.tmp".to_string()],
+            ..Default::default()
+        };
+
+        let override_flags = RsyncFlags {
+            delete: true,
+            compress: false, // Note: bool merge takes other=true, so this won't override
+            checksum: true,
+            max_size: Some("500M".to_string()),
+            min_size: Some("1K".to_string()),
+            ..Default::default()
+        };
+
+        let merged = base.merge_with(&override_flags);
+
+        // Boolean: other=true takes priority
+        assert!(merged.delete); // override took priority
+        assert!(merged.compress); // base preserved (override was false)
+        assert!(merged.checksum); // override set to true
+
+        // Option: other Some overrides
+        assert_eq!(merged.bwlimit, Some(1000)); // base preserved (override was None)
+        assert_eq!(merged.max_size, Some("500M".to_string())); // override took priority
+        assert_eq!(merged.min_size, Some("1K".to_string())); // override set new value
+
+        // Vec: non-empty other overrides
+        assert_eq!(merged.exclude, vec!["*.tmp".to_string()]); // base preserved (override was empty)
+    }
+
+    #[test]
+    fn test_merge_with_vec_override() {
+        let base = RsyncFlags {
+            exclude: vec!["*.tmp".to_string(), "*.log".to_string()],
+            include: vec!["*.cif".to_string()],
+            ..Default::default()
+        };
+
+        let override_flags = RsyncFlags {
+            exclude: vec!["*.bak".to_string()],
+            ..Default::default()
+        };
+
+        let merged = base.merge_with(&override_flags);
+
+        // Non-empty other vec overrides base
+        assert_eq!(merged.exclude, vec!["*.bak".to_string()]);
+        // Empty other vec preserves base
+        assert_eq!(merged.include, vec!["*.cif".to_string()]);
     }
 }

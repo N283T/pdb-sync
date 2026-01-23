@@ -14,11 +14,19 @@ pub struct ConfigArgs {
 pub enum ConfigCommand {
     /// Validate configuration file
     Validate(ValidateArgs),
+    /// Migrate old config format to new nested format
+    Migrate(MigrateArgs),
+    /// List available rsync flag presets
+    Presets,
 }
 
 /// Validate command arguments.
 #[derive(Parser, Clone, Debug)]
 pub struct ValidateArgs {
+    /// Config file path (defaults to ~/.config/pdb-sync/config.toml)
+    #[arg(short, long)]
+    pub config: Option<std::path::PathBuf>,
+
     /// Output validation results in JSON format
     #[arg(long)]
     pub json: bool,
@@ -28,8 +36,30 @@ pub struct ValidateArgs {
     pub fix: bool,
 }
 
+/// Migrate command arguments.
+#[derive(Parser, Clone, Debug)]
+pub struct MigrateArgs {
+    /// Config file path (defaults to ~/.config/pdb-sync/config.toml)
+    #[arg(short, long)]
+    pub config: Option<std::path::PathBuf>,
+
+    /// Dry run - show what would be changed without modifying the file
+    #[arg(short = 'n', long)]
+    pub dry_run: bool,
+}
+
 /// Run config validate command.
 pub async fn run_validate(args: ValidateArgs) -> crate::error::Result<()> {
+    // If config path is provided, use the new validation
+    if args.config.is_some() || !args.fix {
+        use crate::cli::commands::config::ConfigCommand;
+        let cmd = ConfigCommand::Validate {
+            config_path: args.config,
+        };
+        return crate::cli::commands::config::run_config(cmd).await;
+    }
+
+    // Otherwise, use the original validation with fix support
     use crate::config::ConfigLoader;
     use crate::sync::validator::validate_config;
 
@@ -49,4 +79,21 @@ pub async fn run_validate(args: ValidateArgs) -> crate::error::Result<()> {
     }
 
     Ok(())
+}
+
+/// Run config migrate command.
+pub async fn run_migrate(args: MigrateArgs) -> crate::error::Result<()> {
+    use crate::cli::commands::config::ConfigCommand;
+    let cmd = ConfigCommand::Migrate {
+        config_path: args.config,
+        dry_run: args.dry_run,
+    };
+    crate::cli::commands::config::run_config(cmd).await
+}
+
+/// Run config presets command.
+pub async fn run_presets() -> crate::error::Result<()> {
+    use crate::cli::commands::config::ConfigCommand;
+    let cmd = ConfigCommand::Presets;
+    crate::cli::commands::config::run_config(cmd).await
 }

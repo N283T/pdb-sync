@@ -10,6 +10,9 @@ Simple CLI tool for syncing PDB (Protein Data Bank) data from rsync mirrors.
 - **Automatic retry**: Retry on transient failures with exponential backoff
 - **Plan mode**: Preview changes before executing with `--plan`
 - **Built-in presets**: Quick-start profiles for common PDB sources
+- **Rsync flag presets**: 4 presets (safe, fast, minimal, conservative) for common scenarios
+- **Flexible config formats**: Support 4 config styles from preset-only to fully custom
+- **Config migration**: Automatic conversion from old `rsync_*` format to new nested format
 - **Flexible rsync options**: Per-config rsync flag defaults with CLI override support
 - **Real-time progress**: rsync progress output (`--info=progress2`) is always enabled
 
@@ -25,20 +28,27 @@ cargo install --path .
 
 ```toml
 [sync]
-mirror = "rcsb"  # Default mirror (not used for custom configs)
+mirror = "rcsb"
 
-# Define custom rsync syncs
+# Use presets for easy configuration
 [[sync.custom]]
 name = "structures"
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
+preset = "fast"  # fast, safe, minimal, or conservative
 
 [[sync.custom]]
 name = "emdb"
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "EMDB (Electron Microscopy Data Bank)"
+preset = "safe"
+
+# Or customize with options
+[sync.custom.options]
+max_size = "5G"
+exclude = ["obsolete/"]
 ```
 
 2. Run sync:
@@ -55,6 +65,8 @@ pdb-sync sync --all
 ```
 
 ## Usage
+
+### Sync Command
 
 ```
 pdb-sync sync [NAME] [OPTIONS]
@@ -114,6 +126,24 @@ Options:
   -h, --help                Print help
 ```
 
+### Config Command
+
+Manage configuration files and presets:
+
+```bash
+# Validate config file
+pdb-sync config validate
+
+# Migrate old format to new nested format
+pdb-sync config migrate
+
+# Show migration preview (dry-run)
+pdb-sync config migrate --dry-run
+
+# List available rsync flag presets
+pdb-sync config presets
+```
+
 ### Quick Start with Built-in Profiles
 
 ```bash
@@ -163,22 +193,121 @@ Config file location: `~/.config/pdb-sync/config.toml`
 
 ### Custom Sync Configs
 
-Each custom sync config defines an rsync source:
+Each custom sync config defines an rsync source. `pdb-sync` supports three configuration styles:
+
+#### Style 1: Preset-only (Easiest)
+
+Use a built-in preset for common rsync flag combinations:
 
 ```toml
 [[sync.custom]]
-name = "my-sync"              # Required: unique identifier
-url = "host::module/path"      # Required: rsync URL
-dest = "local/path"            # Required: destination subdirectory
-description = "Description"    # Optional: human-readable description
+name = "structures"
+url = "rsync.wwpdb.org::ftp_data/structures/"
+dest = "data/structures"
+preset = "safe"  # safe, fast, minimal, or conservative
+```
 
-# Optional rsync flags (per-config defaults)
+#### Style 2: Preset + Overrides (Recommended)
+
+Start with a preset and override specific options:
+
+```toml
+[[sync.custom]]
+name = "structures"
+url = "rsync.wwpdb.org::ftp_data/structures/"
+dest = "data/structures"
+preset = "fast"
+
+[sync.custom.options]
+max_size = "5GB"
+exclude = ["obsolete/"]
+```
+
+#### Style 3: Fully Custom
+
+Define all options explicitly:
+
+```toml
+[[sync.custom]]
+name = "sifts"
+url = "rsync.wwpdb.org::ftp_data/sifts/"
+dest = "data/sifts"
+
+[sync.custom.options]
+delete = true
+compress = true
+checksum = true
+timeout = 300
+```
+
+#### Style 4: Legacy Format (Backward Compatible)
+
+The old format with `rsync_` prefix is still supported:
+
+```toml
+[[sync.custom]]
+name = "legacy"
+url = "example.org::data"
+dest = "data/legacy"
 rsync_delete = true
 rsync_compress = true
-rsync_bwlimit = 1000           # KB/s
-rsync_timeout = 600            # seconds
-rsync_exclude = ["*.tmp", "test/*"]
+rsync_checksum = true
 ```
+
+### Rsync Flag Presets
+
+| Preset | delete | compress | checksum | backup | Use Case |
+|--------|--------|----------|----------|--------|----------|
+| `safe` | ❌ | ✅ | ✅ | ❌ | First-time sync, cautious users |
+| `fast` | ✅ | ✅ | ❌ | ❌ | Regular updates, speed priority |
+| `minimal` | ❌ | ❌ | ❌ | ❌ | Bare minimum, full control needed |
+| `conservative` | ❌ | ✅ | ✅ | ✅ | Production, maximum safety |
+
+List available presets:
+
+```bash
+pdb-sync config presets
+```
+
+### Config Priority
+
+When using multiple config styles, priority is: **options > preset > legacy**
+
+```toml
+[[sync.custom]]
+name = "test"
+url = "example.org::data"
+dest = "data/test"
+
+# Legacy: delete=false
+rsync_delete = false
+
+# Preset "fast": delete=true
+preset = "fast"
+
+# Options: delete=false (highest priority)
+[sync.custom.options]
+delete = false
+```
+
+Result: `delete = false` (from options)
+
+### Migrating Old Configs
+
+Convert old `rsync_*` format to new nested format:
+
+```bash
+# Dry run (show what would change)
+pdb-sync config migrate --dry-run
+
+# Actually migrate
+pdb-sync config migrate
+```
+
+The migration tool will:
+1. Detect if flags match a preset → use `preset = "name"`
+2. Otherwise → convert to nested `[options]` format
+3. Remove `rsync_` prefixes
 
 ### Available rsync Options
 
@@ -211,60 +340,63 @@ rsync_exclude = ["*.tmp", "test/*"]
 [sync]
 mirror = "rcsb"
 
-# Standard PDB structures
+# Standard PDB structures (using preset)
 [[sync.custom]]
 name = "structures"
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
-rsync_delete = true
-rsync_bwlimit = 5000
+preset = "fast"
 
-# Biological assemblies
+[sync.custom.options]
+bwlimit = 5000
+
+# Biological assemblies (using preset with exclusions)
 [[sync.custom]]
 name = "assemblies"
 url = "rsync.wwpdb.org::ftp_data/structures/divided/assemblies/mmCIF/"
 dest = "data/assemblies/divided/mmCIF"
 description = "Biological assemblies (mmCIF format)"
-rsync_delete = true
+preset = "fast"
 
-# EMDB data
+# EMDB data (fully custom)
 [[sync.custom]]
 name = "emdb"
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "Electron Microscopy Data Bank"
-rsync_delete = true
-rsync_exclude = ["*.tmp", "test/*"]
 
-# PDBj additional directories
+[sync.custom.options]
+delete = true
+compress = true
+exclude = ["*.tmp", "test/*"]
+
+# SIFTS data (using preset)
 [[sync.custom]]
 name = "pdbj-sifts"
 url = "ftp.pdbj.org::pub/pdbj/data/sifts/"
 dest = "pdbj/sifts"
 description = "SIFTS data from PDBj"
-rsync_delete = true
+preset = "safe"
 
+# Other PDBj directories
 [[sync.custom]]
 name = "pdbj-bsma"
 url = "data.pdbj.org::rsync/pdbj/bsma/"
 dest = "pdbj/bsma"
-description = "BSM-Arc (Binding Site Matrix archive)"
-rsync_delete = true
+preset = "fast"
 
 [[sync.custom]]
 name = "pdbj-mmjson"
 url = "data.pdbj.org::rsync/pdbjplus/data/cc/mmjson/"
 dest = "pdbj/mmjson"
-description = "mmJSON format from PDBj+"
-rsync_delete = true
+preset = "fast"
 
 [[sync.custom]]
 name = "pdbj-pdbe"
 url = "data.pdbj.org::rsync/pdbjplus/data/cc/pdbe/"
 dest = "pdbj/pdbe"
-description = "PDBE data from PDBj+"
-rsync_delete = true
+preset = "fast"
 ```
 
 ## Examples
