@@ -6,6 +6,10 @@ PDB (Protein Data Bank) データを rsync ミラーから同期するための�
 
 - **カスタム rsync 設定**: 設定ファイルに複数の同期ソースを定義可能
 - **一括同期**: すべての設定を一度に実行
+- **並列実行**: `--parallel` で複数の同期操作を並列実行
+- **自動リトライ**: 指数バックオフ付きで一時的な失敗を自動リトライ
+- **プランモード**: `--plan` で実行前に変更内容をプレビュー
+- **ビルトインプリセット**: よく使われる PDB ソースのクイックスタートプロファイル
 - **柔軟な rsync オプション**: 設定ファイルのデフォルト値を CLI で上書き
 - **進捗表示**: rsync の `--info=progress2` を常に有効化
 
@@ -62,21 +66,98 @@ Arguments:
   [NAME]  同期するカスタム設定名（省略時は全て）
 
 Options:
-  -a, --all              すべてのカスタム設定を実行
-  -d, --dest <DIR>       出力先ディレクトリを上書き
-  --list                 カスタム設定一覧の表示
-  --fail-fast            一つ失敗したら以降を中断
-  -n, --dry-run           実行せずにコマンド表示のみ
-  --delete               リモートに無いファイルを削除
-  --bwlimit <KBPS>       帯域制限 (KB/s)
-  -z, --compress         転送中に圧縮
-  -c, --checksum         チェックサム比較を使用
-  --exclude <PATTERN>    除外パターン（繰り返し指定可）
-  --include <PATTERN>    取り込みパターン（繰り返し指定可）
-  --rsync-verbose        rsync の詳細出力
-  --rsync-quiet          rsync の簡易出力
-  -v, --verbose          pdb-sync の詳細ログ
-  -h, --help             ヘルプ表示
+  -a, --all                 すべてのカスタム設定を実行
+  -d, --dest <DIR>          出力先ディレクトリを上書き
+  --list                    カスタム設定一覧の表示
+  --fail-fast               一つ失敗したら以降を中断
+  -n, --dry-run             実行せずにコマンド表示のみ
+  --plan                    プランモード - 変更内容をプレビュー（実行しない）
+  --parallel <N>            最大並列実行数
+
+  # ビルトインプロファイル
+  --profile-list            利用可能なプロファイルプリセット一覧
+  --profile-add <NAME>      プロファイルプリセットを設定に追加
+  --profile-dry-run         プロファイル追加のドライラン（追加内容を確認）
+
+  # 失敗時のリトライ
+  --retry <COUNT>           リトライ回数（0 = リトライなし、デフォルト: 0）
+  --retry-delay <SECONDS>   リトライ間隔（秒）（デフォルト: 指数バックオフ）
+
+  # rsync オプション
+  --delete                  リモートに無いファイルを削除
+  --no-delete               削除を行わない（--delete を上書き）
+  --bwlimit <KBPS>          帯域制限 (KB/s)
+  -z, --compress            転送中に圧縮
+  --no-compress             圧縮を行わない（-z/--compress を上書き）
+  -c, --checksum            チェックサム比較を使用
+  --no-checksum             チェックサムを使わない（-c/--checksum を上書き）
+  --partial                 部分転送ファイルを保持
+  --no-partial              部分転送ファイルを保持しない
+  --partial-dir <DIR>       部分転送ファイルの保存先
+  --max-size <SIZE>         転送するファイルの最大サイズ
+  --min-size <SIZE>         転送するファイルの最小サイズ
+  --timeout <SECONDS>       I/O タイムアウト（秒）
+  --contimeout <SECONDS>    接続タイムアウト（秒）
+  --backup                  バックアップを作成
+  --no-backup               バックアップを作成しない
+  --backup-dir <DIR>        バックアップ先
+  --chmod <FLAGS>           パーミッション変更
+  --exclude <PATTERN>       除外パターン（繰り返し指定可）
+  --include <PATTERN>       取り込みパターン（繰り返し指定可）
+  --exclude-from <FILE>     除外パターンファイル
+  --include-from <FILE>     取り込みパターンファイル
+  --rsync-verbose           rsync の詳細出力
+  --no-rsync-verbose        詳細出力を有効にしない
+  --rsync-quiet             rsync の簡易出力
+  --no-rsync-quiet          簡易出力を有効にしない
+  --itemize-changes         変更内容の一覧表示
+  --no-itemize-changes      変更内容の一覧を表示しない
+
+  -v, --verbose             pdb-sync の詳細ログ
+  -h, --help                ヘルプ表示
+```
+
+### ビルトインプロファイルでクイックスタート
+
+```bash
+# プロファイルプリセット一覧
+pdb-sync sync --profile-list
+
+# プリセットを設定に追加（まずドライランで確認）
+pdb-sync sync --profile-add structures --profile-dry-run
+
+# プリセットを設定に追加
+pdb-sync sync --profile-add structures
+```
+
+### 並列実行
+
+```bash
+# 最大 4 並列ですべての設定を同期
+pdb-sync sync --all --parallel 4
+
+# リトライと組み合わせて堅牢な同期
+pdb-sync sync --all --parallel 4 --retry 3
+```
+
+### プランモード
+
+```bash
+# 変更内容をプレビュー
+pdb-sync sync structures --plan
+
+# すべての設定の変更内容をプレビュー
+pdb-sync sync --all --plan
+```
+
+### 失敗時のリトライ
+
+```bash
+# 最大 3 回リトライ（指数バックオフ: 1秒, 2秒, 4秒）
+pdb-sync sync structures --retry 3
+
+# 固定間隔（5秒）でリトライ
+pdb-sync sync structures --retry 3 --retry-delay 5
 ```
 
 ## 設定
@@ -104,25 +185,25 @@ rsync_exclude = ["*.tmp", "test/*"]
 
 | Config Field | CLI Flag | 説明 |
 |--------------|----------|------|
-| `rsync_delete` | --delete | リモートに無いファイルを削除 |
-| `rsync_compress` | -z, --compress | 転送時に圧縮 |
-| `rsync_checksum` | -c, --checksum | チェックサム比較 |
-| `rsync_partial` | --partial | 部分転送ファイルを保持 |
+| `rsync_delete` | --delete / --no-delete | リモートに無いファイルを削除 |
+| `rsync_compress` | -z, --compress / --no-compress | 転送時に圧縮 |
+| `rsync_checksum` | -c, --checksum / --no-checksum | チェックサム比較 |
+| `rsync_partial` | --partial / --no-partial | 部分転送ファイルを保持 |
 | `rsync_partial_dir` | --partial-dir | 部分転送保存先 |
 | `rsync_max_size` | --max-size | 最大サイズ |
 | `rsync_min_size` | --min-size | 最小サイズ |
 | `rsync_timeout` | --timeout | I/O タイムアウト（秒） |
 | `rsync_contimeout` | --contimeout | 接続タイムアウト（秒） |
-| `rsync_backup` | --backup | バックアップを作成 |
+| `rsync_backup` | --backup / --no-backup | バックアップを作成 |
 | `rsync_backup_dir` | --backup-dir | バックアップ先 |
 | `rsync_chmod` | --chmod | 権限変更 |
 | `rsync_exclude` | --exclude | 除外パターン（配列） |
 | `rsync_include` | --include | 取り込みパターン（配列） |
 | `rsync_exclude_from` | --exclude-from | 除外パターンファイル |
 | `rsync_include_from` | --include-from | 取り込みパターンファイル |
-| `rsync_verbose` | --rsync-verbose | 詳細出力 |
-| `rsync_quiet` | --rsync-quiet | 簡易出力 |
-| `rsync_itemize_changes` | --itemize-changes | 変更内容の一覧表示 |
+| `rsync_verbose` | --rsync-verbose / --no-rsync-verbose | 詳細出力 |
+| `rsync_quiet` | --rsync-quiet / --no-rsync-quiet | 簡易出力 |
+| `rsync_itemize_changes` | --itemize-changes / --no-itemize-changes | 変更内容の一覧表示 |
 
 ## 例
 

@@ -6,6 +6,10 @@ Simple CLI tool for syncing PDB (Protein Data Bank) data from rsync mirrors.
 
 - **Custom rsync configs**: Define multiple sync sources in config file
 - **Batch sync**: Run all configured syncs with a single command
+- **Parallel execution**: Run multiple sync operations concurrently with `--parallel`
+- **Automatic retry**: Retry on transient failures with exponential backoff
+- **Plan mode**: Preview changes before executing with `--plan`
+- **Built-in presets**: Quick-start profiles for common PDB sources
 - **Flexible rsync options**: Per-config rsync flag defaults with CLI override support
 - **Real-time progress**: rsync progress output (`--info=progress2`) is always enabled
 
@@ -59,21 +63,98 @@ Arguments:
   [NAME]  Name of custom sync config to run (runs all if not specified)
 
 Options:
-  -a, --all           Run all custom sync configs
-  -d, --dest <DIR>    Override destination directory
-  --list              List available custom sync configs
-  --fail-fast         Stop on first failure when syncing all configs
-  -n, --dry-run        Dry run without changes
-  --delete            Delete files not present on remote
-  --bwlimit <KBPS>    Bandwidth limit in KB/s
-  -z, --compress      Compress data during transfer
-  -c, --checksum      Use checksum for file comparison
-  --exclude <PATTERN> Exclude patterns (repeatable)
-  --include <PATTERN> Include patterns (repeatable)
-  --rsync-verbose     Verbose rsync output
-  --rsync-quiet       Quiet rsync output
-  -v, --verbose       Enable verbose output
-  -h, --help          Print help
+  -a, --all                 Run all custom sync configs
+  -d, --dest <DIR>          Override destination directory
+  --list                    List available custom sync configs
+  --fail-fast               Stop on first failure when syncing all configs
+  -n, --dry-run             Dry run without changes
+  --plan                    Plan mode - show what would change without executing
+  --parallel <N>            Maximum number of concurrent sync operations
+
+  # Built-in profiles
+  --profile-list            List available profile presets
+  --profile-add <NAME>      Add a profile preset to config
+  --profile-dry-run         Dry-run for profile add (show what would be added)
+
+  # Retry on failure
+  --retry <COUNT>           Number of retry attempts on failure (0 = no retry, default: 0)
+  --retry-delay <SECONDS>   Delay between retries in seconds (default: exponential backoff)
+
+  # rsync options
+  --delete                  Delete files not present on remote
+  --no-delete               Do not delete files (overrides --delete)
+  --bwlimit <KBPS>          Bandwidth limit in KB/s
+  -z, --compress            Compress data during transfer
+  --no-compress             Do not compress (overrides -z/--compress)
+  -c, --checksum            Use checksum for file comparison
+  --no-checksum             Do not use checksum (overrides -c/--checksum)
+  --partial                 Keep partially transferred files
+  --no-partial              Do not keep partial files
+  --partial-dir <DIR>       Directory for partial files
+  --max-size <SIZE>         Maximum file size to transfer
+  --min-size <SIZE>         Minimum file size to transfer
+  --timeout <SECONDS>       I/O timeout in seconds
+  --contimeout <SECONDS>    Connection timeout in seconds
+  --backup                  Create backups
+  --no-backup               Do not create backups
+  --backup-dir <DIR>        Backup directory
+  --chmod <FLAGS>           Change permission flags
+  --exclude <PATTERN>       Exclude patterns (repeatable)
+  --include <PATTERN>       Include patterns (repeatable)
+  --exclude-from <FILE>     File with exclude patterns
+  --include-from <FILE>     File with include patterns
+  --rsync-verbose           Verbose rsync output
+  --no-rsync-verbose        Do not enable verbose output
+  --rsync-quiet             Quiet rsync output
+  --no-rsync-quiet          Do not enable quiet output
+  --itemize-changes         Itemize changes
+  --no-itemize-changes      Do not itemize changes
+
+  -v, --verbose             Enable verbose output
+  -h, --help                Print help
+```
+
+### Quick Start with Built-in Profiles
+
+```bash
+# List available profile presets
+pdb-sync sync --profile-list
+
+# Add a preset to your config (dry-run first)
+pdb-sync sync --profile-add structures --profile-dry-run
+
+# Add a preset to your config
+pdb-sync sync --profile-add structures
+```
+
+### Parallel Execution
+
+```bash
+# Run all configs with up to 4 concurrent operations
+pdb-sync sync --all --parallel 4
+
+# Combine with retry for robust syncing
+pdb-sync sync --all --parallel 4 --retry 3
+```
+
+### Plan Mode
+
+```bash
+# Preview what would change
+pdb-sync sync structures --plan
+
+# Preview changes for all configs
+pdb-sync sync --all --plan
+```
+
+### Retry on Failure
+
+```bash
+# Retry up to 3 times with exponential backoff (1s, 2s, 4s)
+pdb-sync sync structures --retry 3
+
+# Retry with fixed delay of 5 seconds
+pdb-sync sync structures --retry 3 --retry-delay 5
 ```
 
 ## Configuration
@@ -103,22 +184,25 @@ rsync_exclude = ["*.tmp", "test/*"]
 
 | Config Field | CLI Flag | Description |
 |--------------|----------|-------------|
-| `rsync_delete` | --delete | Delete files not present on remote |
-| `rsync_compress` | -z | Compress data during transfer |
-| `rsync_checksum` | -c | Use checksum for file comparison |
-| `rsync_partial` | --partial | Keep partially transferred files |
+| `rsync_delete` | --delete / --no-delete | Delete files not present on remote |
+| `rsync_compress` | -z, --compress / --no-compress | Compress data during transfer |
+| `rsync_checksum` | -c, --checksum / --no-checksum | Use checksum for file comparison |
+| `rsync_partial` | --partial / --no-partial | Keep partially transferred files |
 | `rsync_partial_dir` | --partial-dir | Directory for partial files |
 | `rsync_max_size` | --max-size | Maximum file size to transfer |
 | `rsync_min_size` | --min-size | Minimum file size to transfer |
 | `rsync_timeout` | --timeout | I/O timeout in seconds |
 | `rsync_contimeout` | --contimeout | Connection timeout in seconds |
-| `rsync_backup` | --backup | Create backups |
+| `rsync_backup` | --backup / --no-backup | Create backups |
 | `rsync_backup_dir` | --backup-dir | Backup directory |
 | `rsync_chmod` | --chmod | Change permission flags |
 | `rsync_exclude` | --exclude | Exclude patterns (array) |
 | `rsync_include` | --include | Include patterns (array) |
-| `rsync_verbose` | --rsync-verbose | Verbose output |
-| `rsync_quiet` | --rsync-quiet | Quiet mode |
+| `rsync_exclude_from` | --exclude-from | File with exclude patterns |
+| `rsync_include_from` | --include-from | File with include patterns |
+| `rsync_verbose` | --rsync-verbose / --no-rsync-verbose | Verbose output |
+| `rsync_quiet` | --rsync-quiet / --no-rsync-quiet | Quiet mode |
+| `rsync_itemize_changes` | --itemize-changes / --no-itemize-changes | Itemize changes |
 | `rsync_dry_run` | -n, --dry-run | Dry run without changes |
 
 ### Example Configs
