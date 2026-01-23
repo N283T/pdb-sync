@@ -10,7 +10,6 @@ Complete reference documentation for pdb-sync configuration file `config.toml`.
 - [sync Section](#sync-section)
 - [sync.custom.NAME Section](#synccustomname-section)
 - [sync.custom.NAME.options Section](#synccustomnameoptions-section)
-- [mirror_selection Section](#mirror_selection-section)
 - [Preset Reference](#preset-reference)
 - [Priority Rules](#priority-rules)
 - [Configuration Examples](#configuration-examples)
@@ -45,11 +44,6 @@ timeout = 300
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures"
 preset = "fast"
-
-[mirror_selection]
-auto_select = false
-preferred_region = "us"
-latency_cache_ttl = 3600
 ```
 
 ---
@@ -431,47 +425,6 @@ include_from = "/path/to/include.txt"
 
 ---
 
-## mirror_selection Section
-
-Configure automatic mirror selection.
-
-### `auto_select`
-
-**Type**: Boolean
-**Default**: `false`
-**Description**: Enable automatic mirror selection based on latency
-
-```toml
-[mirror_selection]
-auto_select = true
-```
-
-### `preferred_region`
-
-**Type**: String
-**Default**: None
-**Choices**: `us`, `jp`, `europe`
-**Description**: Preferred region (prioritized within 2x latency tolerance)
-
-```toml
-[mirror_selection]
-auto_select = true
-preferred_region = "jp"
-```
-
-### `latency_cache_ttl`
-
-**Type**: Integer (seconds)
-**Default**: `3600` (1 hour)
-**Description**: Latency cache TTL
-
-```toml
-[mirror_selection]
-latency_cache_ttl = 7200  # 2 hours
-```
-
----
-
 ## Preset Reference
 
 ### `safe` (Safety First)
@@ -691,11 +644,6 @@ pdb_dir = "/mnt/storage/pdb"
 
 [sync.defaults]
 delete = false
-
-[mirror_selection]
-auto_select = true
-preferred_region = "us"
-latency_cache_ttl = 7200
 
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
