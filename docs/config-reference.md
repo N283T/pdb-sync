@@ -505,7 +505,10 @@ For first-time sync or cautious users.
 | `delete` | ❌ `false` |
 | `compress` | ✅ `true` |
 | `checksum` | ✅ `true` |
+| `partial` | ✅ `true` |
 | `backup` | ❌ `false` |
+| `verbose` | ✅ `true` |
+| `quiet` | ❌ `false` |
 
 **Use case**: Prevent accidental deletion, ensure reliable sync
 
@@ -525,7 +528,10 @@ For regular updates prioritizing speed.
 | `delete` | ✅ `true` |
 | `compress` | ✅ `true` |
 | `checksum` | ❌ `false` |
+| `partial` | ✅ `true` |
 | `backup` | ❌ `false` |
+| `verbose` | ❌ `false` |
+| `quiet` | ✅ `true` |
 
 **Use case**: Daily scheduled sync, maintain complete mirror
 
@@ -543,7 +549,10 @@ Minimal configuration for full control.
 | `delete` | ❌ `false` |
 | `compress` | ❌ `false` |
 | `checksum` | ❌ `false` |
+| `partial` | ❌ `false` |
 | `backup` | ❌ `false` |
+| `verbose` | ❌ `false` |
+| `quiet` | ❌ `false` |
 
 **Use case**: Fine-grained control with custom options
 
@@ -566,7 +575,10 @@ Maximum safety for production environments.
 | `delete` | ❌ `false` |
 | `compress` | ✅ `true` |
 | `checksum` | ✅ `true` |
+| `partial` | ✅ `true` |
 | `backup` | ✅ `true` |
+| `verbose` | ✅ `true` |
+| `quiet` | ❌ `false` |
 
 **Use case**: Production servers, avoid data loss
 

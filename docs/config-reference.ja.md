@@ -505,7 +505,10 @@ latency_cache_ttl = 7200  # 2時間
 | `delete` | ❌ `false` |
 | `compress` | ✅ `true` |
 | `checksum` | ✅ `true` |
+| `partial` | ✅ `true` |
 | `backup` | ❌ `false` |
+| `verbose` | ✅ `true` |
+| `quiet` | ❌ `false` |
 
 **用途**: 誤削除を防ぎたい、確実に同期したい
 
@@ -525,7 +528,10 @@ preset = "safe"
 | `delete` | ✅ `true` |
 | `compress` | ✅ `true` |
 | `checksum` | ❌ `false` |
+| `partial` | ✅ `true` |
 | `backup` | ❌ `false` |
+| `verbose` | ❌ `false` |
+| `quiet` | ✅ `true` |
 
 **用途**: 毎日の定期同期、完全ミラー維持
 
@@ -543,7 +549,10 @@ preset = "fast"
 | `delete` | ❌ `false` |
 | `compress` | ❌ `false` |
 | `checksum` | ❌ `false` |
+| `partial` | ❌ `false` |
 | `backup` | ❌ `false` |
+| `verbose` | ❌ `false` |
+| `quiet` | ❌ `false` |
 
 **用途**: カスタムオプションで細かく制御したい
 
@@ -566,7 +575,10 @@ timeout = 600
 | `delete` | ❌ `false` |
 | `compress` | ✅ `true` |
 | `checksum` | ✅ `true` |
+| `partial` | ✅ `true` |
 | `backup` | ✅ `true` |
+| `verbose` | ✅ `true` |
+| `quiet` | ❌ `false` |
 
 **用途**: 本番サーバー、データ損失を避けたい
 
