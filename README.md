@@ -30,20 +30,29 @@ cargo install --path .
 [sync]
 mirror = "rcsb"
 
-# Use presets for easy configuration
+# Global defaults for all custom configs (DRY)
+[sync.defaults]
+compress = true
+timeout = 300
+partial = true
+
+# Full custom configuration (RECOMMENDED)
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
-preset = "fast"  # fast, safe, minimal, or conservative
 
+[sync.custom.structures.options]
+delete = true
+max_size = "10G"
+
+# You can also use presets for quick setup
 [sync.custom.emdb]
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "EMDB (Electron Microscopy Data Bank)"
-preset = "safe"
+preset = "safe"  # fast, safe, minimal, or conservative
 
-# Or customize with options
 [sync.custom.emdb.options]
 max_size = "5G"
 exclude = ["obsolete/"]

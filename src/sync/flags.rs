@@ -175,11 +175,142 @@ impl RsyncFlags {
         Ok(())
     }
 
+    /// Apply options from RsyncOptionsConfig, overriding existing values.
+    ///
+    /// This is used to apply global defaults, preset flags, or custom options
+    /// to an existing RsyncFlags instance.
+    pub fn apply_options(&mut self, options: &crate::config::schema::RsyncOptionsConfig) {
+        // Boolean fields
+        if let Some(delete) = options.delete {
+            self.delete = delete;
+        }
+        if let Some(compress) = options.compress {
+            self.compress = compress;
+        }
+        if let Some(checksum) = options.checksum {
+            self.checksum = checksum;
+        }
+        if let Some(size_only) = options.size_only {
+            self.size_only = size_only;
+        }
+        if let Some(ignore_times) = options.ignore_times {
+            self.ignore_times = ignore_times;
+        }
+        if let Some(partial) = options.partial {
+            self.partial = partial;
+        }
+        if let Some(backup) = options.backup {
+            self.backup = backup;
+        }
+        if let Some(verbose) = options.verbose {
+            self.verbose = verbose;
+        }
+        if let Some(quiet) = options.quiet {
+            self.quiet = quiet;
+        }
+        if let Some(itemize_changes) = options.itemize_changes {
+            self.itemize_changes = itemize_changes;
+        }
+
+        // Option fields
+        if options.modify_window.is_some() {
+            self.modify_window = options.modify_window;
+        }
+        if options.partial_dir.is_some() {
+            self.partial_dir = options.partial_dir.clone();
+        }
+        if options.max_size.is_some() {
+            self.max_size = options.max_size.clone();
+        }
+        if options.min_size.is_some() {
+            self.min_size = options.min_size.clone();
+        }
+        if options.timeout.is_some() {
+            self.timeout = options.timeout;
+        }
+        if options.contimeout.is_some() {
+            self.contimeout = options.contimeout;
+        }
+        if options.backup_dir.is_some() {
+            self.backup_dir = options.backup_dir.clone();
+        }
+        if options.chmod.is_some() {
+            self.chmod = options.chmod.clone();
+        }
+        if options.exclude_from.is_some() {
+            self.exclude_from = options.exclude_from.clone();
+        }
+        if options.include_from.is_some() {
+            self.include_from = options.include_from.clone();
+        }
+
+        // Vec fields: non-empty overrides
+        if !options.exclude.is_empty() {
+            self.exclude = options.exclude.clone();
+        }
+        if !options.include.is_empty() {
+            self.include = options.include.clone();
+        }
+    }
+
+    /// Apply flags from another RsyncFlags, overriding existing values.
+    ///
+    /// This is used to apply preset flags. Unlike merge_with(), this copies
+    /// all fields directly, including false boolean values.
+    /// For Vec fields: only non-empty Vecs override (preserves existing non-empty Vecs).
+    pub fn apply_flags(&mut self, other: &RsyncFlags) {
+        // Boolean fields: direct copy
+        self.delete = other.delete;
+        self.compress = other.compress;
+        self.checksum = other.checksum;
+        self.size_only = other.size_only;
+        self.ignore_times = other.ignore_times;
+        self.partial = other.partial;
+        self.backup = other.backup;
+        self.verbose = other.verbose;
+        self.quiet = other.quiet;
+        self.itemize_changes = other.itemize_changes;
+
+        // Option fields: copy all
+        self.modify_window = other.modify_window;
+        self.partial_dir = other.partial_dir.clone();
+        self.max_size = other.max_size.clone();
+        self.min_size = other.min_size.clone();
+        self.timeout = other.timeout;
+        self.contimeout = other.contimeout;
+        self.backup_dir = other.backup_dir.clone();
+        self.chmod = other.chmod.clone();
+
+        // Vec fields: non-empty overrides
+        if !other.exclude.is_empty() {
+            self.exclude = other.exclude.clone();
+        }
+        if !other.include.is_empty() {
+            self.include = other.include.clone();
+        }
+
+        // Option<PathBuf> fields
+        if other.exclude_from.is_some() {
+            self.exclude_from = other.exclude_from.clone();
+        }
+        if other.include_from.is_some() {
+            self.include_from = other.include_from.clone();
+        }
+
+        // Note: bwlimit and dry_run are NOT copied (CLI-only flags)
+    }
+
     /// Merge two RsyncFlags, with `other` taking priority over `self`.
     ///
     /// For `Option` fields: `other` Some values override, None preserves `self`.
     /// For `bool` fields: `other` true overrides `self`.
     /// For `Vec` fields: Non-empty `other` overrides, empty preserves `self`.
+    ///
+    /// Note: This method is currently only used in tests. For production code,
+    /// use `apply_flags()` or `apply_options()` instead, which provide clearer
+    /// semantics for the priority chain. This method is kept for backward
+    /// compatibility and potential future use.
+    #[allow(dead_code)]
     pub fn merge_with(&self, other: &RsyncFlags) -> RsyncFlags {
         RsyncFlags {
             // Boolean flags: other=true takes priority

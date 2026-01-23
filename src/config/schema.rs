@@ -1,11 +1,30 @@
 //! Configuration schema for pdb-sync.
 //!
 //! This module defines the TOML configuration structure with support for:
+//! - **Global defaults**: Set common options once with `[sync.defaults]`
 //! - **Preset-based configs**: Use built-in presets like "safe", "fast"
 //! - **Nested options**: Override specific flags with `[sync.custom.NAME.options]`
 //! - **Legacy format**: Backward compatible with old `rsync_*` fields
 //!
+//! Priority order: options > preset > defaults > legacy > built-in defaults
+//!
 //! # Examples
+//!
+//! ## Global Defaults + Options (RECOMMENDED)
+//!
+//! ```toml
+//! [sync.defaults]
+//! compress = true
+//! timeout = 300
+//!
+//! [sync.custom.structures]
+//! url = "rsync.wwpdb.org::ftp_data/structures/"
+//! dest = "data/structures"
+//!
+//! [sync.custom.structures.options]
+//! delete = true
+//! max_size = "10G"
+//! ```
 //!
 //! ## Preset-Only Config
 //!
@@ -28,22 +47,7 @@
 //! max_size = "5GB"
 //! exclude = ["obsolete/"]
 //! ```
-//!
-//! ## Fully Custom
-//!
-//! ```toml
-//! [sync.custom.sifts]
-//! url = "rsync.wwpdb.org::ftp_data/sifts/"
-//! dest = "data/sifts"
-//!
-//! [sync.custom.sifts.options]
-//! delete = true
-//! compress = true
-//! checksum = true
-//! timeout = 300
-//! ```
 
-use crate::data_types::Layout;
 use crate::mirrors::MirrorId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -261,11 +265,15 @@ pub struct CustomRsyncConfig {
 impl CustomRsyncConfig {
     /// Convert to RsyncFlags for use in rsync operations.
     ///
-    /// Priority order: options > preset > legacy fields
+    /// Priority order: options > preset > defaults > legacy fields
     /// 1. Start with legacy fields (for backward compatibility)
-    /// 2. If preset is specified, merge preset flags
-    /// 3. If options is specified, apply options (field-by-field override)
-    pub fn to_rsync_flags(&self) -> crate::sync::RsyncFlags {
+    /// 2. Apply global defaults if specified
+    /// 3. If preset is specified, merge preset flags
+    /// 4. If options is specified, apply options (field-by-field override)
+    pub fn to_rsync_flags(
+        &self,
+        global_defaults: Option<&RsyncOptionsConfig>,
+    ) -> crate::sync::RsyncFlags {
         // Start with legacy fields (backward compatibility)
         let mut flags = crate::sync::RsyncFlags {
             delete: self.rsync_delete,
@@ -295,77 +303,26 @@ impl CustomRsyncConfig {
             dry_run: false,
         };
 
-        // Apply preset if specified
+        // Apply global defaults if specified
+        if let Some(defaults) = global_defaults {
+            flags.apply_options(defaults);
+        }
+
+        // Apply preset if specified (overrides defaults)
+        // Presets are RsyncFlags with all fields set, so we copy them directly.
+        // For Vec fields (exclude/include), only non-empty Vecs override.
         if let Some(ref preset_name) = self.preset {
             if let Some(preset_flags) = crate::sync::get_rsync_preset(preset_name) {
-                flags = flags.merge_with(&preset_flags);
+                flags.apply_flags(&preset_flags);
             }
         }
 
         // Apply options if specified (highest priority)
-        // Use field-by-field override to respect Option<bool> semantics
+        // Options use field-by-field override to respect Option<T> semantics:
+        // - Some(value) overrides the current value
+        // - None preserves the current value
         if let Some(ref options) = self.options {
-            if let Some(delete) = options.delete {
-                flags.delete = delete;
-            }
-            if let Some(compress) = options.compress {
-                flags.compress = compress;
-            }
-            if let Some(checksum) = options.checksum {
-                flags.checksum = checksum;
-            }
-            if let Some(partial) = options.partial {
-                flags.partial = partial;
-            }
-            if let Some(backup) = options.backup {
-                flags.backup = backup;
-            }
-            if let Some(verbose) = options.verbose {
-                flags.verbose = verbose;
-            }
-            if let Some(quiet) = options.quiet {
-                flags.quiet = quiet;
-            }
-            if let Some(itemize_changes) = options.itemize_changes {
-                flags.itemize_changes = itemize_changes;
-            }
-
-            // Option fields
-            if options.partial_dir.is_some() {
-                flags.partial_dir = options.partial_dir.clone();
-            }
-            if options.max_size.is_some() {
-                flags.max_size = options.max_size.clone();
-            }
-            if options.min_size.is_some() {
-                flags.min_size = options.min_size.clone();
-            }
-            if options.timeout.is_some() {
-                flags.timeout = options.timeout;
-            }
-            if options.contimeout.is_some() {
-                flags.contimeout = options.contimeout;
-            }
-            if options.backup_dir.is_some() {
-                flags.backup_dir = options.backup_dir.clone();
-            }
-            if options.chmod.is_some() {
-                flags.chmod = options.chmod.clone();
-            }
-            if options.exclude_from.is_some() {
-                flags.exclude_from = options.exclude_from.clone();
-            }
-            if options.include_from.is_some() {
-                flags.include_from = options.include_from.clone();
-            }
-
-            // Vec fields: non-empty overrides
-            if !options.exclude.is_empty() {
-                flags.exclude = options.exclude.clone();
-            }
-            if !options.include.is_empty() {
-                flags.include = options.include.clone();
-            }
+            flags.apply_options(options);
         }
 
         flags
@@ -377,30 +334,19 @@ impl CustomRsyncConfig {
 pub struct SyncConfig {
     #[serde(with = "mirror_id_serde")]
     pub mirror: MirrorId,
-    pub bwlimit: u32,
-    pub delete: bool,
-    /// Default layout for synced files
-    pub layout: Layout,
-    /// Data types to sync by default
-    #[serde(default = "default_data_types")]
-    pub data_types: Vec<String>,
+    /// Global default rsync options for all custom configs
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defaults: Option<RsyncOptionsConfig>,
     /// Custom rsync configurations
     #[serde(default)]
     pub custom: HashMap<String, CustomRsyncConfig>,
-}
-
-fn default_data_types() -> Vec<String> {
-    vec!["structures".to_string()]
 }
 
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             mirror: MirrorId::Rcsb,
-            bwlimit: 0,
-            delete: false,
-            layout: Layout::default(),
-            data_types: default_data_types(),
+            defaults: None,
             custom: HashMap::new(),
         }
     }
@@ -458,7 +404,6 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert_eq!(config.sync.mirror, MirrorId::Rcsb);
-        assert_eq!(config.sync.layout, Layout::Divided);
         assert!(!config.mirror_selection.auto_select);
     }
 
@@ -467,7 +412,6 @@ mod tests {
         let config = Config::default();
         let toml_str = toml::to_string_pretty(&config).unwrap();
         assert!(toml_str.contains("mirror = \"rcsb\""));
-        assert!(toml_str.contains("layout = \"divided\""));
     }
 
     #[test]
@@ -478,8 +422,6 @@ mod tests {
 
             [sync]
             mirror = "pdbj"
-            bwlimit = 1000
-            layout = "all"
 
             [mirror_selection]
             auto_select = true
@@ -488,8 +430,6 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.paths.pdb_dir, Some(PathBuf::from("/data/pdb")));
         assert_eq!(config.sync.mirror, MirrorId::Pdbj);
-        assert_eq!(config.sync.bwlimit, 1000);
-        assert_eq!(config.sync.layout, Layout::All);
         assert!(config.mirror_selection.auto_select);
         assert_eq!(
             config.mirror_selection.preferred_region,
@@ -506,18 +446,10 @@ mod tests {
 
             [sync]
             mirror = "pdbj"
-            bwlimit = 1000
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         // New fields should have defaults
-        assert_eq!(config.sync.layout, Layout::Divided);
         assert!(!config.mirror_selection.auto_select);
-    }
-
-    #[test]
-    fn test_default_data_types() {
-        let config = Config::default();
-        assert_eq!(config.sync.data_types, vec!["structures".to_string()]);
     }
 
     #[test]
@@ -570,7 +502,7 @@ mod tests {
         assert!(custom.rsync_compress);
         assert!(custom.rsync_checksum);
 
-        let flags = custom.to_rsync_flags();
+        let flags = custom.to_rsync_flags(None);
         assert!(flags.delete);
         assert!(flags.compress);
         assert!(flags.checksum);
@@ -591,7 +523,7 @@ mod tests {
         let custom = config.sync.custom.get("structures").unwrap();
         assert_eq!(custom.preset, Some("safe".to_string()));
 
-        let flags = custom.to_rsync_flags();
+        let flags = custom.to_rsync_flags(None);
         // Safe preset: no delete, compress, checksum, partial, verbose
         assert!(!flags.delete);
         assert!(flags.compress);
@@ -624,7 +556,7 @@ mod tests {
         assert_eq!(options.max_size, Some("5GB".to_string()));
         assert_eq!(options.exclude, vec!["obsolete/".to_string()]);
 
-        let flags = custom.to_rsync_flags();
+        let flags = custom.to_rsync_flags(None);
         // Fast preset: delete, compress, no checksum, partial, quiet
         assert!(flags.delete);
         assert!(flags.compress);
@@ -663,7 +595,7 @@ mod tests {
         assert_eq!(options.checksum, Some(true));
         assert_eq!(options.timeout, Some(300));
 
-        let flags = custom.to_rsync_flags();
+        let flags = custom.to_rsync_flags(None);
         assert!(flags.delete);
         assert!(flags.compress);
         assert!(flags.checksum);
@@ -672,36 +604,150 @@ mod tests {
 
     #[test]
     fn test_custom_config_priority_order() {
-        // Test priority: options > preset > legacy
+        // Test priority: options > preset > defaults > legacy
         let toml_str = r#"
+            [sync.defaults]
+            compress = true
+            checksum = false
+
             [sync.custom.test]
             url = "example.org::data"
             dest = "data/test"
-
-            # Legacy: delete=false, compress=false
             rsync_delete = false
             rsync_compress = false
-
-            # Preset "fast": delete=true, compress=true
             preset = "fast"
 
-            # Options: delete override to false (highest priority)
             [sync.custom.test.options]
             delete = false
             max_size = "1G"
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(config.sync.defaults.as_ref());
 
-        let flags = custom.to_rsync_flags();
-
-        // Priority test:
-        // - delete: options (false) > preset (true) > legacy (false) = false
-        // - compress: preset (true) > legacy (false) = true
-        // - max_size: options (1G) = 1G
         assert!(!flags.delete); // options override
-        assert!(flags.compress); // preset applies
-        assert_eq!(flags.max_size, Some("1G".to_string())); // options adds new field
+        assert!(flags.compress); // preset > defaults > legacy
+        assert_eq!(flags.max_size, Some("1G".to_string()));
+    }
+
+    #[test]
+    fn test_sync_defaults_basic() {
+        let toml_str = r#"
+            [sync.defaults]
+            delete = true
+            compress = true
+            timeout = 300
+
+            [sync.custom.test]
+            url = "example.org::data"
+            dest = "data/test"
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+
+        let defaults = config.sync.defaults.as_ref().unwrap();
+        assert_eq!(defaults.delete, Some(true));
+        assert_eq!(defaults.compress, Some(true));
+        assert_eq!(defaults.timeout, Some(300));
+
+        let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(config.sync.defaults.as_ref());
+        assert!(flags.delete);
+        assert!(flags.compress);
+        assert_eq!(flags.timeout, Some(300));
+    }
+
+    #[test]
+    fn test_sync_defaults_with_preset() {
+        // Test priority: preset > defaults
+        let toml_str = r#"
+            [sync.defaults]
+            delete = true
+            compress = true
+
+            [sync.custom.test]
+            url = "example.org::data"
+            dest = "data/test"
+            preset = "safe"
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(config.sync.defaults.as_ref());
+
+        assert!(!flags.delete); // safe preset overrides defaults
+        assert!(flags.compress);
+    }
+
+    #[test]
+    fn test_sync_defaults_with_options() {
+        // Test priority: options > preset > defaults
+        let toml_str = r#"
+            [sync.defaults]
+            delete = true
+            compress = true
+
+            [sync.custom.test]
+            url = "example.org::data"
+            dest = "data/test"
+            preset = "safe"
+
+            [sync.custom.test.options]
+            delete = true
+            max_size = "1G"
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(config.sync.defaults.as_ref());
+
+        assert!(flags.delete); // options override
+        assert!(flags.compress);
+        assert_eq!(flags.max_size, Some("1G".to_string()));
+    }
+
+    #[test]
+    fn test_sync_defaults_priority_chain() {
+        // Full chain: legacy → defaults → preset → options
+        let toml_str = r#"
+            [sync.defaults]
+            compress = true
+            timeout = 300
+
+            [sync.custom.test]
+            url = "example.org::data"
+            dest = "data/test"
+            rsync_delete = false
+            rsync_verbose = true
+            preset = "fast"
+
+            [sync.custom.test.options]
+            timeout = 600
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(config.sync.defaults.as_ref());
+
+        assert!(flags.delete); // preset > defaults > legacy
+        assert!(flags.compress);
+        assert!(!flags.verbose); // preset quiet overrides legacy verbose
+        assert_eq!(flags.timeout, Some(600)); // options > defaults
+    }
+
+    #[test]
+    fn test_sync_defaults_none() {
+        // Backward compat: configs without defaults work
+        let toml_str = r#"
+            [sync.custom.test]
+            url = "example.org::data"
+            dest = "data/test"
+
+            [sync.custom.test.options]
+            delete = true
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert!(config.sync.defaults.is_none());
+
+        let custom = config.sync.custom.get("test").unwrap();
+        let flags = custom.to_rsync_flags(None);
+        assert!(flags.delete);
     }
 
     #[test]

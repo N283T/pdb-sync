@@ -101,7 +101,7 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     validate_rsync_url(&custom_config.url)?;
 
     // Merge config defaults with CLI overrides
-    let config_flags = custom_config.to_rsync_flags();
+    let config_flags = custom_config.to_rsync_flags(ctx.config.sync.defaults.as_ref());
     let cli_overrides = args.to_rsync_overrides();
     let flags = config_flags.merge_with_overrides(&cli_overrides);
     flags.validate()?;
@@ -463,7 +463,7 @@ async fn run_custom_with_prefix(name: &str, args: SyncArgs, ctx: AppContext) -> 
     validate_rsync_url(&custom_config.url)?;
 
     // Merge config defaults with CLI overrides
-    let config_flags = custom_config.to_rsync_flags();
+    let config_flags = custom_config.to_rsync_flags(ctx.config.sync.defaults.as_ref());
     let cli_overrides = args.to_rsync_overrides();
     let flags = config_flags.merge_with_overrides(&cli_overrides);
     flags.validate()?;

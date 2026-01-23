@@ -182,7 +182,7 @@ fn try_migrate_custom_config(name: &str, custom: &mut CustomRsyncConfig) -> Migr
     }
 
     // Check if flags match a preset
-    let current_flags = custom.to_rsync_flags();
+    let current_flags = custom.to_rsync_flags(None);
 
     let presets = [
         (RsyncPreset::Safe, "safe"),
@@ -311,7 +311,7 @@ async fn run_validate(config_path: Option<PathBuf>) -> Result<()> {
 
     // Validate each custom rsync config
     for (name, custom) in &config.sync.custom {
-        let flags: RsyncFlags = custom.to_rsync_flags();
+        let flags: RsyncFlags = custom.to_rsync_flags(config.sync.defaults.as_ref());
         flags.validate().map_err(|e| PdbSyncError::Config {
             message: format!("Invalid config for '{}': {}", name, e),
             key: Some(name.clone()),
