@@ -1,15 +1,12 @@
 use crate::config::{Config, ConfigLoader};
 use crate::error::Result;
-use crate::mirrors::{select_best_mirror, MirrorId};
 use std::path::PathBuf;
-use std::time::Duration;
 
 /// Application context that combines configuration, environment variables, and CLI arguments
 #[derive(Clone)]
 pub struct AppContext {
     pub config: Config,
     pub pdb_dir: PathBuf,
-    pub mirror: MirrorId,
 }
 
 impl AppContext {
@@ -27,39 +24,12 @@ impl AppContext {
                     .unwrap_or_else(|| PathBuf::from("./pdb"))
             });
 
-        // Mirror selection priority: ENV > auto-select > config
-        let mirror = if let Ok(env_mirror) = std::env::var("PDB_SYNC_MIRROR") {
-            match env_mirror.parse() {
-                Ok(id) => id,
-                Err(_) => {
-                    tracing::warn!(
-                        "Invalid PDB_SYNC_MIRROR value '{}', using config default",
-                        env_mirror
-                    );
-                    config.sync.mirror
-                }
-            }
-        } else if config.mirror_selection.auto_select {
-            let ttl = Duration::from_secs(config.mirror_selection.latency_cache_ttl);
-            let preferred = config.mirror_selection.preferred_region.as_deref();
-            select_best_mirror(preferred, ttl).await
-        } else {
-            config.sync.mirror
-        };
-
-        Ok(Self {
-            config,
-            pdb_dir,
-            mirror,
-        })
+        Ok(Self { config, pdb_dir })
     }
 
-    pub fn with_overrides(mut self, pdb_dir: Option<PathBuf>, mirror: Option<MirrorId>) -> Self {
+    pub fn with_overrides(mut self, pdb_dir: Option<PathBuf>) -> Self {
         if let Some(dir) = pdb_dir {
             self.pdb_dir = dir;
-        }
-        if let Some(m) = mirror {
-            self.mirror = m;
         }
         self
     }

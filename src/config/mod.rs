@@ -1,5 +1,4 @@
 pub mod loader;
-pub mod merged;
 pub mod schema;
 pub mod source;
 

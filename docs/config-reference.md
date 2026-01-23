@@ -36,12 +36,10 @@ pdb-sync sync
 [paths]
 pdb_dir = "/data/pdb"
 
-[sync]
-mirror = "rcsb"
-bwlimit = 5000
-delete = false
-layout = "divided"
-data_types = ["structures", "assemblies"]
+# Global defaults for all custom configs
+[sync.defaults]
+compress = true
+timeout = 300
 
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
@@ -89,79 +87,26 @@ assemblies = "/mnt/hdd/pdb/assemblies"
 
 General sync configuration.
 
-### `mirror`
+### `defaults`
 
-**Type**: String
-**Default**: `"rcsb"`
-**Choices**: `rcsb`, `pdbj`, `pdbe`, `wwpdb`
-**Description**: Mirror server to use
+**Type**: Table (RsyncOptionsConfig)
+**Default**: None
+**Description**: Global default rsync options for all custom configs
 
-Aliases:
-- `rcsb` / `us`
-- `pdbj` / `jp`
-- `pdbe` / `uk` / `eu` / `europe`
-- `wwpdb` / `global`
+Set common options once instead of repeating in every config (DRY principle).
+
+**Priority**: `options > preset > defaults > legacy fields`
 
 ```toml
-[sync]
-mirror = "pdbj"  # or "jp"
+[sync.defaults]
+compress = true
+timeout = 300
+partial = true
+delete = false
+max_size = "10G"
 ```
 
-### `bwlimit`
-
-**Type**: Integer (KB/s)
-**Default**: `0` (unlimited)
-**Description**: Bandwidth limit in kilobytes per second
-
-```toml
-[sync]
-bwlimit = 5000  # Limit to 5 MB/s
-```
-
-### `delete`
-
-**Type**: Boolean
-**Default**: `false`
-**Description**: Delete local files not present on remote
-
-```toml
-[sync]
-delete = true  # Maintain exact mirror
-```
-
-### `layout`
-
-**Type**: String
-**Default**: `"divided"`
-**Choices**: `divided`, `all`
-**Description**: File layout format
-
-- `divided`: Hash-based directory structure (e.g., `ab/1abc.cif.gz`)
-- `all`: Flat directory structure (e.g., `1abc.cif.gz`)
-
-```toml
-[sync]
-layout = "divided"
-```
-
-### `data_types`
-
-**Type**: Array of String
-**Default**: `["structures"]`
-**Choices**: `structures`, `assemblies`, `structure-factors`, `chemical-components`, `validation-reports`
-**Description**: List of data types to sync
-
-```toml
-[sync]
-data_types = ["structures", "assemblies", "validation-reports"]
-```
-
-Aliases:
-- `structures` / `st` / `struct`
-- `assemblies` / `asm` / `assembly`
-- `structure-factors` / `sf` / `xray`
-- `chemical-components` / `cc` / `chem`
-- `validation-reports` / `val` / `validation`
+All fields are optional. See [sync.custom.NAME.options](#synccustomnameoptions-section) for available fields.
 
 ---
 
@@ -691,9 +636,6 @@ delete = false
 [paths]
 pdb_dir = "/data/pdb"
 
-[sync]
-mirror = "rcsb"
-
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures"
@@ -705,10 +647,6 @@ preset = "fast"
 ```toml
 [paths]
 pdb_dir = "/data/pdb"
-
-[sync]
-mirror = "pdbj"
-bwlimit = 5000
 
 # Structure data (speed priority)
 [sync.custom.structures]
@@ -751,9 +689,7 @@ exclude = ["*.tmp", "test/*"]
 [paths]
 pdb_dir = "/mnt/storage/pdb"
 
-[sync]
-mirror = "rcsb"
-bwlimit = 10000
+[sync.defaults]
 delete = false
 
 [mirror_selection]
@@ -780,9 +716,6 @@ itemize_changes = true
 [paths]
 pdb_dir = "/home/user/dev/pdb-data"
 
-[sync]
-mirror = "pdbj"
-
 [sync.custom.test-structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "structures"
@@ -800,9 +733,6 @@ exclude = ["obsolete/"]
 ```toml
 [paths]
 pdb_dir = "/data/pdb"
-
-[sync]
-mirror = "rcsb"
 
 # Small files (recommend parallel 10)
 [sync.custom.structures]

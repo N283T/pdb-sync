@@ -139,10 +139,17 @@ pdb-sync/
 [paths]
 pdb_dir = "/data/pdb"           // PDBファイルのベースディレクトリ
 
-[sync]
-mirror = "rcsb"                 // デフォルトミラー
-data_types = ["structures"]     // 同期するデータタイプ
-layout = "divided"              // ディレクトリレイアウト
+[sync.defaults]
+compress = true                 // 全カスタム設定の共通デフォルト
+timeout = 300
+
+[sync.custom.structures]
+url = "rsync.wwpdb.org::ftp_data/structures/"
+dest = "data/structures"
+
+[sync.custom.structures.options]
+delete = true
+max_size = "10G"
 
 [download]
 default_format = "mmcif"        // デフォルトフォーマット
