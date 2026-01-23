@@ -265,6 +265,39 @@ compress = true
 checksum = true
 ```
 
+#### `size_only`
+
+**Type**: Boolean
+**Default**: `false`
+**Description**: Compare files by size only, ignoring timestamps
+
+```toml
+[sync.custom.structures.options]
+size_only = true
+```
+
+#### `ignore_times`
+
+**Type**: Boolean
+**Default**: `false`
+**Description**: Always transfer files, ignoring timestamps
+
+```toml
+[sync.custom.structures.options]
+ignore_times = true
+```
+
+#### `modify_window`
+
+**Type**: Integer (seconds)
+**Default**: None
+**Description**: Timestamp tolerance in seconds for comparison
+
+```toml
+[sync.custom.structures.options]
+modify_window = 2  # Allow 2-second difference in timestamps
+```
+
 #### `partial`
 
 **Type**: Boolean

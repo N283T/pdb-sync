@@ -101,6 +101,11 @@ Options:
   --no-compress             圧縮を行わない（-z/--compress を上書き）
   -c, --checksum            チェックサム比較を使用
   --no-checksum             チェックサムを使わない（-c/--checksum を上書き）
+  --size-only               サイズのみで比較（タイムスタンプ無視）
+  --no-size-only            サイズのみ比較を使用しない
+  --ignore-times            タイムスタンプを無視して常に転送
+  --no-ignore-times         タイムスタンプを無視しない
+  --modify-window <SECONDS> タイムスタンプの許容誤差（秒）
   --partial                 部分転送ファイルを保持
   --no-partial              部分転送ファイルを保持しない
   --partial-dir <DIR>       部分転送ファイルの保存先
@@ -314,6 +319,9 @@ pdb-sync config migrate
 | `rsync_delete` | --delete / --no-delete | リモートに無いファイルを削除 |
 | `rsync_compress` | -z, --compress / --no-compress | 転送時に圧縮 |
 | `rsync_checksum` | -c, --checksum / --no-checksum | チェックサム比較 |
+| `rsync_size_only` | --size-only / --no-size-only | サイズのみで比較 |
+| `rsync_ignore_times` | --ignore-times / --no-ignore-times | タイムスタンプを無視 |
+| `rsync_modify_window` | --modify-window | タイムスタンプ許容誤差（秒） |
 | `rsync_partial` | --partial / --no-partial | 部分転送ファイルを保持 |
 | `rsync_partial_dir` | --partial-dir | 部分転送保存先 |
 | `rsync_max_size` | --max-size | 最大サイズ |

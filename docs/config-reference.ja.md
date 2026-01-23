@@ -265,6 +265,39 @@ compress = true
 checksum = true
 ```
 
+#### `size_only`
+
+**型**: Boolean
+**デフォルト**: `false`
+**説明**: サイズのみでファイルを比較（タイムスタンプ無視）
+
+```toml
+[sync.custom.structures.options]
+size_only = true
+```
+
+#### `ignore_times`
+
+**型**: Boolean
+**デフォルト**: `false`
+**説明**: タイムスタンプを無視して常にファイルを転送
+
+```toml
+[sync.custom.structures.options]
+ignore_times = true
+```
+
+#### `modify_window`
+
+**型**: Integer（秒）
+**デフォルト**: None
+**説明**: 比較時のタイムスタンプ許容誤差（秒単位）
+
+```toml
+[sync.custom.structures.options]
+modify_window = 2  # タイムスタンプの2秒差まで許容
+```
+
 #### `partial`
 
 **型**: Boolean

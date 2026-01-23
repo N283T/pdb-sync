@@ -22,8 +22,18 @@ pub struct RsyncFlags {
     // === Compression & Transfer Optimization ===
     /// Compress data during transfer (-z)
     pub compress: bool,
+
+    // === File Comparison Methods ===
     /// Use checksum for file comparison (-c) instead of mod time/size
     pub checksum: bool,
+    /// Compare by size only, ignore timestamps (--size-only)
+    pub size_only: bool,
+    /// Always transfer files, ignoring timestamps (--ignore-times)
+    pub ignore_times: bool,
+    /// Timestamp tolerance in seconds (--modify-window=SECONDS)
+    pub modify_window: Option<u32>,
+
+    // === Partial Transfer ===
     /// Keep partially transferred files (--partial)
     pub partial: bool,
     /// Directory for partial files (--partial-dir=DIR)
@@ -83,6 +93,9 @@ pub struct RsyncFlagOverrides {
 
     pub compress: Option<bool>,
     pub checksum: Option<bool>,
+    pub size_only: Option<bool>,
+    pub ignore_times: Option<bool>,
+    pub modify_window: Option<u32>,
     pub partial: Option<bool>,
     pub partial_dir: Option<String>,
 
@@ -141,6 +154,19 @@ impl RsyncFlags {
             ));
         }
 
+        // Validate conflicting comparison options
+        if self.checksum && self.size_only {
+            return Err(PdbSyncError::InvalidInput(
+                "checksum and size_only are mutually exclusive".to_string(),
+            ));
+        }
+
+        if self.size_only && self.ignore_times {
+            return Err(PdbSyncError::InvalidInput(
+                "size_only and ignore_times are mutually exclusive".to_string(),
+            ));
+        }
+
         // Validate chmod format (basic validation)
         if let Some(ref chmod) = self.chmod {
             validate_chmod_string(chmod)?;
@@ -160,6 +186,16 @@ impl RsyncFlags {
             delete: if other.delete { true } else { self.delete },
             compress: if other.compress { true } else { self.compress },
             checksum: if other.checksum { true } else { self.checksum },
+            size_only: if other.size_only {
+                true
+            } else {
+                self.size_only
+            },
+            ignore_times: if other.ignore_times {
+                true
+            } else {
+                self.ignore_times
+            },
             partial: if other.partial { true } else { self.partial },
             backup: if other.backup { true } else { self.backup },
             itemize_changes: if other.itemize_changes {
@@ -173,6 +209,7 @@ impl RsyncFlags {
 
             // Option fields: other Some overrides, None preserves self
             bwlimit: other.bwlimit.or(self.bwlimit),
+            modify_window: other.modify_window.or(self.modify_window),
             partial_dir: other
                 .partial_dir
                 .clone()
@@ -216,6 +253,8 @@ impl RsyncFlags {
             delete: overrides.delete.unwrap_or(self.delete),
             compress: overrides.compress.unwrap_or(self.compress),
             checksum: overrides.checksum.unwrap_or(self.checksum),
+            size_only: overrides.size_only.unwrap_or(self.size_only),
+            ignore_times: overrides.ignore_times.unwrap_or(self.ignore_times),
             partial: overrides.partial.unwrap_or(self.partial),
             backup: overrides.backup.unwrap_or(self.backup),
             itemize_changes: overrides.itemize_changes.unwrap_or(self.itemize_changes),
@@ -227,6 +266,7 @@ impl RsyncFlags {
 
             // Option types: CLI Some value overrides, None falls back to config
             bwlimit: overrides.bwlimit.or(self.bwlimit),
+            modify_window: overrides.modify_window.or(self.modify_window),
             partial_dir: overrides
                 .partial_dir
                 .clone()
@@ -285,10 +325,24 @@ impl RsyncFlags {
             cmd.arg("-z"); // --compress
         }
 
+        // File comparison methods
         if self.checksum {
             cmd.arg("-c"); // --checksum
         }
 
+        if self.size_only {
+            cmd.arg("--size-only");
+        }
+
+        if self.ignore_times {
+            cmd.arg("--ignore-times");
+        }
+
+        if let Some(window) = self.modify_window {
+            cmd.arg(format!("--modify-window={}", window));
+        }
+
+        // Partial transfer
         if self.partial {
             cmd.arg("--partial");
         }
@@ -387,10 +441,24 @@ impl RsyncFlags {
             args.push("-z".to_string());
         }
 
+        // File comparison methods
         if self.checksum {
             args.push("-c".to_string());
         }
 
+        if self.size_only {
+            args.push("--size-only".to_string());
+        }
+
+        if self.ignore_times {
+            args.push("--ignore-times".to_string());
+        }
+
+        if let Some(window) = self.modify_window {
+            args.push(format!("--modify-window={}", window));
+        }
+
+        // Partial transfer
         if self.partial {
             args.push("--partial".to_string());
         }
@@ -665,6 +733,38 @@ mod tests {
             ..Default::default()
         };
         assert!(flags.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_checksum_size_only_conflict() {
+        let flags = RsyncFlags {
+            checksum: true,
+            size_only: true,
+            ..Default::default()
+        };
+        assert!(flags.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_size_only_ignore_times_conflict() {
+        let flags = RsyncFlags {
+            size_only: true,
+            ignore_times: true,
+            ..Default::default()
+        };
+        assert!(flags.validate().is_err());
+    }
+
+    #[test]
+    fn test_to_args_with_comparison_options() {
+        let flags = RsyncFlags {
+            size_only: true,
+            modify_window: Some(5),
+            ..Default::default()
+        };
+        let args = flags.to_args();
+        assert!(args.contains(&"--size-only".to_string()));
+        assert!(args.contains(&"--modify-window=5".to_string()));
     }
 
     #[test]
