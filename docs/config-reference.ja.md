@@ -10,7 +10,6 @@ pdb-sync の設定ファイル `config.toml` の完全なリファレンスド�
 - [sync セクション](#sync-セクション)
 - [sync.custom.NAME セクション](#synccustomname-セクション)
 - [sync.custom.NAME.options セクション](#synccustomnameoptions-セクション)
-- [mirror_selection セクション](#mirror_selection-セクション)
 - [プリセット一覧](#プリセット一覧)
 - [優先順位](#優先順位)
 - [設定例](#設定例)
@@ -48,11 +47,6 @@ dest = "data/structures"
 [sync.custom.structures.options]
 delete = true
 max_size = "10G"
-
-[mirror_selection]
-auto_select = false
-preferred_region = "us"
-latency_cache_ttl = 3600
 ```
 
 ---
@@ -432,47 +426,6 @@ include_from = "/path/to/include.txt"
 
 ---
 
-## mirror_selection セクション
-
-ミラーの自動選択機能を設定します。
-
-### `auto_select`
-
-**型**: Boolean
-**デフォルト**: `false`
-**説明**: レイテンシに基づく自動ミラー選択を有効化
-
-```toml
-[mirror_selection]
-auto_select = true
-```
-
-### `preferred_region`
-
-**型**: String
-**デフォルト**: なし
-**選択肢**: `us`, `jp`, `europe`
-**説明**: 優先地域（2倍のレイテンシ許容範囲内で優先）
-
-```toml
-[mirror_selection]
-auto_select = true
-preferred_region = "jp"
-```
-
-### `latency_cache_ttl`
-
-**型**: Integer (秒)
-**デフォルト**: `3600` (1時間)
-**説明**: レイテンシキャッシュの有効期限
-
-```toml
-[mirror_selection]
-latency_cache_ttl = 7200  # 2時間
-```
-
----
-
 ## プリセット一覧
 
 ### `safe`（安全優先）
@@ -698,11 +651,6 @@ pdb_dir = "/mnt/storage/pdb"
 compress = true
 partial = true
 backup = true
-
-[mirror_selection]
-auto_select = true
-preferred_region = "us"
-latency_cache_ttl = 7200
 
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"

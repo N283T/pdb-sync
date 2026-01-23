@@ -57,7 +57,6 @@ use std::path::PathBuf;
 pub struct Config {
     pub paths: PathsConfig,
     pub sync: SyncConfig,
-    pub mirror_selection: MirrorSelectionConfig,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -339,29 +338,6 @@ pub struct SyncConfig {
     pub custom: HashMap<String, CustomRsyncConfig>,
 }
 
-/// Configuration for automatic mirror selection based on latency.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct MirrorSelectionConfig {
-    /// Enable automatic mirror selection based on latency
-    pub auto_select: bool,
-    /// Preferred region (e.g., "us", "jp", "europe")
-    /// If set, prefer mirrors in this region within 2x latency tolerance
-    pub preferred_region: Option<String>,
-    /// TTL for latency cache in seconds
-    pub latency_cache_ttl: u64,
-}
-
-impl Default for MirrorSelectionConfig {
-    fn default() -> Self {
-        Self {
-            auto_select: false,
-            preferred_region: None,
-            latency_cache_ttl: 3600,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,8 +345,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert!(!config.mirror_selection.auto_select);
         assert!(config.sync.custom.is_empty());
+        assert!(config.paths.pdb_dir.is_none());
     }
 
     #[test]
@@ -379,17 +355,16 @@ mod tests {
             [paths]
             pdb_dir = "/data/pdb"
 
-            [mirror_selection]
-            auto_select = true
-            preferred_region = "jp"
+            [sync.defaults]
+            compress = true
+            timeout = 300
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.paths.pdb_dir, Some(PathBuf::from("/data/pdb")));
-        assert!(config.mirror_selection.auto_select);
-        assert_eq!(
-            config.mirror_selection.preferred_region,
-            Some("jp".to_string())
-        );
+        assert!(config.sync.defaults.is_some());
+        let defaults = config.sync.defaults.unwrap();
+        assert_eq!(defaults.compress, Some(true));
+        assert_eq!(defaults.timeout, Some(300));
     }
 
     #[test]
@@ -401,8 +376,8 @@ mod tests {
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         // New fields should have defaults
-        assert!(!config.mirror_selection.auto_select);
         assert!(config.sync.custom.is_empty());
+        assert!(config.sync.defaults.is_none());
     }
 
     #[test]
