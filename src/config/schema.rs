@@ -21,6 +21,97 @@ pub struct PathsConfig {
     pub data_type_dirs: HashMap<String, PathBuf>,
 }
 
+/// Rsync options configuration (nested format, no `rsync_` prefix).
+///
+/// This is the new, cleaner format for rsync options.
+/// Uses Option<bool> to distinguish "not set" from "explicitly set to false".
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RsyncOptionsConfig {
+    /// Delete files that don't exist on the remote
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete: Option<bool>,
+    /// Compress data during transfer
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compress: Option<bool>,
+    /// Use checksum for file comparison
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<bool>,
+    /// Keep partially transferred files
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partial: Option<bool>,
+    /// Directory for partial files
+    pub partial_dir: Option<String>,
+    /// Maximum file size to transfer
+    pub max_size: Option<String>,
+    /// Minimum file size to transfer
+    pub min_size: Option<String>,
+    /// I/O timeout in seconds
+    pub timeout: Option<u32>,
+    /// Connection timeout in seconds
+    pub contimeout: Option<u32>,
+    /// Create backups
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup: Option<bool>,
+    /// Backup directory
+    pub backup_dir: Option<String>,
+    /// Change permission flags
+    pub chmod: Option<String>,
+    /// Exclude patterns
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    /// Include patterns
+    #[serde(default)]
+    pub include: Vec<String>,
+    /// File with exclude patterns
+    pub exclude_from: Option<String>,
+    /// File with include patterns
+    pub include_from: Option<String>,
+    /// Verbose output
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verbose: Option<bool>,
+    /// Quiet mode
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quiet: Option<bool>,
+    /// Itemize changes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub itemize_changes: Option<bool>,
+}
+
+impl RsyncOptionsConfig {
+    /// Convert to RsyncFlags for use in rsync operations.
+    ///
+    /// Only sets fields that are explicitly provided (Some).
+    /// Fields that are None will be left at their default values in RsyncFlags.
+    #[allow(dead_code)] // Used in production code via CustomRsyncConfig
+    pub fn to_rsync_flags(&self) -> crate::sync::RsyncFlags {
+        crate::sync::RsyncFlags {
+            delete: self.delete.unwrap_or(false),
+            compress: self.compress.unwrap_or(false),
+            checksum: self.checksum.unwrap_or(false),
+            partial: self.partial.unwrap_or(false),
+            partial_dir: self.partial_dir.clone(),
+            max_size: self.max_size.clone(),
+            min_size: self.min_size.clone(),
+            timeout: self.timeout,
+            contimeout: self.contimeout,
+            backup: self.backup.unwrap_or(false),
+            backup_dir: self.backup_dir.clone(),
+            chmod: self.chmod.clone(),
+            exclude: self.exclude.clone(),
+            include: self.include.clone(),
+            exclude_from: self.exclude_from.clone(),
+            include_from: self.include_from.clone(),
+            verbose: self.verbose.unwrap_or(false),
+            quiet: self.quiet.unwrap_or(false),
+            itemize_changes: self.itemize_changes.unwrap_or(false),
+            // bwlimit and dry_run are handled separately (from CLI args)
+            bwlimit: None,
+            dry_run: false,
+        }
+    }
+}
+
 /// Custom rsync configuration for user-defined sync targets.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -35,70 +126,85 @@ pub struct CustomRsyncConfig {
     #[serde(default)]
     pub description: Option<String>,
 
-    // === Per-config rsync option defaults ===
+    // === New format: preset-based ===
+    /// Preset name (safe, fast, minimal, conservative)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
+
+    /// Nested rsync options (new format without rsync_ prefix)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub options: Option<RsyncOptionsConfig>,
+
+    // === Legacy format: flat rsync_* fields (for backward compatibility) ===
     /// Delete files that don't exist on the remote
-    #[serde(rename = "rsync_delete")]
+    #[serde(rename = "rsync_delete", alias = "delete")]
     pub rsync_delete: bool,
     /// Compress data during transfer
-    #[serde(rename = "rsync_compress")]
+    #[serde(rename = "rsync_compress", alias = "compress")]
     pub rsync_compress: bool,
     /// Use checksum for file comparison
-    #[serde(rename = "rsync_checksum")]
+    #[serde(rename = "rsync_checksum", alias = "checksum")]
     pub rsync_checksum: bool,
     /// Keep partially transferred files
-    #[serde(rename = "rsync_partial")]
+    #[serde(rename = "rsync_partial", alias = "partial")]
     pub rsync_partial: bool,
     /// Directory for partial files
-    #[serde(rename = "rsync_partial_dir")]
+    #[serde(rename = "rsync_partial_dir", alias = "partial_dir")]
     pub rsync_partial_dir: Option<String>,
     /// Maximum file size to transfer
-    #[serde(rename = "rsync_max_size")]
+    #[serde(rename = "rsync_max_size", alias = "max_size")]
     pub rsync_max_size: Option<String>,
     /// Minimum file size to transfer
-    #[serde(rename = "rsync_min_size")]
+    #[serde(rename = "rsync_min_size", alias = "min_size")]
     pub rsync_min_size: Option<String>,
     /// I/O timeout in seconds
-    #[serde(rename = "rsync_timeout")]
+    #[serde(rename = "rsync_timeout", alias = "timeout")]
     pub rsync_timeout: Option<u32>,
     /// Connection timeout in seconds
-    #[serde(rename = "rsync_contimeout")]
+    #[serde(rename = "rsync_contimeout", alias = "contimeout")]
     pub rsync_contimeout: Option<u32>,
     /// Create backups
-    #[serde(rename = "rsync_backup")]
+    #[serde(rename = "rsync_backup", alias = "backup")]
     pub rsync_backup: bool,
     /// Backup directory
-    #[serde(rename = "rsync_backup_dir")]
+    #[serde(rename = "rsync_backup_dir", alias = "backup_dir")]
     pub rsync_backup_dir: Option<String>,
     /// Change permission flags
-    #[serde(rename = "rsync_chmod")]
+    #[serde(rename = "rsync_chmod", alias = "chmod")]
     pub rsync_chmod: Option<String>,
     /// Exclude patterns
-    #[serde(rename = "rsync_exclude", default)]
+    #[serde(rename = "rsync_exclude", alias = "exclude", default)]
     pub rsync_exclude: Vec<String>,
     /// Include patterns
-    #[serde(rename = "rsync_include", default)]
+    #[serde(rename = "rsync_include", alias = "include", default)]
     pub rsync_include: Vec<String>,
     /// File with exclude patterns
-    #[serde(rename = "rsync_exclude_from")]
+    #[serde(rename = "rsync_exclude_from", alias = "exclude_from")]
     pub rsync_exclude_from: Option<String>,
     /// File with include patterns
-    #[serde(rename = "rsync_include_from")]
+    #[serde(rename = "rsync_include_from", alias = "include_from")]
     pub rsync_include_from: Option<String>,
     /// Verbose output
-    #[serde(rename = "rsync_verbose")]
+    #[serde(rename = "rsync_verbose", alias = "verbose")]
     pub rsync_verbose: bool,
     /// Quiet mode
-    #[serde(rename = "rsync_quiet")]
+    #[serde(rename = "rsync_quiet", alias = "quiet")]
     pub rsync_quiet: bool,
     /// Itemize changes
-    #[serde(rename = "rsync_itemize_changes")]
+    #[serde(rename = "rsync_itemize_changes", alias = "itemize_changes")]
     pub rsync_itemize_changes: bool,
 }
 
 impl CustomRsyncConfig {
     /// Convert to RsyncFlags for use in rsync operations.
+    ///
+    /// Priority order: options > preset > legacy fields
+    /// 1. Start with legacy fields (for backward compatibility)
+    /// 2. If preset is specified, merge preset flags
+    /// 3. If options is specified, apply options (field-by-field override)
     pub fn to_rsync_flags(&self) -> crate::sync::RsyncFlags {
-        crate::sync::RsyncFlags {
+        // Start with legacy fields (backward compatibility)
+        let mut flags = crate::sync::RsyncFlags {
             delete: self.rsync_delete,
             compress: self.rsync_compress,
             checksum: self.rsync_checksum,
@@ -121,7 +227,82 @@ impl CustomRsyncConfig {
             // bwlimit and dry_run are handled separately (from CLI args)
             bwlimit: None,
             dry_run: false,
+        };
+
+        // Apply preset if specified
+        if let Some(ref preset_name) = self.preset {
+            if let Some(preset_flags) = crate::sync::get_rsync_preset(preset_name) {
+                flags = flags.merge_with(&preset_flags);
+            }
         }
+
+        // Apply options if specified (highest priority)
+        // Use field-by-field override to respect Option<bool> semantics
+        if let Some(ref options) = self.options {
+            if let Some(delete) = options.delete {
+                flags.delete = delete;
+            }
+            if let Some(compress) = options.compress {
+                flags.compress = compress;
+            }
+            if let Some(checksum) = options.checksum {
+                flags.checksum = checksum;
+            }
+            if let Some(partial) = options.partial {
+                flags.partial = partial;
+            }
+            if let Some(backup) = options.backup {
+                flags.backup = backup;
+            }
+            if let Some(verbose) = options.verbose {
+                flags.verbose = verbose;
+            }
+            if let Some(quiet) = options.quiet {
+                flags.quiet = quiet;
+            }
+            if let Some(itemize_changes) = options.itemize_changes {
+                flags.itemize_changes = itemize_changes;
+            }
+
+            // Option fields
+            if options.partial_dir.is_some() {
+                flags.partial_dir = options.partial_dir.clone();
+            }
+            if options.max_size.is_some() {
+                flags.max_size = options.max_size.clone();
+            }
+            if options.min_size.is_some() {
+                flags.min_size = options.min_size.clone();
+            }
+            if options.timeout.is_some() {
+                flags.timeout = options.timeout;
+            }
+            if options.contimeout.is_some() {
+                flags.contimeout = options.contimeout;
+            }
+            if options.backup_dir.is_some() {
+                flags.backup_dir = options.backup_dir.clone();
+            }
+            if options.chmod.is_some() {
+                flags.chmod = options.chmod.clone();
+            }
+            if options.exclude_from.is_some() {
+                flags.exclude_from = options.exclude_from.clone();
+            }
+            if options.include_from.is_some() {
+                flags.include_from = options.include_from.clone();
+            }
+
+            // Vec fields: non-empty overrides
+            if !options.exclude.is_empty() {
+                flags.exclude = options.exclude.clone();
+            }
+            if !options.include.is_empty() {
+                flags.include = options.include.clone();
+            }
+        }
+
+        flags
     }
 }
 
@@ -303,5 +484,185 @@ mod tests {
         );
         assert_eq!(config.sync.custom[1].dest, "pdbe/sifts");
         assert_eq!(config.sync.custom[1].description, None);
+    }
+
+    // === New format tests ===
+
+    #[test]
+    fn test_custom_config_old_format_backward_compat() {
+        // Old format with rsync_ prefix should still work
+        let toml_str = r#"
+            [[sync.custom]]
+            name = "legacy"
+            url = "example.org::data"
+            dest = "data/legacy"
+            rsync_delete = true
+            rsync_compress = true
+            rsync_checksum = true
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.sync.custom.len(), 1);
+
+        let custom = &config.sync.custom[0];
+        assert_eq!(custom.name, "legacy");
+        assert!(custom.rsync_delete);
+        assert!(custom.rsync_compress);
+        assert!(custom.rsync_checksum);
+
+        let flags = custom.to_rsync_flags();
+        assert!(flags.delete);
+        assert!(flags.compress);
+        assert!(flags.checksum);
+    }
+
+    #[test]
+    fn test_custom_config_preset_only() {
+        // New format: preset only
+        let toml_str = r#"
+            [[sync.custom]]
+            name = "structures"
+            url = "rsync.wwpdb.org::ftp_data/structures/"
+            dest = "data/structures"
+            preset = "safe"
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.sync.custom.len(), 1);
+
+        let custom = &config.sync.custom[0];
+        assert_eq!(custom.name, "structures");
+        assert_eq!(custom.preset, Some("safe".to_string()));
+
+        let flags = custom.to_rsync_flags();
+        // Safe preset: no delete, compress, checksum, partial, verbose
+        assert!(!flags.delete);
+        assert!(flags.compress);
+        assert!(flags.checksum);
+        assert!(flags.partial);
+        assert!(flags.verbose);
+    }
+
+    #[test]
+    fn test_custom_config_preset_with_override() {
+        // New format: preset + override in [options]
+        let toml_str = r#"
+            [[sync.custom]]
+            name = "structures"
+            url = "rsync.wwpdb.org::ftp_data/structures/"
+            dest = "data/structures"
+            preset = "fast"
+
+            [sync.custom.options]
+            max_size = "5GB"
+            exclude = ["obsolete/"]
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.sync.custom.len(), 1);
+
+        let custom = &config.sync.custom[0];
+        assert_eq!(custom.preset, Some("fast".to_string()));
+        assert!(custom.options.is_some());
+
+        let options = custom.options.as_ref().unwrap();
+        assert_eq!(options.max_size, Some("5GB".to_string()));
+        assert_eq!(options.exclude, vec!["obsolete/".to_string()]);
+
+        let flags = custom.to_rsync_flags();
+        // Fast preset: delete, compress, no checksum, partial, quiet
+        assert!(flags.delete);
+        assert!(flags.compress);
+        assert!(!flags.checksum);
+        assert!(flags.partial);
+        assert!(flags.quiet);
+        // Options override
+        assert_eq!(flags.max_size, Some("5GB".to_string()));
+        assert_eq!(flags.exclude, vec!["obsolete/".to_string()]);
+    }
+
+    #[test]
+    fn test_custom_config_nested_options_only() {
+        // New format: fully custom with nested options (no preset)
+        let toml_str = r#"
+            [[sync.custom]]
+            name = "sifts"
+            url = "rsync.wwpdb.org::ftp_data/sifts/"
+            dest = "data/sifts"
+
+            [sync.custom.options]
+            delete = true
+            compress = true
+            checksum = true
+            timeout = 300
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.sync.custom.len(), 1);
+
+        let custom = &config.sync.custom[0];
+        assert_eq!(custom.name, "sifts");
+        assert!(custom.preset.is_none());
+        assert!(custom.options.is_some());
+
+        let options = custom.options.as_ref().unwrap();
+        assert_eq!(options.delete, Some(true));
+        assert_eq!(options.compress, Some(true));
+        assert_eq!(options.checksum, Some(true));
+        assert_eq!(options.timeout, Some(300));
+
+        let flags = custom.to_rsync_flags();
+        assert!(flags.delete);
+        assert!(flags.compress);
+        assert!(flags.checksum);
+        assert_eq!(flags.timeout, Some(300));
+    }
+
+    #[test]
+    fn test_custom_config_priority_order() {
+        // Test priority: options > preset > legacy
+        let toml_str = r#"
+            [[sync.custom]]
+            name = "test"
+            url = "example.org::data"
+            dest = "data/test"
+
+            # Legacy: delete=false, compress=false
+            rsync_delete = false
+            rsync_compress = false
+
+            # Preset "fast": delete=true, compress=true
+            preset = "fast"
+
+            # Options: delete override to false (highest priority)
+            [sync.custom.options]
+            delete = false
+            max_size = "1G"
+        "#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        let custom = &config.sync.custom[0];
+
+        let flags = custom.to_rsync_flags();
+
+        // Priority test:
+        // - delete: options (false) > preset (true) > legacy (false) = false
+        // - compress: preset (true) > legacy (false) = true
+        // - max_size: options (1G) = 1G
+        assert!(!flags.delete); // options override
+        assert!(flags.compress); // preset applies
+        assert_eq!(flags.max_size, Some("1G".to_string())); // options adds new field
+    }
+
+    #[test]
+    fn test_rsync_options_config_to_flags() {
+        let options = RsyncOptionsConfig {
+            delete: Some(true),
+            compress: Some(true),
+            max_size: Some("1G".to_string()),
+            exclude: vec!["*.tmp".to_string()],
+            ..Default::default()
+        };
+
+        let flags = options.to_rsync_flags();
+        assert!(flags.delete);
+        assert!(flags.compress);
+        assert_eq!(flags.max_size, Some("1G".to_string()));
+        assert_eq!(flags.exclude, vec!["*.tmp".to_string()]);
     }
 }

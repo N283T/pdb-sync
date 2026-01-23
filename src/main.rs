@@ -47,6 +47,12 @@ async fn main() -> anyhow::Result<()> {
             cli::args::config::ConfigCommand::Validate(validate_args) => {
                 cli::args::config::run_validate(validate_args).await?;
             }
+            cli::args::config::ConfigCommand::Migrate(migrate_args) => {
+                cli::args::config::run_migrate(migrate_args).await?;
+            }
+            cli::args::config::ConfigCommand::Presets => {
+                cli::args::config::run_presets().await?;
+            }
         },
     }
 
