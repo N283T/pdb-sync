@@ -38,15 +38,19 @@ pdb_dir = "/data/pdb"
 
 [sync]
 mirror = "rcsb"
-bwlimit = 5000
-delete = false
-layout = "divided"
-data_types = ["structures", "assemblies"]
+
+# 全カスタム設定に共通のデフォルト値
+[sync.defaults]
+compress = true
+timeout = 300
 
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures"
-preset = "fast"
+
+[sync.custom.structures.options]
+delete = true
+max_size = "10G"
 
 [mirror_selection]
 auto_select = false
@@ -107,61 +111,24 @@ assemblies = "/mnt/hdd/pdb/assemblies"
 mirror = "pdbj"  # または "jp"
 ```
 
-### `bwlimit`
+### `defaults`
 
-**型**: Integer (KB/s)
-**デフォルト**: `0` (制限なし)
-**説明**: 帯域制限（キロバイト/秒）
+**型**: Table (RsyncOptionsConfig)
+**デフォルト**: なし
+**説明**: 全カスタム設定に共通のデフォルト rsync オプション
 
-```toml
-[sync]
-bwlimit = 5000  # 5 MB/s に制限
-```
-
-### `delete`
-
-**型**: Boolean
-**デフォルト**: `false`
-**説明**: リモートに無いファイルをローカルから削除
+共通オプションを一度定義することで、各設定での繰り返しを排除できます（DRY 原則）。
 
 ```toml
-[sync]
-delete = true  # ミラーと完全一致させる
+[sync.defaults]
+compress = true
+timeout = 300
+partial = true
 ```
 
-### `layout`
+**優先順位**: `options > preset > defaults > legacy`
 
-**型**: String
-**デフォルト**: `"divided"`
-**選択肢**: `divided`, `all`
-**説明**: ファイルレイアウト形式
-
-- `divided`: ハッシュベースのディレクトリ構造（例: `ab/1abc.cif.gz`）
-- `all`: フラットなディレクトリ構造（例: `1abc.cif.gz`）
-
-```toml
-[sync]
-layout = "divided"
-```
-
-### `data_types`
-
-**型**: Array of String
-**デフォルト**: `["structures"]`
-**選択肢**: `structures`, `assemblies`, `structure-factors`, `chemical-components`, `validation-reports`
-**説明**: 同期するデータタイプのリスト
-
-```toml
-[sync]
-data_types = ["structures", "assemblies", "validation-reports"]
-```
-
-エイリアス:
-- `structures` / `st` / `struct`
-- `assemblies` / `asm` / `assembly`
-- `structure-factors` / `sf` / `xray`
-- `chemical-components` / `cc` / `chem`
-- `validation-reports` / `val` / `validation`
+すべてのフィールドは省略可能です。利用可能なフィールドについては [sync.custom.NAME.options セクション](#synccustomnameoptions-セクション) を参照してください。
 
 ---
 
@@ -629,27 +596,32 @@ backup_dir = ".backup"
 
 複数の設定方法を併用した場合の優先順位:
 
-**options > preset > legacy > デフォルト**
+```
+options > preset > defaults > legacy
+```
 
-### 例: delete フラグの決定
+### 例
 
 ```toml
+[sync.defaults]
+compress = true
+timeout = 300
+
 [sync.custom.test]
 url = "example.org::data"
 dest = "data/test"
+rsync_delete = false  # legacy
+preset = "fast"       # preset: delete=true
 
-# Legacy: delete=false
-rsync_delete = false
-
-# Preset "fast": delete=true
-preset = "fast"
-
-# Options: delete=false (最優先)
 [sync.custom.test.options]
-delete = false
+delete = false  # options: 最優先
+timeout = 600   # defaults を上書き
 ```
 
-**結果**: `delete = false`（options から）
+**結果**:
+- `delete = false`（options）
+- `compress = true`（preset/defaults）
+- `timeout = 600`（options が defaults を上書き）
 
 ### 優先順位の詳細
 
@@ -670,13 +642,20 @@ delete = false
    preset = "fast"  # delete=true
    ```
 
-4. **legacy フィールド**（後方互換）
+4. **defaults**（新機能）
+   ```toml
+   [sync.defaults]
+   compress = true
+   timeout = 300
+   ```
+
+5. **legacy フィールド**（後方互換）
    ```toml
    [sync.custom.structures]
    rsync_delete = true
    ```
 
-5. **デフォルト値**
+6. **組み込みデフォルト値**
    - `delete = false`
    - `compress = false`
    - など
@@ -685,7 +664,43 @@ delete = false
 
 ## 設定例
 
-### 1. シンプル構成（プリセットのみ）
+### 1. グローバルデフォルト + カスタムオプション（推奨）
+
+```toml
+[paths]
+pdb_dir = "/data/pdb"
+
+[sync]
+mirror = "rcsb"
+
+# 全設定に共通のデフォルト（DRY）
+[sync.defaults]
+compress = true
+timeout = 300
+partial = true
+
+# 構造データ
+[sync.custom.structures]
+url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
+dest = "data/structures/mmCIF"
+description = "PDB structures (mmCIF format)"
+
+[sync.custom.structures.options]
+delete = true
+max_size = "10G"
+exclude = ["obsolete/"]
+
+# EMDB
+[sync.custom.emdb]
+url = "data.pdbj.org::rsync/pub/emdb/"
+dest = "data/emdb"
+description = "Electron Microscopy Data Bank"
+
+[sync.custom.emdb.options]
+max_size = "5G"
+```
+
+### 2. シンプル構成（プリセットのみ）
 
 ```toml
 [paths]
@@ -700,51 +715,6 @@ dest = "data/structures"
 preset = "fast"
 ```
 
-### 2. 複数データソース + プリセット上書き
-
-```toml
-[paths]
-pdb_dir = "/data/pdb"
-
-[sync]
-mirror = "pdbj"
-bwlimit = 5000
-
-# 構造データ（速度優先）
-[sync.custom.structures]
-url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
-dest = "data/structures/mmCIF"
-description = "PDB structures (mmCIF format)"
-preset = "fast"
-
-[sync.custom.structures.options]
-max_size = "10GB"
-exclude = ["obsolete/"]
-
-# EMDB（安全優先 + サイズ制限）
-[sync.custom.emdb]
-url = "data.pdbj.org::rsync/pub/emdb/"
-dest = "data/emdb"
-description = "Electron Microscopy Data Bank"
-preset = "safe"
-
-[sync.custom.emdb.options]
-max_size = "5GB"
-timeout = 600
-
-# SIFTS（カスタム設定）
-[sync.custom.sifts]
-url = "ftp.pdbj.org::pub/pdbj/data/sifts/"
-dest = "pdbj/sifts"
-description = "SIFTS data from PDBj"
-
-[sync.custom.sifts.options]
-delete = true
-compress = true
-checksum = true
-exclude = ["*.tmp", "test/*"]
-```
-
 ### 3. 本番環境設定（保守的）
 
 ```toml
@@ -753,8 +723,11 @@ pdb_dir = "/mnt/storage/pdb"
 
 [sync]
 mirror = "rcsb"
-bwlimit = 10000
-delete = false
+
+[sync.defaults]
+compress = true
+partial = true
+backup = true
 
 [mirror_selection]
 auto_select = true
@@ -769,7 +742,6 @@ preset = "conservative"
 [sync.custom.structures.options]
 backup_dir = "/backup/pdb/structures"
 timeout = 1800
-partial = true
 partial_dir = ".rsync-partial"
 itemize_changes = true
 ```
@@ -821,12 +793,15 @@ preset = "fast"
 
 [sync.custom.emdb.options]
 timeout = 3600
-bwlimit = 5000  # 個別に帯域制限
 ```
 
 実行:
 ```bash
+# 並列実行
 pdb-sync sync --all --parallel 10
+
+# 帯域制限が必要な場合は CLI 引数で指定
+pdb-sync sync emdb --bwlimit 5000
 ```
 
 ---
