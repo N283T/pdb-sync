@@ -79,11 +79,11 @@ pub fn validate_config(config: &Config) -> ValidationResult {
     let mut checks = Vec::new();
 
     // Validate custom sync configs
-    for custom_config in &config.sync.custom {
-        checks.push(validate_custom_config_name(&custom_config.name));
+    for (name, custom_config) in &config.sync.custom {
+        checks.push(validate_custom_config_name(name));
         checks.push(validate_custom_config_url(&custom_config.url));
         checks.push(validate_custom_config_dest(&custom_config.dest));
-        checks.push(validate_custom_config_flags(custom_config));
+        checks.push(validate_custom_config_flags(name, custom_config));
     }
 
     // Check if there are any custom configs
@@ -180,6 +180,7 @@ fn validate_custom_config_dest(dest: &str) -> ValidationCheck {
 }
 
 fn validate_custom_config_flags(
+    name: &str,
     config: &crate::config::schema::CustomRsyncConfig,
 ) -> ValidationCheck {
     let flags = config.to_rsync_flags();
@@ -202,14 +203,14 @@ fn validate_custom_config_flags(
 
     if issues.is_empty() {
         ValidationCheck {
-            name: format!("Flags for '{}'", config.name),
+            name: format!("Flags for '{}'", name),
             status: ValidationStatus::Pass,
             message: String::new(),
             fixable: false,
         }
     } else {
         ValidationCheck {
-            name: format!("Flags for '{}'", config.name),
+            name: format!("Flags for '{}'", name),
             status: ValidationStatus::Error,
             message: issues.join("; "),
             fixable: false,

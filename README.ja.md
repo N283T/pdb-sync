@@ -31,22 +31,20 @@ cargo install --path .
 mirror = "rcsb"
 
 # プリセットを使った簡単設定
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
 preset = "fast"  # fast, safe, minimal, conservative から選択
 
-[[sync.custom]]
-name = "emdb"
+[sync.custom.emdb]
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "EMDB (Electron Microscopy Data Bank)"
 preset = "safe"
 
 # またはオプションでカスタマイズ
-[sync.custom.options]
+[sync.custom.emdb.options]
 max_size = "5G"
 exclude = ["obsolete/"]
 ```
@@ -203,8 +201,7 @@ pdb-sync sync structures --retry 3 --retry-delay 5
 一般的な rsync フラグの組み合わせにビルトインプリセットを使用:
 
 ```toml
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/"
 dest = "data/structures"
 preset = "safe"  # safe, fast, minimal, conservative から選択
@@ -215,13 +212,12 @@ preset = "safe"  # safe, fast, minimal, conservative から選択
 プリセットから始めて、特定のオプションを上書き:
 
 ```toml
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/"
 dest = "data/structures"
 preset = "fast"
 
-[sync.custom.options]
+[sync.custom.structures.options]
 max_size = "5GB"
 exclude = ["obsolete/"]
 ```
@@ -231,12 +227,11 @@ exclude = ["obsolete/"]
 すべてのオプションを明示的に定義:
 
 ```toml
-[[sync.custom]]
-name = "sifts"
+[sync.custom.sifts]
 url = "rsync.wwpdb.org::ftp_data/sifts/"
 dest = "data/sifts"
 
-[sync.custom.options]
+[sync.custom.sifts.options]
 delete = true
 compress = true
 checksum = true
@@ -248,8 +243,7 @@ timeout = 300
 古い `rsync_` プレフィックス形式も引き続きサポート:
 
 ```toml
-[[sync.custom]]
-name = "legacy"
+[sync.custom.legacy]
 url = "example.org::data"
 dest = "data/legacy"
 rsync_delete = true
@@ -277,8 +271,7 @@ pdb-sync config presets
 複数の設定スタイルを使用する場合、優先順位は: **options > preset > legacy**
 
 ```toml
-[[sync.custom]]
-name = "test"
+[sync.custom.test]
 url = "example.org::data"
 dest = "data/test"
 
@@ -289,7 +282,7 @@ rsync_delete = false
 preset = "fast"
 
 # Options: delete=false (最優先)
-[sync.custom.options]
+[sync.custom.test.options]
 delete = false
 ```
 
