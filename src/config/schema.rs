@@ -82,6 +82,14 @@ pub struct RsyncOptionsConfig {
     /// Use checksum for file comparison
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checksum: Option<bool>,
+    /// Compare by size only, ignore timestamps
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size_only: Option<bool>,
+    /// Always transfer files, ignoring timestamps
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_times: Option<bool>,
+    /// Timestamp tolerance in seconds
+    pub modify_window: Option<u32>,
     /// Keep partially transferred files
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
@@ -134,6 +142,9 @@ impl RsyncOptionsConfig {
             delete: self.delete.unwrap_or(false),
             compress: self.compress.unwrap_or(false),
             checksum: self.checksum.unwrap_or(false),
+            size_only: self.size_only.unwrap_or(false),
+            ignore_times: self.ignore_times.unwrap_or(false),
+            modify_window: self.modify_window,
             partial: self.partial.unwrap_or(false),
             partial_dir: self.partial_dir.clone(),
             max_size: self.max_size.clone(),
@@ -188,6 +199,15 @@ pub struct CustomRsyncConfig {
     /// Use checksum for file comparison
     #[serde(rename = "rsync_checksum", alias = "checksum")]
     pub rsync_checksum: bool,
+    /// Compare by size only, ignore timestamps
+    #[serde(rename = "rsync_size_only", alias = "size_only")]
+    pub rsync_size_only: bool,
+    /// Always transfer files, ignoring timestamps
+    #[serde(rename = "rsync_ignore_times", alias = "ignore_times")]
+    pub rsync_ignore_times: bool,
+    /// Timestamp tolerance in seconds
+    #[serde(rename = "rsync_modify_window", alias = "modify_window")]
+    pub rsync_modify_window: Option<u32>,
     /// Keep partially transferred files
     #[serde(rename = "rsync_partial", alias = "partial")]
     pub rsync_partial: bool,
@@ -251,6 +271,9 @@ impl CustomRsyncConfig {
             delete: self.rsync_delete,
             compress: self.rsync_compress,
             checksum: self.rsync_checksum,
+            size_only: self.rsync_size_only,
+            ignore_times: self.rsync_ignore_times,
+            modify_window: self.rsync_modify_window,
             partial: self.rsync_partial,
             partial_dir: self.rsync_partial_dir.clone(),
             max_size: self.rsync_max_size.clone(),

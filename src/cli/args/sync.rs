@@ -56,6 +56,26 @@ pub struct SyncArgs {
     #[arg(long, action = ArgAction::SetTrue, overrides_with = "checksum")]
     pub no_checksum: bool,
 
+    /// Compare by size only, ignore timestamps
+    #[arg(long)]
+    pub size_only: bool,
+
+    /// Do not use size-only comparison
+    #[arg(long, action = ArgAction::SetTrue, overrides_with = "size_only")]
+    pub no_size_only: bool,
+
+    /// Always transfer files, ignoring timestamps
+    #[arg(long)]
+    pub ignore_times: bool,
+
+    /// Do not ignore timestamps
+    #[arg(long, action = ArgAction::SetTrue, overrides_with = "ignore_times")]
+    pub no_ignore_times: bool,
+
+    /// Timestamp tolerance in seconds
+    #[arg(long)]
+    pub modify_window: Option<u32>,
+
     /// Keep partially transferred files
     #[arg(long)]
     pub partial: bool,
@@ -200,6 +220,22 @@ impl SyncArgs {
             None
         };
 
+        let size_only = if self.no_size_only {
+            Some(false)
+        } else if self.size_only {
+            Some(true)
+        } else {
+            None
+        };
+
+        let ignore_times = if self.no_ignore_times {
+            Some(false)
+        } else if self.ignore_times {
+            Some(true)
+        } else {
+            None
+        };
+
         let partial = if self.no_partial {
             Some(false)
         } else if self.partial {
@@ -244,6 +280,9 @@ impl SyncArgs {
             delete,
             compress,
             checksum,
+            size_only,
+            ignore_times,
+            modify_window: self.modify_window,
             partial,
             backup,
             verbose,
@@ -437,6 +476,9 @@ pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
                     rsync_delete: false,
                     rsync_compress: false,
                     rsync_checksum: false,
+                    rsync_size_only: false,
+                    rsync_ignore_times: false,
+                    rsync_modify_window: None,
                     rsync_partial: false,
                     rsync_partial_dir: None,
                     rsync_max_size: None,
@@ -540,6 +582,11 @@ mod tests {
             no_compress: false,
             checksum: false,
             no_checksum: false,
+            size_only: false,
+            no_size_only: false,
+            ignore_times: false,
+            no_ignore_times: false,
+            modify_window: None,
             partial: false,
             no_partial: false,
             partial_dir: None,
@@ -588,6 +635,11 @@ mod tests {
             no_compress: false,
             checksum: false,
             no_checksum: false,
+            size_only: false,
+            no_size_only: false,
+            ignore_times: false,
+            no_ignore_times: false,
+            modify_window: None,
             partial: false,
             no_partial: false,
             partial_dir: None,
@@ -636,6 +688,11 @@ mod tests {
             no_compress: false,
             checksum: false,
             no_checksum: false,
+            size_only: false,
+            no_size_only: false,
+            ignore_times: false,
+            no_ignore_times: false,
+            modify_window: None,
             partial: false,
             no_partial: false,
             partial_dir: None,
