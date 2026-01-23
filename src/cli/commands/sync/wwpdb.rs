@@ -79,15 +79,14 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
         .config
         .sync
         .custom
-        .iter()
-        .find(|c| c.name == name)
+        .get(&name)
         .ok_or_else(|| PdbSyncError::Config {
             message: format!("Custom sync config '{}' not found", name),
             key: Some("custom".to_string()),
             source: None,
         })?;
 
-    println!("Syncing custom config: {}", custom_config.name);
+    println!("Syncing custom config: {}", name);
     if let Some(ref desc) = custom_config.description {
         println!("Description: {}", desc);
     }
@@ -151,7 +150,7 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
         let stats = parse_rsync_stats(&stdout)?;
 
         let plan = SyncPlan {
-            name: custom_config.name.clone(),
+            name: name.clone(),
             url: custom_config.url.clone(),
             dest: custom_config.dest.clone(),
             has_deletions: flags.delete,
@@ -223,7 +222,7 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     }
 
     println!();
-    println!("{}: completed", custom_config.name);
+    println!("{}: completed", name);
 
     Ok(())
 }
@@ -278,8 +277,8 @@ pub fn list_custom(ctx: &AppContext) {
 
     println!("Custom sync configs ({}):", custom_configs.len());
     println!();
-    for custom_config in custom_configs {
-        println!("Name: {}", custom_config.name);
+    for (name, custom_config) in custom_configs {
+        println!("Name: {}", name);
         if let Some(ref desc) = custom_config.description {
             println!("  Description: {}", desc);
         }
@@ -303,14 +302,17 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
 
     // If parallel is set, run concurrent with semaphore
     if let Some(parallel_count) = args.parallel {
-        return run_custom_all_parallel(custom_configs, args, ctx, parallel_count).await;
+        return run_custom_all_parallel(&custom_configs, args, ctx, parallel_count).await;
     }
 
     // Otherwise run sequentially
     let mut all_success = true;
 
-    for custom_config in &custom_configs {
-        let name = custom_config.name.clone();
+    // Sort keys for deterministic execution order
+    let mut names: Vec<_> = custom_configs.keys().collect();
+    names.sort();
+
+    for name in names {
         let result = run_custom(name.clone(), args.clone(), ctx.clone()).await;
 
         match result {
@@ -339,7 +341,7 @@ pub async fn run_custom_all(args: SyncArgs, ctx: AppContext) -> Result<()> {
 
 /// Run all custom configs in parallel with semaphore-based concurrency limiting.
 async fn run_custom_all_parallel(
-    custom_configs: Vec<crate::config::schema::CustomRsyncConfig>,
+    custom_configs: &std::collections::HashMap<String, crate::config::schema::CustomRsyncConfig>,
     args: SyncArgs,
     ctx: AppContext,
     parallel_count: usize,
@@ -353,8 +355,12 @@ async fn run_custom_all_parallel(
     // Use JoinSet for better task management
     let mut join_set = JoinSet::new();
 
-    for custom_config in custom_configs {
-        let name = custom_config.name.clone();
+    // Sort keys for deterministic execution order
+    let mut names: Vec<_> = custom_configs.keys().collect();
+    names.sort();
+
+    for name in names {
+        let name = name.clone();
         let args_clone = args.clone();
         let ctx_clone = ctx.clone();
         let semaphore_clone = semaphore.clone();
@@ -440,8 +446,7 @@ async fn run_custom_with_prefix(name: &str, args: SyncArgs, ctx: AppContext) -> 
         .config
         .sync
         .custom
-        .iter()
-        .find(|c| c.name == name)
+        .get(name)
         .ok_or_else(|| PdbSyncError::Config {
             message: format!("Custom sync config '{}' not found", name),
             key: Some("custom".to_string()),
@@ -496,7 +501,7 @@ async fn run_custom_with_prefix(name: &str, args: SyncArgs, ctx: AppContext) -> 
         let stats = crate::sync::parse_rsync_stats(&stdout)?;
 
         let plan = crate::sync::SyncPlan {
-            name: custom_config.name.clone(),
+            name: name.to_string(),
             url: custom_config.url.clone(),
             dest: custom_config.dest.clone(),
             has_deletions: flags.delete,

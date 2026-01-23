@@ -417,7 +417,7 @@ pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
             };
 
             // Check for conflicting name (while lock is still held!)
-            if config.sync.custom.iter().any(|c| c.name == preset_name) {
+            if config.sync.custom.contains_key(&preset_name) {
                 return Err(crate::error::PdbSyncError::InvalidInput(format!(
                     "A config with name '{}' already exists. Please remove it first or choose a different name.",
                     preset_name
@@ -428,8 +428,7 @@ pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
             config
                 .sync
                 .custom
-                .push(crate::config::schema::CustomRsyncConfig {
-                    name: preset.name.clone(),
+                .insert(preset.name.clone(), crate::config::schema::CustomRsyncConfig {
                     url: preset.url.clone(),
                     dest: preset.dest.clone(),
                     description: Some(preset.description.clone()),

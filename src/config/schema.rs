@@ -2,7 +2,7 @@
 //!
 //! This module defines the TOML configuration structure with support for:
 //! - **Preset-based configs**: Use built-in presets like "safe", "fast"
-//! - **Nested options**: Override specific flags with `[sync.custom.options]`
+//! - **Nested options**: Override specific flags with `[sync.custom.NAME.options]`
 //! - **Legacy format**: Backward compatible with old `rsync_*` fields
 //!
 //! # Examples
@@ -10,8 +10,7 @@
 //! ## Preset-Only Config
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "structures"
+//! [sync.custom.structures]
 //! url = "rsync.wwpdb.org::ftp_data/structures/"
 //! dest = "data/structures"
 //! preset = "fast"
@@ -20,13 +19,12 @@
 //! ## Preset + Override
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "structures"
+//! [sync.custom.structures]
 //! url = "rsync.wwpdb.org::ftp_data/structures/"
 //! dest = "data/structures"
 //! preset = "fast"
 //!
-//! [sync.custom.options]
+//! [sync.custom.structures.options]
 //! max_size = "5GB"
 //! exclude = ["obsolete/"]
 //! ```
@@ -34,12 +32,11 @@
 //! ## Fully Custom
 //!
 //! ```toml
-//! [[sync.custom]]
-//! name = "sifts"
+//! [sync.custom.sifts]
 //! url = "rsync.wwpdb.org::ftp_data/sifts/"
 //! dest = "data/sifts"
 //!
-//! [sync.custom.options]
+//! [sync.custom.sifts.options]
 //! delete = true
 //! compress = true
 //! checksum = true
@@ -164,8 +161,6 @@ impl RsyncOptionsConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CustomRsyncConfig {
-    /// Unique name for this custom sync config
-    pub name: String,
     /// rsync URL (e.g., "data.pdbj.org::rsync/pub/emdb/" or "rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/")
     pub url: String,
     /// Destination directory relative to pdb_dir (e.g., "pub/emdb" or "pdbe/sifts")
@@ -368,7 +363,7 @@ pub struct SyncConfig {
     pub data_types: Vec<String>,
     /// Custom rsync configurations
     #[serde(default)]
-    pub custom: Vec<CustomRsyncConfig>,
+    pub custom: HashMap<String, CustomRsyncConfig>,
 }
 
 fn default_data_types() -> Vec<String> {
@@ -383,7 +378,7 @@ impl Default for SyncConfig {
             delete: false,
             layout: Layout::default(),
             data_types: default_data_types(),
-            custom: Vec::new(),
+            custom: HashMap::new(),
         }
     }
 }
@@ -505,33 +500,30 @@ mod tests {
     #[test]
     fn test_custom_rsync_config() {
         let toml_str = r#"
-            [[sync.custom]]
-            name = "pdbj-emdb"
+            [sync.custom.pdbj-emdb]
             url = "data.pdbj.org::rsync/pub/emdb/"
             dest = "pub/emdb"
             description = "EMDB data"
 
-            [[sync.custom]]
-            name = "pdbe-sifts"
+            [sync.custom.pdbe-sifts]
             url = "rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/"
             dest = "pdbe/sifts"
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.sync.custom.len(), 2);
-        assert_eq!(config.sync.custom[0].name, "pdbj-emdb");
-        assert_eq!(config.sync.custom[0].url, "data.pdbj.org::rsync/pub/emdb/");
-        assert_eq!(config.sync.custom[0].dest, "pub/emdb");
+
+        let emdb = config.sync.custom.get("pdbj-emdb").unwrap();
+        assert_eq!(emdb.url, "data.pdbj.org::rsync/pub/emdb/");
+        assert_eq!(emdb.dest, "pub/emdb");
+        assert_eq!(emdb.description, Some("EMDB data".to_string()));
+
+        let sifts = config.sync.custom.get("pdbe-sifts").unwrap();
         assert_eq!(
-            config.sync.custom[0].description,
-            Some("EMDB data".to_string())
-        );
-        assert_eq!(config.sync.custom[1].name, "pdbe-sifts");
-        assert_eq!(
-            config.sync.custom[1].url,
+            sifts.url,
             "rsync://rsync.ebi.ac.uk/pub/databases/msd/sifts/"
         );
-        assert_eq!(config.sync.custom[1].dest, "pdbe/sifts");
-        assert_eq!(config.sync.custom[1].description, None);
+        assert_eq!(sifts.dest, "pdbe/sifts");
+        assert_eq!(sifts.description, None);
     }
 
     // === New format tests ===
@@ -540,8 +532,7 @@ mod tests {
     fn test_custom_config_old_format_backward_compat() {
         // Old format with rsync_ prefix should still work
         let toml_str = r#"
-            [[sync.custom]]
-            name = "legacy"
+            [sync.custom.legacy]
             url = "example.org::data"
             dest = "data/legacy"
             rsync_delete = true
@@ -551,8 +542,7 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.sync.custom.len(), 1);
 
-        let custom = &config.sync.custom[0];
-        assert_eq!(custom.name, "legacy");
+        let custom = config.sync.custom.get("legacy").unwrap();
         assert!(custom.rsync_delete);
         assert!(custom.rsync_compress);
         assert!(custom.rsync_checksum);
@@ -567,8 +557,7 @@ mod tests {
     fn test_custom_config_preset_only() {
         // New format: preset only
         let toml_str = r#"
-            [[sync.custom]]
-            name = "structures"
+            [sync.custom.structures]
             url = "rsync.wwpdb.org::ftp_data/structures/"
             dest = "data/structures"
             preset = "safe"
@@ -576,8 +565,7 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.sync.custom.len(), 1);
 
-        let custom = &config.sync.custom[0];
-        assert_eq!(custom.name, "structures");
+        let custom = config.sync.custom.get("structures").unwrap();
         assert_eq!(custom.preset, Some("safe".to_string()));
 
         let flags = custom.to_rsync_flags();
@@ -593,20 +581,19 @@ mod tests {
     fn test_custom_config_preset_with_override() {
         // New format: preset + override in [options]
         let toml_str = r#"
-            [[sync.custom]]
-            name = "structures"
+            [sync.custom.structures]
             url = "rsync.wwpdb.org::ftp_data/structures/"
             dest = "data/structures"
             preset = "fast"
 
-            [sync.custom.options]
+            [sync.custom.structures.options]
             max_size = "5GB"
             exclude = ["obsolete/"]
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.sync.custom.len(), 1);
 
-        let custom = &config.sync.custom[0];
+        let custom = config.sync.custom.get("structures").unwrap();
         assert_eq!(custom.preset, Some("fast".to_string()));
         assert!(custom.options.is_some());
 
@@ -630,12 +617,11 @@ mod tests {
     fn test_custom_config_nested_options_only() {
         // New format: fully custom with nested options (no preset)
         let toml_str = r#"
-            [[sync.custom]]
-            name = "sifts"
+            [sync.custom.sifts]
             url = "rsync.wwpdb.org::ftp_data/sifts/"
             dest = "data/sifts"
 
-            [sync.custom.options]
+            [sync.custom.sifts.options]
             delete = true
             compress = true
             checksum = true
@@ -644,8 +630,7 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.sync.custom.len(), 1);
 
-        let custom = &config.sync.custom[0];
-        assert_eq!(custom.name, "sifts");
+        let custom = config.sync.custom.get("sifts").unwrap();
         assert!(custom.preset.is_none());
         assert!(custom.options.is_some());
 
@@ -666,8 +651,7 @@ mod tests {
     fn test_custom_config_priority_order() {
         // Test priority: options > preset > legacy
         let toml_str = r#"
-            [[sync.custom]]
-            name = "test"
+            [sync.custom.test]
             url = "example.org::data"
             dest = "data/test"
 
@@ -679,12 +663,12 @@ mod tests {
             preset = "fast"
 
             # Options: delete override to false (highest priority)
-            [sync.custom.options]
+            [sync.custom.test.options]
             delete = false
             max_size = "1G"
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        let custom = &config.sync.custom[0];
+        let custom = config.sync.custom.get("test").unwrap();
 
         let flags = custom.to_rsync_flags();
 

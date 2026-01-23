@@ -110,8 +110,8 @@ async fn run_migrate(config_path: Option<PathBuf>, dry_run: bool) -> Result<()> 
     let mut nested_count = 0;
 
     println!("\nMigrating custom rsync configs:");
-    for custom in &mut config.sync.custom {
-        match try_migrate_custom_config(custom) {
+    for (name, custom) in &mut config.sync.custom {
+        match try_migrate_custom_config(name, custom) {
             MigrationType::ToPreset => {
                 migrated_count += 1;
                 preset_count += 1;
@@ -175,7 +175,7 @@ async fn run_migrate(config_path: Option<PathBuf>, dry_run: bool) -> Result<()> 
 /// Try to migrate a custom rsync config to new format.
 ///
 /// Returns the type of migration performed.
-fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> MigrationType {
+fn try_migrate_custom_config(name: &str, custom: &mut CustomRsyncConfig) -> MigrationType {
     // If already using preset or options format, skip
     if custom.preset.is_some() || custom.options.is_some() {
         return MigrationType::AlreadyNew;
@@ -197,7 +197,7 @@ fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> MigrationType {
             // Use preset
             custom.preset = Some(preset_name.to_string());
             clear_legacy_fields(custom);
-            println!("  '{}' → preset = \"{}\"", custom.name, preset_name);
+            println!("  '{}' → preset = \"{}\"", name, preset_name);
             return MigrationType::ToPreset;
         }
     }
@@ -226,7 +226,7 @@ fn try_migrate_custom_config(custom: &mut CustomRsyncConfig) -> MigrationType {
     });
 
     clear_legacy_fields(custom);
-    println!("  '{}' → [options] nested format", custom.name);
+    println!("  '{}' → [options] nested format", name);
     MigrationType::ToNested
 }
 
@@ -301,11 +301,11 @@ async fn run_validate(config_path: Option<PathBuf>) -> Result<()> {
     })?;
 
     // Validate each custom rsync config
-    for custom in &config.sync.custom {
+    for (name, custom) in &config.sync.custom {
         let flags: RsyncFlags = custom.to_rsync_flags();
         flags.validate().map_err(|e| PdbSyncError::Config {
-            message: format!("Invalid config for '{}': {}", custom.name, e),
-            key: Some(custom.name.clone()),
+            message: format!("Invalid config for '{}': {}", name, e),
+            key: Some(name.clone()),
             source: None,
         })?;
 
@@ -315,9 +315,9 @@ async fn run_validate(config_path: Option<PathBuf>) -> Result<()> {
                 return Err(PdbSyncError::Config {
                     message: format!(
                         "Invalid preset '{}' for '{}'. Valid presets: safe, fast, minimal, conservative",
-                        preset_name, custom.name
+                        preset_name, name
                     ),
-                    key: Some(format!("sync.custom[{}].preset", custom.name)),
+                    key: Some(format!("sync.custom.{}.preset", name)),
                     source: None,
                 });
             }

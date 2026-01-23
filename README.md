@@ -31,22 +31,20 @@ cargo install --path .
 mirror = "rcsb"
 
 # Use presets for easy configuration
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
 preset = "fast"  # fast, safe, minimal, or conservative
 
-[[sync.custom]]
-name = "emdb"
+[sync.custom.emdb]
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "EMDB (Electron Microscopy Data Bank)"
 preset = "safe"
 
 # Or customize with options
-[sync.custom.options]
+[sync.custom.emdb.options]
 max_size = "5G"
 exclude = ["obsolete/"]
 ```
@@ -200,8 +198,7 @@ Each custom sync config defines an rsync source. `pdb-sync` supports three confi
 Use a built-in preset for common rsync flag combinations:
 
 ```toml
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/"
 dest = "data/structures"
 preset = "safe"  # safe, fast, minimal, or conservative
@@ -212,13 +209,12 @@ preset = "safe"  # safe, fast, minimal, or conservative
 Start with a preset and override specific options:
 
 ```toml
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/"
 dest = "data/structures"
 preset = "fast"
 
-[sync.custom.options]
+[sync.custom.structures.options]
 max_size = "5GB"
 exclude = ["obsolete/"]
 ```
@@ -228,12 +224,11 @@ exclude = ["obsolete/"]
 Define all options explicitly:
 
 ```toml
-[[sync.custom]]
-name = "sifts"
+[sync.custom.sifts]
 url = "rsync.wwpdb.org::ftp_data/sifts/"
 dest = "data/sifts"
 
-[sync.custom.options]
+[sync.custom.sifts.options]
 delete = true
 compress = true
 checksum = true
@@ -245,8 +240,7 @@ timeout = 300
 The old format with `rsync_` prefix is still supported:
 
 ```toml
-[[sync.custom]]
-name = "legacy"
+[sync.custom.legacy]
 url = "example.org::data"
 dest = "data/legacy"
 rsync_delete = true
@@ -274,8 +268,7 @@ pdb-sync config presets
 When using multiple config styles, priority is: **options > preset > legacy**
 
 ```toml
-[[sync.custom]]
-name = "test"
+[sync.custom.test]
 url = "example.org::data"
 dest = "data/test"
 
@@ -286,7 +279,7 @@ rsync_delete = false
 preset = "fast"
 
 # Options: delete=false (highest priority)
-[sync.custom.options]
+[sync.custom.test.options]
 delete = false
 ```
 
@@ -341,59 +334,52 @@ The migration tool will:
 mirror = "rcsb"
 
 # Standard PDB structures (using preset)
-[[sync.custom]]
-name = "structures"
+[sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures/divided/mmCIF"
 description = "PDB structures (mmCIF format, divided layout)"
 preset = "fast"
 
-[sync.custom.options]
+[sync.custom.structures.options]
 bwlimit = 5000
 
 # Biological assemblies (using preset with exclusions)
-[[sync.custom]]
-name = "assemblies"
+[sync.custom.assemblies]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/assemblies/mmCIF/"
 dest = "data/assemblies/divided/mmCIF"
 description = "Biological assemblies (mmCIF format)"
 preset = "fast"
 
 # EMDB data (fully custom)
-[[sync.custom]]
-name = "emdb"
+[sync.custom.emdb]
 url = "data.pdbj.org::rsync/pub/emdb/"
 dest = "data/emdb"
 description = "Electron Microscopy Data Bank"
 
-[sync.custom.options]
+[sync.custom.emdb.options]
 delete = true
 compress = true
 exclude = ["*.tmp", "test/*"]
 
 # SIFTS data (using preset)
-[[sync.custom]]
-name = "pdbj-sifts"
+[sync.custom.pdbj-sifts]
 url = "ftp.pdbj.org::pub/pdbj/data/sifts/"
 dest = "pdbj/sifts"
 description = "SIFTS data from PDBj"
 preset = "safe"
 
 # Other PDBj directories
-[[sync.custom]]
-name = "pdbj-bsma"
+[sync.custom.pdbj-bsma]
 url = "data.pdbj.org::rsync/pdbj/bsma/"
 dest = "pdbj/bsma"
 preset = "fast"
 
-[[sync.custom]]
-name = "pdbj-mmjson"
+[sync.custom.pdbj-mmjson]
 url = "data.pdbj.org::rsync/pdbjplus/data/cc/mmjson/"
 dest = "pdbj/mmjson"
 preset = "fast"
 
-[[sync.custom]]
-name = "pdbj-pdbe"
+[sync.custom.pdbj-pdbe]
 url = "data.pdbj.org::rsync/pdbjplus/data/cc/pdbe/"
 dest = "pdbj/pdbe"
 preset = "fast"
