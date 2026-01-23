@@ -63,7 +63,7 @@ Arguments:
   [NAME]  Name of custom sync config to run (runs all if not specified)
 
 Options:
-  -a, --all                 Run all custom sync configs
+  --all                     Run all custom sync configs
   -d, --dest <DIR>          Override destination directory
   --list                    List available custom sync configs
   --fail-fast               Stop on first failure when syncing all configs
