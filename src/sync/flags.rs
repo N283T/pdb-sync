@@ -736,6 +736,38 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_checksum_size_only_conflict() {
+        let flags = RsyncFlags {
+            checksum: true,
+            size_only: true,
+            ..Default::default()
+        };
+        assert!(flags.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_size_only_ignore_times_conflict() {
+        let flags = RsyncFlags {
+            size_only: true,
+            ignore_times: true,
+            ..Default::default()
+        };
+        assert!(flags.validate().is_err());
+    }
+
+    #[test]
+    fn test_to_args_with_comparison_options() {
+        let flags = RsyncFlags {
+            size_only: true,
+            modify_window: Some(5),
+            ..Default::default()
+        };
+        let args = flags.to_args();
+        assert!(args.contains(&"--size-only".to_string()));
+        assert!(args.contains(&"--modify-window=5".to_string()));
+    }
+
+    #[test]
     fn test_merge_with_overrides() {
         let config = RsyncFlags {
             delete: false,

@@ -238,6 +238,9 @@ fn flags_match(a: &RsyncFlags, b: &RsyncFlags) -> bool {
     a.delete == b.delete
         && a.compress == b.compress
         && a.checksum == b.checksum
+        && a.size_only == b.size_only
+        && a.ignore_times == b.ignore_times
+        && a.modify_window == b.modify_window
         && a.partial == b.partial
         && a.backup == b.backup
         && a.verbose == b.verbose
@@ -261,6 +264,9 @@ fn clear_legacy_fields(custom: &mut CustomRsyncConfig) {
     custom.rsync_delete = false;
     custom.rsync_compress = false;
     custom.rsync_checksum = false;
+    custom.rsync_size_only = false;
+    custom.rsync_ignore_times = false;
+    custom.rsync_modify_window = None;
     custom.rsync_partial = false;
     custom.rsync_partial_dir = None;
     custom.rsync_max_size = None;
