@@ -189,6 +189,8 @@ pdb-sync sync structures --retry 3 --retry-delay 5
 
 Config file location: `~/.config/pdb-sync/config.toml`
 
+📖 **[Complete Configuration Reference](docs/config-reference.md)** - Detailed documentation for all config options
+
 ### Custom Sync Configs
 
 Each custom sync config defines an rsync source. `pdb-sync` supports three configuration styles:
