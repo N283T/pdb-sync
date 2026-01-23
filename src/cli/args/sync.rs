@@ -163,6 +163,14 @@ pub struct SyncArgs {
     /// Maximum number of concurrent sync operations
     #[arg(long, value_name = "N")]
     pub parallel: Option<usize>,
+
+    /// Number of retry attempts on failure (0 = no retry)
+    #[arg(long, default_value = "0")]
+    pub retry: u32,
+
+    /// Delay between retries in seconds (default: exponential backoff)
+    #[arg(long, value_name = "SECONDS")]
+    pub retry_delay: Option<u32>,
 }
 
 impl SyncArgs {
@@ -271,6 +279,17 @@ impl SyncArgs {
                 ));
             }
         }
+
+        // Warn when --retry is combined with --delete
+        // (Retrying with delete can cause unexpected file loss)
+        let delete_enabled = self.delete && !self.no_delete;
+        if self.retry > 0 && delete_enabled {
+            eprintln!(
+                "Warning: Using --retry with --delete may cause unexpected file loss on transient failures. \
+                 Consider using --retry without --delete, or --fail-fast with --all to stop on first error."
+            );
+        }
+
         Ok(())
     }
 }
