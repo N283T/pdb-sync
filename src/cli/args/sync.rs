@@ -163,6 +163,14 @@ pub struct SyncArgs {
     /// Maximum number of concurrent sync operations
     #[arg(long, value_name = "N")]
     pub parallel: Option<usize>,
+
+    /// Number of retry attempts on failure (0 = no retry)
+    #[arg(long, default_value = "0")]
+    pub retry: u32,
+
+    /// Delay between retries in seconds (default: exponential backoff)
+    #[arg(long, value_name = "SECONDS")]
+    pub retry_delay: Option<u32>,
 }
 
 impl SyncArgs {
@@ -271,6 +279,25 @@ impl SyncArgs {
                 ));
             }
         }
+
+        // Validate retry count
+        if self.retry > 100 {
+            return Err(crate::error::PdbSyncError::InvalidInput(
+                "retry count cannot exceed 100 (to prevent excessively long operations)"
+                    .to_string(),
+            ));
+        }
+
+        // Warn when --retry is combined with --delete
+        // (Retrying with delete can cause unexpected file loss)
+        let delete_enabled = self.delete && !self.no_delete;
+        if self.retry > 0 && delete_enabled {
+            eprintln!(
+                "Warning: Using --retry with --delete may cause unexpected file loss on transient failures. \
+                 Consider using --retry without --delete, or --fail-fast with --all to stop on first error."
+            );
+        }
+
         Ok(())
     }
 }
@@ -489,5 +516,154 @@ pub async fn run_sync(args: SyncArgs, ctx: AppContext) -> Result<()> {
     } else {
         // No name specified, run all
         run_custom_all(args, ctx).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_retry_too_high() {
+        let args = SyncArgs {
+            retry: 101,
+            name: None,
+            all: false,
+            dest: None,
+            list: false,
+            fail_fast: false,
+            dry_run: false,
+            delete: false,
+            no_delete: false,
+            compress: false,
+            no_compress: false,
+            checksum: false,
+            no_checksum: false,
+            partial: false,
+            no_partial: false,
+            partial_dir: None,
+            max_size: None,
+            min_size: None,
+            timeout: None,
+            contimeout: None,
+            backup: false,
+            no_backup: false,
+            backup_dir: None,
+            chmod: None,
+            exclude: None,
+            include: None,
+            exclude_from: None,
+            include_from: None,
+            bwlimit: None,
+            rsync_verbose: false,
+            rsync_quiet: false,
+            no_rsync_verbose: false,
+            no_rsync_quiet: false,
+            itemize_changes: false,
+            no_itemize_changes: false,
+            plan: false,
+            profile_list: false,
+            profile_add: None,
+            profile_dry_run: false,
+            parallel: None,
+            retry_delay: None,
+        };
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_retry_max_allowed() {
+        let args = SyncArgs {
+            retry: 100,
+            name: None,
+            all: false,
+            dest: None,
+            list: false,
+            fail_fast: false,
+            dry_run: false,
+            delete: false,
+            no_delete: false,
+            compress: false,
+            no_compress: false,
+            checksum: false,
+            no_checksum: false,
+            partial: false,
+            no_partial: false,
+            partial_dir: None,
+            max_size: None,
+            min_size: None,
+            timeout: None,
+            contimeout: None,
+            backup: false,
+            no_backup: false,
+            backup_dir: None,
+            chmod: None,
+            exclude: None,
+            include: None,
+            exclude_from: None,
+            include_from: None,
+            bwlimit: None,
+            rsync_verbose: false,
+            rsync_quiet: false,
+            no_rsync_verbose: false,
+            no_rsync_quiet: false,
+            itemize_changes: false,
+            no_itemize_changes: false,
+            plan: false,
+            profile_list: false,
+            profile_add: None,
+            profile_dry_run: false,
+            parallel: None,
+            retry_delay: None,
+        };
+        assert!(args.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_retry_zero_ok() {
+        let args = SyncArgs {
+            retry: 0,
+            name: None,
+            all: false,
+            dest: None,
+            list: false,
+            fail_fast: false,
+            dry_run: false,
+            delete: false,
+            no_delete: false,
+            compress: false,
+            no_compress: false,
+            checksum: false,
+            no_checksum: false,
+            partial: false,
+            no_partial: false,
+            partial_dir: None,
+            max_size: None,
+            min_size: None,
+            timeout: None,
+            contimeout: None,
+            backup: false,
+            no_backup: false,
+            backup_dir: None,
+            chmod: None,
+            exclude: None,
+            include: None,
+            exclude_from: None,
+            include_from: None,
+            bwlimit: None,
+            rsync_verbose: false,
+            rsync_quiet: false,
+            no_rsync_verbose: false,
+            no_rsync_quiet: false,
+            itemize_changes: false,
+            no_itemize_changes: false,
+            plan: false,
+            profile_list: false,
+            profile_add: None,
+            profile_dry_run: false,
+            parallel: None,
+            retry_delay: None,
+        };
+        assert!(args.validate().is_ok());
     }
 }

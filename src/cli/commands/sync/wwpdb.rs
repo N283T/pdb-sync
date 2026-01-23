@@ -2,6 +2,7 @@
 
 use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::process::Command;
 use tokio::sync::Semaphore;
@@ -12,6 +13,62 @@ use crate::error::{PdbSyncError, Result};
 use crate::sync::{parse_rsync_stats, SyncPlan};
 
 use super::common::validate_subpath;
+
+/// Calculate retry delay in seconds.
+/// If fixed_delay is Some, use that value.
+/// Otherwise, use exponential backoff: 2^attempt capped at 30 seconds.
+fn calculate_retry_delay(attempt: u32, fixed_delay: Option<u32>) -> u32 {
+    if let Some(delay) = fixed_delay {
+        delay
+    } else {
+        // Exponential backoff: 1, 2, 4, 8, 16, 30, 30...
+        // Cap exponent at 5 to prevent overflow (2^5 = 32, then min(32, 30) = 30)
+        let exponent = attempt.min(5);
+        2_u32.pow(exponent).min(30)
+    }
+}
+
+/// Execute an async operation with retry logic.
+async fn execute_with_retry<F, Fut>(
+    mut execute_fn: F,
+    max_retries: u32,
+    retry_delay: Option<u32>,
+    name: &str,
+) -> Result<()>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
+{
+    let mut last_error = None;
+
+    for attempt in 0..=max_retries {
+        match execute_fn().await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                // Check if error is retriable and we haven't exhausted retries
+                if e.is_retriable() && attempt < max_retries {
+                    last_error = Some(e);
+                    let delay = calculate_retry_delay(attempt, retry_delay);
+                    eprintln!(
+                        "[{}] Retry {}/{} after {}s...",
+                        name,
+                        attempt + 1,
+                        max_retries,
+                        delay
+                    );
+                    tokio::time::sleep(Duration::from_secs(delay as u64)).await;
+                } else {
+                    // Either not retriable or exhausted retries
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    // This should never be reached since we either return Ok or Err in the loop
+    Err(last_error
+        .unwrap_or_else(|| PdbSyncError::Job("Retry loop exhausted without error".to_string())))
+}
 
 /// Run custom rsync sync by name.
 pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result<()> {
@@ -124,33 +181,45 @@ pub async fn run_custom(name: String, args: SyncArgs, ctx: AppContext) -> Result
     // Create destination directory
     tokio::fs::create_dir_all(&dest_path).await?;
 
-    // Build rsync command with base options and merged flags
-    let mut cmd = Command::new("rsync");
-    cmd.arg("-ah"); // Base archive options
-    flags.apply_to_command(&mut cmd); // Apply merged user flags (includes --delete if set)
-    cmd.arg("--info=progress2")
-        .arg(&custom_config.url)
-        .arg(&dest_path);
+    // Prepare rsync command arguments for execution
+    let rsync_execute = || async {
+        // Build rsync command with base options and merged flags
+        let mut cmd = Command::new("rsync");
+        cmd.arg("-ah"); // Base archive options
+        flags.apply_to_command(&mut cmd); // Apply merged user flags (includes --delete if set)
+        cmd.arg("--info=progress2")
+            .arg(custom_config.url.clone())
+            .arg(dest_path.clone());
 
-    // Execute rsync with real-time output
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
+        // Execute rsync with real-time output
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
 
-    let status = cmd.spawn()?.wait().await?;
+        let status = cmd.spawn()?.wait().await?;
 
-    if !status.success() {
-        let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
-        cmd_args.extend(flags.to_args());
-        return Err(PdbSyncError::Rsync {
-            command: format!(
-                "rsync {} {} {}",
-                cmd_args.join(" "),
-                custom_config.url,
-                dest_path.display()
-            ),
-            exit_code: status.code(),
-            stderr: None,
-        });
+        if !status.success() {
+            let mut cmd_args = vec!["-ah".to_string(), "--info=progress2".to_string()];
+            cmd_args.extend(flags.to_args());
+            return Err(PdbSyncError::Rsync {
+                command: format!(
+                    "rsync {} {} {}",
+                    cmd_args.join(" "),
+                    custom_config.url,
+                    dest_path.display()
+                ),
+                exit_code: status.code(),
+                stderr: None,
+            });
+        }
+
+        Ok(())
+    };
+
+    // Execute with retry if requested, otherwise execute directly
+    if args.retry > 0 {
+        execute_with_retry(rsync_execute, args.retry, args.retry_delay, &name).await?;
+    } else {
+        rsync_execute().await?;
     }
 
     println!();
@@ -459,26 +528,38 @@ async fn run_custom_with_prefix(name: &str, args: SyncArgs, ctx: AppContext) -> 
     // Create destination directory
     tokio::fs::create_dir_all(&dest_path).await?;
 
-    // Build rsync command
-    let mut cmd = Command::new("rsync");
-    cmd.arg("-ah");
-    flags.apply_to_command(&mut cmd);
-    cmd.arg("--info=progress2")
-        .arg(&custom_config.url)
-        .arg(&dest_path);
+    // Prepare rsync command arguments for execution
+    let rsync_execute = || async {
+        // Build rsync command
+        let mut cmd = Command::new("rsync");
+        cmd.arg("-ah");
+        flags.apply_to_command(&mut cmd);
+        cmd.arg("--info=progress2")
+            .arg(custom_config.url.clone())
+            .arg(dest_path.clone());
 
-    // Execute rsync with real-time output
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
+        // Execute rsync with real-time output
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
 
-    let status = cmd.spawn()?.wait().await?;
+        let status = cmd.spawn()?.wait().await?;
 
-    if !status.success() {
-        return Err(PdbSyncError::Rsync {
-            command: format!("rsync {} {}", custom_config.url, dest_path.display()),
-            exit_code: status.code(),
-            stderr: None,
-        });
+        if !status.success() {
+            return Err(PdbSyncError::Rsync {
+                command: format!("rsync {} {}", custom_config.url, dest_path.display()),
+                exit_code: status.code(),
+                stderr: None,
+            });
+        }
+
+        Ok(())
+    };
+
+    // Execute with retry if requested, otherwise execute directly
+    if args.retry > 0 {
+        execute_with_retry(rsync_execute, args.retry, args.retry_delay, name).await?;
+    } else {
+        rsync_execute().await?;
     }
 
     println!("[{}]: completed", name);
@@ -530,5 +611,32 @@ mod tests {
         assert!(validate_rsync_url("not-a-valid-url").is_err());
         assert!(validate_rsync_url("http://example.com").is_err());
         assert!(validate_rsync_url("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_exponential() {
+        // Exponential backoff: 1, 2, 4, 8, 16, 30, 30...
+        assert_eq!(calculate_retry_delay(0, None), 1);
+        assert_eq!(calculate_retry_delay(1, None), 2);
+        assert_eq!(calculate_retry_delay(2, None), 4);
+        assert_eq!(calculate_retry_delay(3, None), 8);
+        assert_eq!(calculate_retry_delay(4, None), 16);
+        assert_eq!(calculate_retry_delay(5, None), 30); // capped at 30
+        assert_eq!(calculate_retry_delay(6, None), 30); // still 30
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_fixed() {
+        // Fixed delay override
+        assert_eq!(calculate_retry_delay(0, Some(5)), 5);
+        assert_eq!(calculate_retry_delay(1, Some(5)), 5);
+        assert_eq!(calculate_retry_delay(10, Some(5)), 5);
+    }
+
+    #[test]
+    fn test_calculate_retry_delay_exponential_cap() {
+        // Verify cap at 30 seconds
+        assert_eq!(calculate_retry_delay(10, None), 30);
+        assert_eq!(calculate_retry_delay(100, None), 30);
     }
 }
