@@ -1,5 +1,4 @@
 // Library modules - re-exported for use in binary
-use pdb_sync::data_types;
 use pdb_sync::error;
 use pdb_sync::files;
 

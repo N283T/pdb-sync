@@ -83,7 +83,11 @@ pub fn validate_config(config: &Config) -> ValidationResult {
         checks.push(validate_custom_config_name(name));
         checks.push(validate_custom_config_url(&custom_config.url));
         checks.push(validate_custom_config_dest(&custom_config.dest));
-        checks.push(validate_custom_config_flags(name, custom_config));
+        checks.push(validate_custom_config_flags(
+            name,
+            custom_config,
+            config.sync.defaults.as_ref(),
+        ));
     }
 
     // Check if there are any custom configs
@@ -182,8 +186,9 @@ fn validate_custom_config_dest(dest: &str) -> ValidationCheck {
 fn validate_custom_config_flags(
     name: &str,
     config: &crate::config::schema::CustomRsyncConfig,
+    global_defaults: Option<&crate::config::schema::RsyncOptionsConfig>,
 ) -> ValidationCheck {
-    let flags = config.to_rsync_flags();
+    let flags = config.to_rsync_flags(global_defaults);
     let mut issues = Vec::new();
 
     // Check partial_dir without partial
