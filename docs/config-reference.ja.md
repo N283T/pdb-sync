@@ -36,9 +36,6 @@ pdb-sync sync
 [paths]
 pdb_dir = "/data/pdb"
 
-[sync]
-mirror = "rcsb"
-
 # 全カスタム設定に共通のデフォルト値
 [sync.defaults]
 compress = true
@@ -92,24 +89,6 @@ assemblies = "/mnt/hdd/pdb/assemblies"
 ## sync セクション
 
 同期の全般設定を行います。
-
-### `mirror`
-
-**型**: String
-**デフォルト**: `"rcsb"`
-**選択肢**: `rcsb`, `pdbj`, `pdbe`, `wwpdb`
-**説明**: 使用するミラーサーバー
-
-エイリアス:
-- `rcsb` / `us`
-- `pdbj` / `jp`
-- `pdbe` / `uk` / `eu` / `europe`
-- `wwpdb` / `global`
-
-```toml
-[sync]
-mirror = "pdbj"  # または "jp"
-```
 
 ### `defaults`
 
@@ -670,9 +649,6 @@ timeout = 600   # defaults を上書き
 [paths]
 pdb_dir = "/data/pdb"
 
-[sync]
-mirror = "rcsb"
-
 # 全設定に共通のデフォルト（DRY）
 [sync.defaults]
 compress = true
@@ -706,9 +682,6 @@ max_size = "5G"
 [paths]
 pdb_dir = "/data/pdb"
 
-[sync]
-mirror = "rcsb"
-
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "data/structures"
@@ -720,9 +693,6 @@ preset = "fast"
 ```toml
 [paths]
 pdb_dir = "/mnt/storage/pdb"
-
-[sync]
-mirror = "rcsb"
 
 [sync.defaults]
 compress = true
@@ -752,9 +722,6 @@ itemize_changes = true
 [paths]
 pdb_dir = "/home/user/dev/pdb-data"
 
-[sync]
-mirror = "pdbj"
-
 [sync.custom.test-structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
 dest = "structures"
@@ -772,9 +739,6 @@ exclude = ["obsolete/"]
 ```toml
 [paths]
 pdb_dir = "/data/pdb"
-
-[sync]
-mirror = "rcsb"
 
 # 小ファイル向け（並列10推奨）
 [sync.custom.structures]

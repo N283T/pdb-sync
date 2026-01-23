@@ -48,7 +48,6 @@
 //! exclude = ["obsolete/"]
 //! ```
 
-use crate::mirrors::MirrorId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -329,27 +328,15 @@ impl CustomRsyncConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct SyncConfig {
-    #[serde(with = "mirror_id_serde")]
-    pub mirror: MirrorId,
     /// Global default rsync options for all custom configs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub defaults: Option<RsyncOptionsConfig>,
     /// Custom rsync configurations
     #[serde(default)]
     pub custom: HashMap<String, CustomRsyncConfig>,
-}
-
-impl Default for SyncConfig {
-    fn default() -> Self {
-        Self {
-            mirror: MirrorId::Rcsb,
-            defaults: None,
-            custom: HashMap::new(),
-        }
-    }
 }
 
 /// Configuration for automatic mirror selection based on latency.
@@ -375,27 +362,6 @@ impl Default for MirrorSelectionConfig {
     }
 }
 
-mod mirror_id_serde {
-    use super::*;
-    use serde::{Deserializer, Serializer};
-    use std::str::FromStr;
-
-    pub fn serialize<S>(mirror: &MirrorId, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&mirror.to_string())
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<MirrorId, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        MirrorId::from_str(&s).map_err(serde::de::Error::custom)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,15 +369,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.sync.mirror, MirrorId::Rcsb);
         assert!(!config.mirror_selection.auto_select);
-    }
-
-    #[test]
-    fn test_config_serialization() {
-        let config = Config::default();
-        let toml_str = toml::to_string_pretty(&config).unwrap();
-        assert!(toml_str.contains("mirror = \"rcsb\""));
+        assert!(config.sync.custom.is_empty());
     }
 
     #[test]
@@ -420,16 +379,12 @@ mod tests {
             [paths]
             pdb_dir = "/data/pdb"
 
-            [sync]
-            mirror = "pdbj"
-
             [mirror_selection]
             auto_select = true
             preferred_region = "jp"
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.paths.pdb_dir, Some(PathBuf::from("/data/pdb")));
-        assert_eq!(config.sync.mirror, MirrorId::Pdbj);
         assert!(config.mirror_selection.auto_select);
         assert_eq!(
             config.mirror_selection.preferred_region,
@@ -443,13 +398,11 @@ mod tests {
         let toml_str = r#"
             [paths]
             pdb_dir = "/data/pdb"
-
-            [sync]
-            mirror = "pdbj"
         "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         // New fields should have defaults
         assert!(!config.mirror_selection.auto_select);
+        assert!(config.sync.custom.is_empty());
     }
 
     #[test]

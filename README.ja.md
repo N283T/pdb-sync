@@ -27,9 +27,6 @@ cargo install --path .
 1. 設定ファイルを作成（`~/.config/pdb-sync/config.toml`）:
 
 ```toml
-[sync]
-mirror = "rcsb"
-
 # 全カスタム設定に共通のデフォルト値（DRY）
 [sync.defaults]
 compress = true

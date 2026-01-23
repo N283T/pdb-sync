@@ -27,9 +27,6 @@ cargo install --path .
 1. Create config file at `~/.config/pdb-sync/config.toml`:
 
 ```toml
-[sync]
-mirror = "rcsb"
-
 # Global defaults for all custom configs (DRY)
 [sync.defaults]
 compress = true
@@ -349,9 +346,6 @@ The migration tool will:
 ### Example Configs
 
 ```toml
-[sync]
-mirror = "rcsb"
-
 # Standard PDB structures (using preset)
 [sync.custom.structures]
 url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"

@@ -1,4 +1,9 @@
 //! Automatic mirror selection based on latency testing.
+//!
+//! Note: This module is currently unused after removing sync.mirror field,
+//! but kept for potential future use with mirror auto-selection.
+
+#![allow(dead_code)]
 
 use crate::mirrors::{Mirror, MirrorId};
 use std::collections::HashMap;
