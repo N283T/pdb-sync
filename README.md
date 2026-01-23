@@ -98,6 +98,11 @@ Options:
   --no-compress             Do not compress (overrides -z/--compress)
   -c, --checksum            Use checksum for file comparison
   --no-checksum             Do not use checksum (overrides -c/--checksum)
+  --size-only               Compare by size only, ignore timestamps
+  --no-size-only            Do not use size-only comparison
+  --ignore-times            Always transfer files, ignoring timestamps
+  --no-ignore-times         Do not ignore timestamps
+  --modify-window <SECONDS> Timestamp tolerance in seconds
   --partial                 Keep partially transferred files
   --no-partial              Do not keep partial files
   --partial-dir <DIR>       Directory for partial files
@@ -311,6 +316,9 @@ The migration tool will:
 | `rsync_delete` | --delete / --no-delete | Delete files not present on remote |
 | `rsync_compress` | -z, --compress / --no-compress | Compress data during transfer |
 | `rsync_checksum` | -c, --checksum / --no-checksum | Use checksum for file comparison |
+| `rsync_size_only` | --size-only / --no-size-only | Compare by size only, ignore timestamps |
+| `rsync_ignore_times` | --ignore-times / --no-ignore-times | Always transfer files, ignoring timestamps |
+| `rsync_modify_window` | --modify-window | Timestamp tolerance in seconds |
 | `rsync_partial` | --partial / --no-partial | Keep partially transferred files |
 | `rsync_partial_dir` | --partial-dir | Directory for partial files |
 | `rsync_max_size` | --max-size | Maximum file size to transfer |
