@@ -12,6 +12,8 @@ pub struct ConfigArgs {
 /// Config subcommands.
 #[derive(Subcommand, Clone, Debug)]
 pub enum ConfigCommand {
+    /// Initialize a new configuration file
+    Init(InitArgs),
     /// Validate configuration file
     Validate(ValidateArgs),
     /// Migrate old config format to new nested format
@@ -46,6 +48,26 @@ pub struct MigrateArgs {
     /// Dry run - show what would be changed without modifying the file
     #[arg(short = 'n', long)]
     pub dry_run: bool,
+}
+
+/// Init command arguments.
+#[derive(Parser, Clone, Debug)]
+pub struct InitArgs {
+    /// Config file path (defaults to ~/.config/pdb-sync/config.toml)
+    #[arg(short, long)]
+    pub config: Option<std::path::PathBuf>,
+
+    /// Overwrite existing config file
+    #[arg(long)]
+    pub force: bool,
+
+    /// Generate minimal config (default: full config with comments)
+    #[arg(long)]
+    pub minimal: bool,
+
+    /// PDB directory path to use in the config
+    #[arg(long)]
+    pub pdb_dir: Option<std::path::PathBuf>,
 }
 
 /// Run config validate command.
@@ -95,5 +117,17 @@ pub async fn run_migrate(args: MigrateArgs) -> crate::error::Result<()> {
 pub async fn run_presets() -> crate::error::Result<()> {
     use crate::cli::commands::config::ConfigCommand;
     let cmd = ConfigCommand::Presets;
+    crate::cli::commands::config::run_config(cmd).await
+}
+
+/// Run config init command.
+pub async fn run_init(args: InitArgs) -> crate::error::Result<()> {
+    use crate::cli::commands::config::ConfigCommand;
+    let cmd = ConfigCommand::Init {
+        config_path: args.config,
+        force: args.force,
+        minimal: args.minimal,
+        pdb_dir: args.pdb_dir,
+    };
     crate::cli::commands::config::run_config(cmd).await
 }

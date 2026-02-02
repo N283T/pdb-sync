@@ -1,11 +1,25 @@
 //! Config management commands.
 //!
 //! This module provides commands for managing pdb-sync configuration files:
+//! - **init**: Create a new configuration file with sensible defaults
 //! - **migrate**: Convert old `rsync_*` format to new preset/nested format
 //! - **validate**: Check config file syntax and preset names
 //! - **presets**: List available rsync flag presets
 //!
 //! # Examples
+//!
+//! ## Initializing Config
+//!
+//! ```bash
+//! # Create a new config file
+//! pdb-sync config init
+//!
+//! # Create minimal config with custom pdb_dir
+//! pdb-sync config init --minimal --pdb-dir /data/pdb
+//!
+//! # Overwrite existing config (creates backup)
+//! pdb-sync config init --force
+//! ```
 //!
 //! ## Migrating Old Config
 //!
@@ -52,6 +66,17 @@ enum MigrationType {
 /// Config subcommand variants.
 #[derive(Debug, Clone)]
 pub enum ConfigCommand {
+    /// Initialize a new configuration file
+    Init {
+        /// Config file path (defaults to ~/.config/pdb-sync/config.toml)
+        config_path: Option<PathBuf>,
+        /// Overwrite existing config file
+        force: bool,
+        /// Generate minimal config
+        minimal: bool,
+        /// PDB directory path
+        pdb_dir: Option<PathBuf>,
+    },
     /// Migrate old config format to new nested format
     Migrate {
         /// Config file path (defaults to ~/.config/pdb-sync/config.toml)
@@ -71,6 +96,12 @@ pub enum ConfigCommand {
 /// Run the config command.
 pub async fn run_config(cmd: ConfigCommand) -> Result<()> {
     match cmd {
+        ConfigCommand::Init {
+            config_path,
+            force,
+            minimal,
+            pdb_dir,
+        } => run_init(config_path, force, minimal, pdb_dir).await,
         ConfigCommand::Migrate {
             config_path,
             dry_run,
@@ -78,6 +109,182 @@ pub async fn run_config(cmd: ConfigCommand) -> Result<()> {
         ConfigCommand::Validate { config_path } => run_validate(config_path).await,
         ConfigCommand::Presets => run_presets().await,
     }
+}
+
+/// Initialize a new configuration file.
+async fn run_init(
+    config_path: Option<PathBuf>,
+    force: bool,
+    minimal: bool,
+    pdb_dir: Option<PathBuf>,
+) -> Result<()> {
+    let config_path = config_path.unwrap_or_else(|| {
+        crate::config::ConfigLoader::config_path().unwrap_or_else(|| PathBuf::from("config.toml"))
+    });
+
+    // Check if config already exists
+    if config_path.exists() && !force {
+        return Err(PdbSyncError::Config {
+            message: format!(
+                "Config file already exists: {}\nUse --force to overwrite.",
+                config_path.display()
+            ),
+            key: None,
+            source: None,
+        });
+    }
+
+    // Create parent directories if needed
+    if let Some(parent) = config_path.parent() {
+        if !parent.exists() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| PdbSyncError::Config {
+                    message: format!("Failed to create config directory: {}", e),
+                    key: None,
+                    source: Some(Box::new(e)),
+                })?;
+            println!("Created directory: {}", parent.display());
+        }
+    }
+
+    // If overwriting, create backup
+    if config_path.exists() && force {
+        let backup_path = PathBuf::from(format!("{}.bak", config_path.display()));
+        tokio::fs::copy(&config_path, &backup_path)
+            .await
+            .map_err(|e| PdbSyncError::Config {
+                message: format!("Failed to create backup: {}", e),
+                key: None,
+                source: Some(Box::new(e)),
+            })?;
+        println!("Created backup at: {}", backup_path.display());
+    }
+
+    // Generate config content
+    let pdb_dir_provided = pdb_dir.is_some();
+    let content = if minimal {
+        generate_minimal_config(pdb_dir)
+    } else {
+        generate_full_config(pdb_dir)
+    };
+
+    // Write config file
+    tokio::fs::write(&config_path, &content)
+        .await
+        .map_err(|e| PdbSyncError::Config {
+            message: format!("Failed to write config file: {}", e),
+            key: None,
+            source: Some(Box::new(e)),
+        })?;
+
+    println!("Created config file: {}", config_path.display());
+    println!();
+    println!("Next steps:");
+    if !pdb_dir_provided {
+        println!("  1. Edit the config file to set your pdb_dir");
+        println!("  2. Customize sync configurations as needed");
+    } else {
+        println!("  1. Customize sync configurations as needed");
+    }
+    println!("  Run: pdb-sync config validate");
+    println!("  Run: pdb-sync sync --list");
+
+    Ok(())
+}
+
+/// Generate minimal config content.
+fn generate_minimal_config(pdb_dir: Option<PathBuf>) -> String {
+    let pdb_dir_str = pdb_dir
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "/path/to/pdb".to_string());
+
+    format!(
+        r#"[paths]
+pdb_dir = "{}"
+
+[sync.custom.structures]
+url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
+dest = "data/structures"
+preset = "safe"
+"#,
+        pdb_dir_str
+    )
+}
+
+/// Generate full config content with comments.
+fn generate_full_config(pdb_dir: Option<PathBuf>) -> String {
+    let pdb_dir_str = pdb_dir
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "/path/to/pdb".to_string());
+
+    format!(
+        r#"# pdb-sync configuration file
+# Documentation: https://github.com/nagaet/pdb-sync
+
+[paths]
+# Base directory for PDB data storage (required)
+pdb_dir = "{pdb_dir}"
+
+# Global defaults applied to all custom configs (DRY principle)
+# Priority: options > preset > defaults
+[sync.defaults]
+compress = true
+timeout = 300
+partial = true
+
+# ============================================================
+# Custom sync configurations
+# ============================================================
+
+# Example: PDB structure files (mmCIF format)
+[sync.custom.structures]
+url = "rsync.wwpdb.org::ftp_data/structures/divided/mmCIF/"
+dest = "data/structures"
+description = "PDB structures (mmCIF format, divided layout)"
+# Preset options: safe, fast, minimal, conservative
+# - safe: No delete, compress, checksum (first-time sync)
+# - fast: Delete enabled, no checksum (regular updates)
+# - minimal: Bare minimum flags
+# - conservative: Maximum safety with backups
+preset = "safe"
+
+# Override specific options (takes priority over preset)
+# [sync.custom.structures.options]
+# delete = true
+# max_size = "10G"
+# exclude = ["obsolete/"]
+
+# ============================================================
+# Additional examples (uncomment to enable)
+# ============================================================
+
+# Biological assemblies
+# [sync.custom.assemblies]
+# url = "rsync.wwpdb.org::ftp_data/structures/divided/assembly/"
+# dest = "data/assemblies"
+# description = "PDB biological assemblies"
+# preset = "fast"
+
+# EMDB (Electron Microscopy Data Bank)
+# [sync.custom.emdb]
+# url = "ftp.pdbj.org::ftp_data/emdb/"
+# dest = "data/emdb"
+# description = "EMDB structure maps"
+# preset = "safe"
+#
+# [sync.custom.emdb.options]
+# max_size = "5G"
+
+# SIFTS (Structure Integration with Function, Taxonomy and Sequence)
+# [sync.custom.sifts]
+# url = "rsync.wwpdb.org::ftp/pdb/data/structures/divided/XML/"
+# dest = "data/sifts"
+# description = "SIFTS mappings"
+# preset = "fast"
+"#,
+        pdb_dir = pdb_dir_str
+    )
 }
 
 /// Migrate old config format to new nested format.
@@ -343,4 +550,127 @@ async fn run_validate(config_path: Option<PathBuf>) -> Result<()> {
 async fn run_presets() -> Result<()> {
     list_rsync_presets();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_init_creates_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let result = run_init(Some(config_path.clone()), false, false, None).await;
+        assert!(result.is_ok());
+        assert!(config_path.exists());
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("[paths]"));
+        assert!(content.contains("pdb_dir"));
+    }
+
+    #[tokio::test]
+    async fn test_init_minimal() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        let result = run_init(Some(config_path.clone()), false, true, None).await;
+        assert!(result.is_ok());
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        // Minimal should not have extensive comments
+        assert!(!content.contains("# Documentation:"));
+        assert!(content.contains("[paths]"));
+    }
+
+    #[tokio::test]
+    async fn test_init_with_pdb_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+        let pdb_dir = PathBuf::from("/custom/pdb/path");
+
+        let result = run_init(Some(config_path.clone()), false, true, Some(pdb_dir)).await;
+        assert!(result.is_ok());
+
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("/custom/pdb/path"));
+    }
+
+    #[tokio::test]
+    async fn test_init_fails_if_exists() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Create existing file
+        std::fs::write(&config_path, "existing content").unwrap();
+
+        let result = run_init(Some(config_path.clone()), false, false, None).await;
+        assert!(result.is_err());
+
+        // Content should be unchanged
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert_eq!(content, "existing content");
+    }
+
+    #[tokio::test]
+    async fn test_init_force_overwrites() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.toml");
+
+        // Create existing file
+        std::fs::write(&config_path, "existing content").unwrap();
+
+        let result = run_init(Some(config_path.clone()), true, false, None).await;
+        assert!(result.is_ok());
+
+        // Content should be new
+        let content = std::fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("[paths]"));
+
+        // Backup should exist
+        let backup_path = config_path.with_extension("toml.bak");
+        assert!(backup_path.exists());
+        let backup_content = std::fs::read_to_string(&backup_path).unwrap();
+        assert_eq!(backup_content, "existing content");
+    }
+
+    #[tokio::test]
+    async fn test_init_creates_parent_dirs() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("nested/dir/config.toml");
+
+        let result = run_init(Some(config_path.clone()), false, false, None).await;
+        assert!(result.is_ok());
+        assert!(config_path.exists());
+    }
+
+    #[test]
+    fn test_generate_minimal_config() {
+        let content = generate_minimal_config(None);
+        assert!(content.contains("[paths]"));
+        assert!(content.contains("pdb_dir = \"/path/to/pdb\""));
+        assert!(content.contains("[sync.custom.structures]"));
+        assert!(content.contains("preset = \"safe\""));
+        // Should not have extensive comments
+        assert!(!content.contains("# Documentation:"));
+    }
+
+    #[test]
+    fn test_generate_full_config() {
+        let content = generate_full_config(None);
+        assert!(content.contains("[paths]"));
+        assert!(content.contains("# Documentation:"));
+        assert!(content.contains("[sync.defaults]"));
+        assert!(content.contains("[sync.custom.structures]"));
+        assert!(content.contains("# [sync.custom.assemblies]"));
+    }
+
+    #[test]
+    fn test_generate_config_with_custom_pdb_dir() {
+        let pdb_dir = PathBuf::from("/my/custom/pdb");
+        let content = generate_minimal_config(Some(pdb_dir));
+        assert!(content.contains("pdb_dir = \"/my/custom/pdb\""));
+    }
 }
