@@ -150,7 +150,7 @@ async fn run_init(
 
     // If overwriting, create backup
     if config_path.exists() && force {
-        let backup_path = config_path.with_extension("toml.bak");
+        let backup_path = PathBuf::from(format!("{}.bak", config_path.display()));
         tokio::fs::copy(&config_path, &backup_path)
             .await
             .map_err(|e| PdbSyncError::Config {
@@ -162,6 +162,7 @@ async fn run_init(
     }
 
     // Generate config content
+    let pdb_dir_provided = pdb_dir.is_some();
     let content = if minimal {
         generate_minimal_config(pdb_dir)
     } else {
@@ -180,10 +181,14 @@ async fn run_init(
     println!("Created config file: {}", config_path.display());
     println!();
     println!("Next steps:");
-    println!("  1. Edit the config file to set your pdb_dir");
-    println!("  2. Customize sync configurations as needed");
-    println!("  3. Run: pdb-sync config validate");
-    println!("  4. Run: pdb-sync sync --list");
+    if !pdb_dir_provided {
+        println!("  1. Edit the config file to set your pdb_dir");
+        println!("  2. Customize sync configurations as needed");
+    } else {
+        println!("  1. Customize sync configurations as needed");
+    }
+    println!("  Run: pdb-sync config validate");
+    println!("  Run: pdb-sync sync --list");
 
     Ok(())
 }
