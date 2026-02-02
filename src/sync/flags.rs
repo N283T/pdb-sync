@@ -514,21 +514,21 @@ impl RsyncFlags {
             cmd.arg(format!("--chmod={}", chmod));
         }
 
-        // Filtering
-        for pattern in &self.exclude {
-            cmd.arg(format!("--exclude={}", pattern));
-        }
-
+        // Filtering (include before exclude for proper rsync rule matching)
         for pattern in &self.include {
             cmd.arg(format!("--include={}", pattern));
         }
 
-        if let Some(ref file) = self.exclude_from {
-            cmd.arg(format!("--exclude-from={}", file));
+        for pattern in &self.exclude {
+            cmd.arg(format!("--exclude={}", pattern));
         }
 
         if let Some(ref file) = self.include_from {
             cmd.arg(format!("--include-from={}", file));
+        }
+
+        if let Some(ref file) = self.exclude_from {
+            cmd.arg(format!("--exclude-from={}", file));
         }
 
         // Verbosity
@@ -630,21 +630,21 @@ impl RsyncFlags {
             args.push(format!("--chmod={}", chmod));
         }
 
-        // Filtering
-        for pattern in &self.exclude {
-            args.push(format!("--exclude={}", pattern));
-        }
-
+        // Filtering (include before exclude for proper rsync rule matching)
         for pattern in &self.include {
             args.push(format!("--include={}", pattern));
         }
 
-        if let Some(ref file) = self.exclude_from {
-            args.push(format!("--exclude-from={}", file));
+        for pattern in &self.exclude {
+            args.push(format!("--exclude={}", pattern));
         }
 
         if let Some(ref file) = self.include_from {
             args.push(format!("--include-from={}", file));
+        }
+
+        if let Some(ref file) = self.exclude_from {
+            args.push(format!("--exclude-from={}", file));
         }
 
         // Verbosity
@@ -965,6 +965,48 @@ mod tests {
         assert!(args.contains(&"--bwlimit=500".to_string()));
         assert!(args.contains(&"--max-size=1G".to_string()));
         assert!(args.contains(&"--exclude=*.tmp".to_string()));
+    }
+
+    #[test]
+    fn test_include_before_exclude_ordering() {
+        let flags = RsyncFlags {
+            include: vec!["*/".to_string(), "*.cif".to_string()],
+            exclude: vec!["*".to_string()],
+            include_from: Some("/path/to/include.txt".to_string()),
+            exclude_from: Some("/path/to/exclude.txt".to_string()),
+            ..Default::default()
+        };
+
+        let args = flags.to_args();
+
+        // Find indices of include and exclude args
+        let include_idx = args
+            .iter()
+            .position(|a| a.starts_with("--include="))
+            .unwrap();
+        let exclude_idx = args
+            .iter()
+            .position(|a| a.starts_with("--exclude="))
+            .unwrap();
+        let include_from_idx = args
+            .iter()
+            .position(|a| a.starts_with("--include-from="))
+            .unwrap();
+        let exclude_from_idx = args
+            .iter()
+            .position(|a| a.starts_with("--exclude-from="))
+            .unwrap();
+
+        // Include patterns must come before exclude patterns
+        assert!(
+            include_idx < exclude_idx,
+            "--include should come before --exclude"
+        );
+        // Include-from must come before exclude-from
+        assert!(
+            include_from_idx < exclude_from_idx,
+            "--include-from should come before --exclude-from"
+        );
     }
 
     #[test]
