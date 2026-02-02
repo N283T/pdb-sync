@@ -41,6 +41,9 @@ async fn main() -> anyhow::Result<()> {
             cli::args::env::run_env(args, ctx)?;
         }
         SyncCommand::Config(args) => match args.command {
+            cli::args::config::ConfigCommand::Init(init_args) => {
+                cli::args::config::run_init(init_args).await?;
+            }
             cli::args::config::ConfigCommand::Validate(validate_args) => {
                 cli::args::config::run_validate(validate_args).await?;
             }
