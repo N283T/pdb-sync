@@ -368,6 +368,6 @@ pdb-sync sync -v --all
 
 | 変数 | 説明 |
 |------|------|
-| `PDB_DIR` | PDB のベースディレクトリ |
+| `PDB_SYNC_DIR` | PDB のベースディレクトリ |
 | `PDB_SYNC_CONFIG` | 設定ファイルのパス |
 

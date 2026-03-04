@@ -14,7 +14,7 @@ impl AppContext {
         let config = ConfigLoader::load()?;
 
         // Priority: ENV > config > default
-        let pdb_dir = std::env::var("PDB_DIR")
+        let pdb_dir = std::env::var("PDB_SYNC_DIR")
             .map(PathBuf::from)
             .ok()
             .or_else(|| config.paths.pdb_dir.clone())

@@ -722,13 +722,13 @@ pdb-sync sync emdb --bwlimit 5000
 
 設定ファイルの値は環境変数で上書き可能です。
 
-### `PDB_DIR`
+### `PDB_SYNC_DIR`
 
 **説明**: PDB データディレクトリ
 **優先順位**: CLI引数 > 環境変数 > config.toml
 
 ```bash
-export PDB_DIR=/mnt/data/pdb
+export PDB_SYNC_DIR=/mnt/data/pdb
 pdb-sync sync structures
 ```
 
@@ -751,7 +751,7 @@ CLI引数 > 環境変数 > config.toml > デフォルト値
 例:
 ```bash
 # config.toml に pdb_dir = "/data/pdb" があっても上書き
-export PDB_DIR=/tmp/pdb
+export PDB_SYNC_DIR=/tmp/pdb
 pdb-sync sync structures
 
 # さらに CLI で上書き

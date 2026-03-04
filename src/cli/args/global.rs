@@ -27,7 +27,7 @@ pub struct Cli {
     pub verbose: bool,
 
     /// Override the PDB directory
-    #[arg(long, global = true, env = "PDB_DIR")]
+    #[arg(long, global = true, env = "PDB_SYNC_DIR")]
     pub pdb_dir: Option<PathBuf>,
 
     #[command(subcommand)]
