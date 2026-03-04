@@ -20,6 +20,8 @@ pub enum ConfigCommand {
     Migrate(MigrateArgs),
     /// List available rsync flag presets
     Presets,
+    /// List configured sync targets
+    List,
 }
 
 /// Validate command arguments.
@@ -117,6 +119,13 @@ pub async fn run_migrate(args: MigrateArgs) -> crate::error::Result<()> {
 pub async fn run_presets() -> crate::error::Result<()> {
     use crate::cli::commands::config::ConfigCommand;
     let cmd = ConfigCommand::Presets;
+    crate::cli::commands::config::run_config(cmd).await
+}
+
+/// Run config list command.
+pub async fn run_list() -> crate::error::Result<()> {
+    use crate::cli::commands::config::ConfigCommand;
+    let cmd = ConfigCommand::List;
     crate::cli::commands::config::run_config(cmd).await
 }
 

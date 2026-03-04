@@ -53,6 +53,9 @@ async fn main() -> anyhow::Result<()> {
             cli::args::config::ConfigCommand::Presets => {
                 cli::args::config::run_presets().await?;
             }
+            cli::args::config::ConfigCommand::List => {
+                cli::args::config::run_list().await?;
+            }
         },
     }
 

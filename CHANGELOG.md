@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Config migration tool**: `pdb-sync config migrate` to convert old configs to new format
 - **Config validation**: `pdb-sync config validate` to check config file syntax
 - **Preset listing**: `pdb-sync config presets` to list available rsync flag presets
+- **Sync target listing**: `pdb-sync config list` to display configured sync targets with URL, destination, and preset
 - **Backward compatibility**: Old `rsync_*` format still works
 
 ### Changed
