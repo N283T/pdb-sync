@@ -91,6 +91,8 @@ pub enum ConfigCommand {
     },
     /// List available rsync flag presets
     Presets,
+    /// List configured sync targets
+    List,
 }
 
 /// Run the config command.
@@ -108,6 +110,7 @@ pub async fn run_config(cmd: ConfigCommand) -> Result<()> {
         } => run_migrate(config_path, dry_run).await,
         ConfigCommand::Validate { config_path } => run_validate(config_path).await,
         ConfigCommand::Presets => run_presets().await,
+        ConfigCommand::List => run_list().await,
     }
 }
 
@@ -549,6 +552,56 @@ async fn run_validate(config_path: Option<PathBuf>) -> Result<()> {
 /// List available rsync flag presets.
 async fn run_presets() -> Result<()> {
     list_rsync_presets();
+    Ok(())
+}
+
+/// List configured sync targets.
+async fn run_list() -> Result<()> {
+    use crate::config::ConfigLoader;
+
+    let config_path = ConfigLoader::config_path();
+    let config = ConfigLoader::load()?;
+
+    if let Some(ref path) = config_path {
+        println!("Config: {}", path.display());
+    } else {
+        println!("Config: (no config file found)");
+    }
+    println!();
+
+    if config.sync.custom.is_empty() {
+        println!("No sync targets configured.");
+        return Ok(());
+    }
+
+    let mut names: Vec<&String> = config.sync.custom.keys().collect();
+    names.sort();
+
+    println!("Sync targets ({}):", names.len());
+    let max_name_len = names.iter().map(|n| n.len()).max().unwrap_or(0);
+
+    for name in &names {
+        let custom = &config.sync.custom[*name];
+        let preset_tag = custom
+            .preset
+            .as_ref()
+            .map(|p| format!(" [{}]", p))
+            .unwrap_or_default();
+
+        println!(
+            "  {:<width$}  {} → {}{}",
+            name,
+            custom.url,
+            custom.dest,
+            preset_tag,
+            width = max_name_len,
+        );
+
+        if let Some(ref desc) = custom.description {
+            println!("  {:<width$}  {}", "", desc, width = max_name_len,);
+        }
+    }
+
     Ok(())
 }
 
