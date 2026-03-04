@@ -17,9 +17,7 @@ impl AppContext {
         let pdb_dir = std::env::var("PDB_SYNC_DIR")
             .or_else(|_| {
                 std::env::var("PDB_DIR").inspect(|_| {
-                    eprintln!(
-                        "Warning: PDB_DIR is deprecated, use PDB_SYNC_DIR instead"
-                    );
+                    eprintln!("Warning: PDB_DIR is deprecated, use PDB_SYNC_DIR instead");
                 })
             })
             .map(PathBuf::from)
