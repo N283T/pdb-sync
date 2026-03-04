@@ -725,7 +725,7 @@ pdb-sync sync emdb --bwlimit 5000
 ### `PDB_SYNC_DIR`
 
 **説明**: PDB データディレクトリ
-**優先順位**: CLI引数 > 環境変数 > config.toml
+**優先順位**: CLI引数 > config.toml > 環境変数
 
 ```bash
 export PDB_SYNC_DIR=/mnt/data/pdb
@@ -745,17 +745,19 @@ pdb-sync sync
 ### 環境変数の優先順位
 
 ```
-CLI引数 > 環境変数 > config.toml > デフォルト値
+CLI引数 > config.toml > 環境変数 > デフォルト値
 ```
 
 例:
 ```bash
-# config.toml に pdb_dir = "/data/pdb" があっても上書き
+# config.toml の pdb_dir が環境変数より優先
 export PDB_SYNC_DIR=/tmp/pdb
-pdb-sync sync structures
+pdb-sync sync structures  # config.toml の pdb_dir が設定されていればそちらを使用
 
-# さらに CLI で上書き
-pdb-sync sync structures --dest /override/path
+# config.toml に pdb_dir が未設定の場合、環境変数がフォールバックとして使われる
+
+# CLI 引数はすべてに優先
+pdb-sync sync structures --pdb-dir /override/path
 ```
 
 ---
