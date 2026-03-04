@@ -13,16 +13,21 @@ impl AppContext {
     pub async fn new() -> Result<Self> {
         let config = ConfigLoader::load()?;
 
-        // Priority: ENV > config > default
-        let pdb_dir = std::env::var("PDB_SYNC_DIR")
-            .or_else(|_| {
-                std::env::var("PDB_DIR").inspect(|_| {
-                    eprintln!("Warning: PDB_DIR is deprecated, use PDB_SYNC_DIR instead");
-                })
+        // Priority: config > ENV > default
+        let pdb_dir = config
+            .paths
+            .pdb_dir
+            .clone()
+            .or_else(|| {
+                std::env::var("PDB_SYNC_DIR")
+                    .or_else(|_| {
+                        std::env::var("PDB_DIR").inspect(|_| {
+                            eprintln!("Warning: PDB_DIR is deprecated, use PDB_SYNC_DIR instead");
+                        })
+                    })
+                    .map(PathBuf::from)
+                    .ok()
             })
-            .map(PathBuf::from)
-            .ok()
-            .or_else(|| config.paths.pdb_dir.clone())
             .unwrap_or_else(|| {
                 directories::UserDirs::new()
                     .map(|d| d.home_dir().join("pdb"))

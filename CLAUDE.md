@@ -64,7 +64,7 @@ The CLI argument parsing (`src/cli/args/`) uses `clap` derive macros with shared
 
 ### Key Modules
 
-- **`src/config/`**: Configuration loader with TOML serialization. Multi-source priority: CLI args > ENV vars > config file > defaults
+- **`src/config/`**: Configuration loader with TOML serialization. Multi-source priority: CLI args > config file > ENV vars > defaults
 - **`src/data_types.rs`**: Enum-based data type definitions (structures, assemblies, structure-factors, etc.)
 - **`src/mirrors/`**: Mirror registry with latency-based auto-selection
 - **`src/files/`**: PDB ID validation, path resolution for both "divided" (hash-based) and "all" (flat) layouts

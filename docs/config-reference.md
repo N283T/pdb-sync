@@ -716,7 +716,7 @@ Config file values can be overridden by environment variables.
 ### `PDB_SYNC_DIR`
 
 **Description**: PDB data directory
-**Priority**: CLI args > env vars > config.toml
+**Priority**: CLI args > config.toml > env vars
 
 ```bash
 export PDB_SYNC_DIR=/mnt/data/pdb
@@ -736,17 +736,19 @@ pdb-sync sync
 ### Priority Order
 
 ```
-CLI args > Environment variables > config.toml > Defaults
+CLI args > config.toml > Environment variables > Defaults
 ```
 
 Example:
 ```bash
-# Overrides pdb_dir = "/data/pdb" in config.toml
+# config.toml pdb_dir takes precedence over env var
 export PDB_SYNC_DIR=/tmp/pdb
-pdb-sync sync structures
+pdb-sync sync structures  # uses config.toml pdb_dir if set
 
-# CLI args override both
-pdb-sync sync structures --dest /override/path
+# Env var is used as fallback when config.toml pdb_dir is not set
+
+# CLI args override everything
+pdb-sync sync structures --pdb-dir /override/path
 ```
 
 ---
