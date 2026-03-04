@@ -5,6 +5,7 @@
 //! - **migrate**: Convert old `rsync_*` format to new preset/nested format
 //! - **validate**: Check config file syntax and preset names
 //! - **presets**: List available rsync flag presets
+//! - **list**: Display configured sync targets with URL, destination, and preset
 //!
 //! # Examples
 //!
@@ -45,6 +46,12 @@
 //!
 //! ```bash
 //! pdb-sync config presets
+//! ```
+//!
+//! ## Listing Sync Targets
+//!
+//! ```bash
+//! pdb-sync config list
 //! ```
 
 use crate::config::schema::{Config, CustomRsyncConfig, RsyncOptionsConfig};
@@ -560,18 +567,42 @@ async fn run_list() -> Result<()> {
     use crate::config::ConfigLoader;
 
     let config_path = ConfigLoader::config_path();
-    let config = ConfigLoader::load()?;
 
-    if let Some(ref path) = config_path {
-        println!("Config: {}", path.display());
-    } else {
-        println!("Config: (no config file found)");
-    }
+    let config = match &config_path {
+        Some(path) if path.exists() => {
+            println!("Config: {}", path.display());
+            let content = std::fs::read_to_string(path).map_err(|e| PdbSyncError::Config {
+                message: format!("Failed to read config file: {}", e),
+                key: None,
+                source: Some(Box::new(e)),
+            })?;
+            toml::from_str::<Config>(&content).map_err(|e| PdbSyncError::Config {
+                message: format!("Failed to parse config {}: {}", path.display(), e),
+                key: None,
+                source: Some(Box::new(e)),
+            })?
+        }
+        Some(path) => {
+            eprintln!("Warning: Config file not found: {}", path.display());
+            eprintln!("  Using default configuration.");
+            Config::default()
+        }
+        None => {
+            println!("Config: (no config file found)");
+            Config::default()
+        }
+    };
     println!();
 
+    print_sync_targets(&config);
+    Ok(())
+}
+
+/// Print sync targets from a config.
+fn print_sync_targets(config: &Config) {
     if config.sync.custom.is_empty() {
         println!("No sync targets configured.");
-        return Ok(());
+        return;
     }
 
     let mut names: Vec<&String> = config.sync.custom.keys().collect();
@@ -581,7 +612,7 @@ async fn run_list() -> Result<()> {
     let max_name_len = names.iter().map(|n| n.len()).max().unwrap_or(0);
 
     for name in &names {
-        let custom = &config.sync.custom[*name];
+        let custom = config.sync.custom.get(*name).expect("key from keys()");
         let preset_tag = custom
             .preset
             .as_ref()
@@ -601,8 +632,6 @@ async fn run_list() -> Result<()> {
             println!("  {:<width$}  {}", "", desc, width = max_name_len,);
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -725,5 +754,53 @@ mod tests {
         let pdb_dir = PathBuf::from("/my/custom/pdb");
         let content = generate_minimal_config(Some(pdb_dir));
         assert!(content.contains("pdb_dir = \"/my/custom/pdb\""));
+    }
+
+    #[test]
+    fn test_print_sync_targets_empty() {
+        let config = Config::default();
+        // Should not panic with empty config
+        print_sync_targets(&config);
+    }
+
+    #[test]
+    fn test_print_sync_targets_single() {
+        let mut config = Config::default();
+        config.sync.custom.insert(
+            "structures".to_string(),
+            CustomRsyncConfig {
+                url: "rsync.example.org::data/".to_string(),
+                dest: "data/structures".to_string(),
+                preset: Some("safe".to_string()),
+                description: Some("PDB structures".to_string()),
+                ..Default::default()
+            },
+        );
+        // Should not panic
+        print_sync_targets(&config);
+    }
+
+    #[test]
+    fn test_print_sync_targets_multiple_sorted() {
+        let mut config = Config::default();
+        config.sync.custom.insert(
+            "beta".to_string(),
+            CustomRsyncConfig {
+                url: "rsync.example.org::beta/".to_string(),
+                dest: "data/beta".to_string(),
+                ..Default::default()
+            },
+        );
+        config.sync.custom.insert(
+            "alpha".to_string(),
+            CustomRsyncConfig {
+                url: "rsync.example.org::alpha/".to_string(),
+                dest: "data/alpha".to_string(),
+                preset: Some("fast".to_string()),
+                ..Default::default()
+            },
+        );
+        // Should not panic; output is sorted alphabetically
+        print_sync_targets(&config);
     }
 }
