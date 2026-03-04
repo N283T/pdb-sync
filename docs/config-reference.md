@@ -713,13 +713,13 @@ pdb-sync sync --all --parallel 10
 
 Config file values can be overridden by environment variables.
 
-### `PDB_DIR`
+### `PDB_SYNC_DIR`
 
 **Description**: PDB data directory
 **Priority**: CLI args > env vars > config.toml
 
 ```bash
-export PDB_DIR=/mnt/data/pdb
+export PDB_SYNC_DIR=/mnt/data/pdb
 pdb-sync sync structures
 ```
 
@@ -742,7 +742,7 @@ CLI args > Environment variables > config.toml > Defaults
 Example:
 ```bash
 # Overrides pdb_dir = "/data/pdb" in config.toml
-export PDB_DIR=/tmp/pdb
+export PDB_SYNC_DIR=/tmp/pdb
 pdb-sync sync structures
 
 # CLI args override both

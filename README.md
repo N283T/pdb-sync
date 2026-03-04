@@ -421,7 +421,7 @@ pdb-sync sync -v --all
 
 | Variable | Description |
 |----------|-------------|
-| `PDB_DIR` | Base directory for PDB files |
+| `PDB_SYNC_DIR` | Base directory for PDB files |
 | `PDB_SYNC_CONFIG` | Path to configuration file |
 
 ## License

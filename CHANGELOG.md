@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Backward compatibility**: Old `rsync_*` format still works
 
 ### Changed
+- **Environment variable rename**: `PDB_DIR` renamed to `PDB_SYNC_DIR` to align with `PDB_SYNC_*` naming convention. `PDB_DIR` still works with a deprecation warning.
 - Config format now supports three styles: preset-only, preset + override, and fully custom
 - Priority order for config merging: options > preset > legacy fields
 

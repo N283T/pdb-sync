@@ -477,7 +477,7 @@ pb.finish_with_message("Done");
 
 | 変数 | 説明 |
 |------|------|
-| `PDB_DIR` | PDBファイルのベースディレクトリ |
+| `PDB_SYNC_DIR` | PDBファイルのベースディレクトリ |
 | `PDB_SYNC_CONFIG` | 設定ファイルのパス |
 | `PDB_SYNC_MIRROR` | デフォルトミラー |
 | `RUST_LOG` | ログレベル（debug, info, warn, error） |
